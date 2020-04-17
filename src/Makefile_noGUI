@@ -1,7 +1,9 @@
 OPT = -O2 -qopenmp -qopenmp-link=static -threads -qopt-matmul -msse3 -diag-disable 8290,8291,6371,10316 -fpp -mkl -static-intel
+OPT = -O2 -fopenmp -ffree-line-length-none -cpp
 
 LIB =
 FC = ifort
+FC = gfortran
 EXE = Multiwfn
 
 objects = define.o util.o Bspline.o sym.o function.o sub.o integral.o Lebedev-Laikov.o \

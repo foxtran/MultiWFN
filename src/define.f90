@@ -49,7 +49,7 @@ integer :: iorbsel=1 !Which orbital is selected, and its value will be calculate
 integer :: iorbsel2=0 !Which orbital will be plotted together with iorbsel in plane map
 integer :: iorbvis=0 !The index of the orbital selected in main function 0 
 
-character*10 :: colorname(15)=(/"Red","Green","Blue","White","Black","Gray","Cyan","Yellow","Orange","Magenta","Crimson","Dark green","Purple","Brown","Dark blue"/) !Color name involved setcolor/selcolor routine
+character*10 :: colorname(15)=(/"       Red","     Green","      Blue","     White","     Black","      Gray","      Cyan","    Yellow","    Orange","   Magenta","   Crimson","Dark green","    Purple","     Brown"," Dark blue"/) !Color name involved setcolor/selcolor routine
 !The name for superheavy atoms are consistent with Stuttgart PP website: http://www.tc.uni-koeln.de/PP/clickpse.en.html
 character*2 :: ind2name(0:nelesupp)=(/ "Bq","H ","He", &   !Bq(number 0) is ghost atom. Bq is recorded in .fch, but X is not recorded
 "Li","Be","B ","C ","N ","O ","F ","Ne", & !3~10
@@ -225,7 +225,7 @@ type(atomtype),allocatable :: a(:),a_org(:),a_tmp(:)
 type(primtype),allocatable :: b(:),b_org(:),b_tmp(:)
 real*8,allocatable :: MOocc(:),MOocc_org(:),MOene(:),MOene_org(:) !Occupation number & energy of orbital
 integer,allocatable :: MOtype(:) !The type of orbitals, (alpha&beta)=0/alpha=1/beta=2, not read from .wfn directly
-character*10 :: orbtypename(0:2)=(/ "Alpha&Beta","Alpha","Beta" /)
+character*10 :: orbtypename(0:2)=(/ "Alpha&Beta","     Alpha","      Beta" /)
 character*4,allocatable :: MOsym(:) !The symmetry of orbitals, meaningful when .mwfn/molden/gms is used
 real*8,allocatable :: CO(:,:),CO_org(:,:),CO_tmp(:,:) !Coefficient matrix of primitive basis functions, including both normalization and contraction coefficients
 !Note: Row/column of CO denote MO/GTF respectively, in contrary to convention
@@ -299,7 +299,7 @@ integer idisboxsizeX,idisboxsizeY,idisboxsizeZ,idisboxposX,idisboxposY,idisboxpo
 integer GUI_mode 
 
 !Plotting external parameter, can be set in settings.ini
-character :: graphformat*4="png ",graphformatname(9)=(/"png","gif","tiff","bmp","ps","eps","pdf","wmf","svg"/)
+character :: graphformat*4="png ",graphformatname(9)=(/"png ","gif ","tiff","bmp ","ps  ","eps ","pdf ","wmf ","svg "/)
 integer :: graph1Dwidth=1280,graph1Dheight=800,graph2Dwidth=1280,graph2Dheight=1200,graph3Dwidth=1400,graph3Dheight=1400
 integer :: itickreverse=0,iticks=2,symbolsize=8,ilenunit1D=1,ilenunit2D=1,iatmlabtype=1,iatmlabtype3D=3,iplaneextdata=0,itransparent=0
 integer :: numdigx=2,numdigy=2,numdigz=3,numdiglinex=3,numdigliney=3,numdigctr=3
@@ -323,8 +323,25 @@ integer :: isavepic=0,icurve_vertlinex=0,iclrindatmlab=1,imarkrefpos=0,ilog10y=0
 integer :: inucespplot=0,idrawmol=1,idrawisosur=0,isosursec=0,idrawtype=1,idrawcontour=1
 integer :: iinvgradvec=0,icolorvecfield=0,vecclrind=30,idrawplanevdwctr=0,iplaneoutall=0,icurvethick=5,iclrtrans=0
 integer,allocatable :: highlightatomlist(:)
-character :: stream_intmethod*5="RK2",clrtransname(0:18)*50=(/ "Rainbow & white/black for out-of-limit data","Rainbow","Reversed rainbow","Rainbow starting from white","Spectrum","Reversed Spectrum","Grey","Reversed Grey","Blue-White-Red",&
-"Red-White-Blue","Blue-Green-Red","Red-Green-Blue","White-Dark red","Black-Orange-Yellow","White-Dark green","Black-Green","White-Dark blue","Black-Blue-Cyan","Viridis" /)
+character :: stream_intmethod*5="RK2",clrtransname(0:18)*50=(/ "Rainbow & white/black for out-of-limit data",&
+                                                               "Rainbow                                    ",&
+                                                               "Reversed rainbow                           ",&
+                                                               "Rainbow starting from white                ",&
+                                                               "Spectrum                                   ",&
+                                                               "Reversed Spectrum                          ",&
+                                                               "Grey                                       ",&
+                                                               "Reversed Grey                              ",&
+                                                               "Blue-White-Red                             ",&
+                                                               "Red-White-Blue                             ",&
+                                                               "Blue-Green-Red                             ",&
+                                                               "Red-Green-Blue                             ",&
+                                                               "White-Dark red                             ",&
+                                                               "Black-Orange-Yellow                        ",&
+                                                               "White-Dark green                           ",&
+                                                               "Black-Green                                ",&
+                                                               "White-Dark blue                            ",&
+                                                               "Black-Blue-Cyan                            ",&
+                                                               "Viridis                                    " /)
 real*8 :: surcolorzmin,surcolorzmax !fillctr is the contour value will be draw on fillcolor map
 real*8 :: curve_vertlinex=0D0,curvexyratio=0.618D0 !Gold partition
 real*8 :: gradplotstep=0.002D0,gradplotdis=0.01D0,gradplottest=0.2D0,cutgradvec=0.3D0
