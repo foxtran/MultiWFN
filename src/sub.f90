@@ -2985,7 +2985,7 @@ do while(.true.)
 	write(*,*) "Note: If the suffix is .47, the Fock matrix will be directly loaded from it"
 	read(*,"(a)") c200tmp
 	inquire(file=c200tmp,exist=alive)
-	if (alive==.false.) then
+	if (.not.alive) then
 		write(*,*) "Error: Unable to find this file! Input again"
 		cycle
 	end if
