@@ -249,7 +249,6 @@ end subroutine
 !Dbas must be already filled. DorbA and DorbB are global arrays
 subroutine genDorb
 use defvar
-integer i
 do i=1,3
 	DorbA(i,:,:)=matmul(matmul(transpose(CObasa),Dbas(i,:,:)),CObasa)
 end do
