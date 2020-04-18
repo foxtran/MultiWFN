@@ -26,7 +26,7 @@ nthreads,nowdate(1:4),nowdate(5:6),nowdate(7:8),nowtime(1:2),nowtime(3:4),nowtim
 
 !For Linux/MacOS version, it seems the only way to set stacksize of each thread is to define KMP_STACKSIZE environment variable
 if (isys==1) then !Set via ompstacksize in settings.ini
-    call KMP_SET_STACKSIZE_S(ompstacksize)
+    !call KMP_SET_STACKSIZE_S(ompstacksize)
 else if (isys==2) then !The size should have been defined by KMP_STACKSIZE
     CALL getenv('KMP_STACKSIZE',c200tmp)
     if (c200tmp==" ") write(*,"(/,a)") " Warning: You should set ""KMP_STACKSIZE"" &

@@ -1,7 +1,7 @@
 OPT = -O2 -qopenmp -qopenmp-link=static -threads -qopt-matmul -msse3 -diag-disable 8290,8291,6371,10316 -fpp -mkl -static-intel
 OPT = -O2 -fopenmp -ffree-line-length-none -cpp -w
 
-LIB =
+LIB = -L${MKLROOT}/lib/intel64_lin -lmkl_core -lmkl_gnu_thread -lmkl_gf_lp64
 FC = ifort
 FC = gfortran
 EXE = Multiwfn
