@@ -68,14 +68,14 @@ if (trim(filename)=="") then !Haven't defined filename variable
 			filename=lastfile(1:itmp)//trim(filename(2:))
 		end if
 		inquire(file=filename,exist=alive)
-		if (alive.eqv..true.) exit
+		if (alive) exit
 		write(*,"('""',a,'"" ',a)") trim(filename),"cannot be found, input again"
 	end do
 	!Write current opened file to "lastfile" in settings.ini
 	inquire(file="settings.ini",exist=alive)
-	if (alive==.true.) then
+	if (alive) then
 		settingpath="settings.ini"
-	else if (alive==.false.) then
+	else if (.not.alive) then
 		call getenv("Multiwfnpath",c200tmp)
 		if (isys==1) then
 			settingpath=trim(c200tmp)//"\settings.ini"
@@ -525,7 +525,7 @@ do while(.true.) !Main loop
 		    else if (i==13) then
                 allocate(tmpmat(ncenter,ncenter))
                 inquire(file="bndmat.txt",exist=alive)
-	            if (alive==.false.) then
+	            if (.not.alive) then
 	                write(*,*) "Cannot find the bndmat.txt in current folder!"
                     cycle
                 end if
