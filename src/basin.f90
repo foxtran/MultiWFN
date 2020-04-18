@@ -26,9 +26,7 @@ ishow3p3=0
 !When enter this module, we reset the whole state, which is signified by numatt. Because the user may calculate grid data at external functions,
 !and hence messed up grid setting (orgx/y/z,dx/y/z...), so all of the functions in this module that rely on grid setting will be totally wrong
 numatt=0
-
 call delvirorb(1)
-
 do while(.true.)
 	write(*,*)
 	write(*,*) "                 ============= Basin analysis ============="
@@ -68,11 +66,9 @@ do while(.true.)
 		write(*,*) "Error: You should use option 1 to generate basins first!"
 		cycle
 	end if
-
 	if (isel==-10) then
 		idrawbasinidx=-10 !Don't display interbasin in any other GUI
 		return
-		
 	else if (isel==-6) then
 		do while(.true.)
 			write(*,*) "0 Return"
@@ -138,7 +134,6 @@ do while(.true.)
 				write(*,*)
 			end if
 		end do
-	
 	else if (isel==-5) then !Output cube file for basins for visualizing interbasin surface
 		write(*,"(a)") " Inputting e.g. 4,6-9,15,17 will output these basins to individual basin[index].cub files to current folder"
 		write(*,"(a)") " Inputting ""a"" will output all basins into basin.cub in current folder, the grid value corresponds to basin index"
@@ -174,7 +169,7 @@ do while(.true.)
 			    if (igrid==1) then
                     continue
                 else if (igrid==2) then
-                    where (interbasgrid==0) cubmattmp=0
+                    where (.not.interbasgrid) cubmattmp=0
                 else if (igrid==3) then
                     if (ifuncbasin==1) then !The cubmat already records electron density
                         where(cubmat<0.001D0) cubmattmp=0
@@ -205,7 +200,6 @@ do while(.true.)
 		    deallocate(cubmattmp)
 			write(*,"(a)") " Done! basin.cub has been outputted to current folder. The grid values correspond to basin index"
 		end if
-		
 	else if (isel==-4) then
 		open(10,file="attractors.pdb",status="replace")
 		do iatt=1,numatt
@@ -214,7 +208,6 @@ do while(.true.)
 		close(10)
 		write(*,*) "Done, all attractors have been exported to attractors.pdb in current folder"
 		write(*,*) "Note: The residue indices in the pdb file correspond to attractor indices"
-		
 	else if (isel==-3) then
 		write(*,*) "  Attractor       X,Y,Z coordinate (Angstrom)            Value"
 		do irealatt=1,numrealatt
@@ -248,7 +241,6 @@ do while(.true.)
                 deallocate(tmparrf,tmparr)
             end if
         end if
-		
 	else if (isel==-2) then
 		write(*,*) "q = Quit. Selection method:"
 		write(*,*) "a? = Atom ?"
@@ -340,7 +332,6 @@ do while(.true.)
 						write(*,"(' The average distance is',f12.6,' Bohr (',f12.6 ' Angstrom)')") distavg,distavg*b2a
 					end if
 				end if
-
 				if (imeasure==2.or.imeasure==3) then !Analyze one more term, then print angle
 					if (ctmp3(1:1)=='a') then
 						read(ctmp3(2:),*) iatm
@@ -420,20 +411,17 @@ do while(.true.)
 				write(*,*) "Error: Invalid input"
 			end if
 		end do
-		
 	else if (isel==-1) then
 		write(*,*) "1: On-grid method, Comput .Mat. Sci., 36, 354 (2006)"
 		write(*,*) "2: Near-grid method, J. Phys.: Condens. Matter, 21, 08420 (2009)"
 		write(*,*) "3: Near-grid method with boundary refinement step"
 		write(*,"(a)") " Note: Near-grid method (adapted by Tian Lu) is more accurate than On-grid method and thus is more recommended; with the boundary refinement step, the result will be better"
 		read(*,*) igridmethod
-		
 	else if (isel==0) then
 		ioldtextheigh=textheigh
 		textheigh=40 !Default textheigh is too small
 		call drawbasinintgui
 		textheigh=ioldtextheigh
-		
 	else if (isel==1) then
 		isourcedata=1 !Default status is calculating grid data here
 		if (allocated(cubmat)) then
@@ -460,7 +448,6 @@ do while(.true.)
 			write(*,"(' Total number of grid points is ',i10)") nx*ny*nz
 			write(*,"(' Grid spacing in X,Y,Z (Bohr):',3f12.6)") dx,dy,dz
 		end if
-		
 		allocate(grdposneg(nx,ny,nz)) !Record which grids have negative value
 		grdposneg=.true.
 		do iz=1,nz
@@ -492,9 +479,8 @@ do while(.true.)
 		write(*,"(' The number of unassigned grids:',i12)") numunassign
 		numgotobound=count(gridbas(2:nx-1,2:ny-1,2:nz-1)==-1)
 		write(*,"(' The number of grids travelled to box boundary:',i12)") numgotobound
-		where (grdposneg==.false.) cubmat=-cubmat !Recover original grid data
+		where (.not.grdposneg) cubmat=-cubmat !Recover original grid data
 		deallocate(grdposneg)
-		
 		do iatt=1,numatt !Eliminate the attractors with very low value
 			if ( abs(cubmat(attgrid(iatt,1),attgrid(iatt,2),attgrid(iatt,3)))<threslowvalatt ) then
 				write(*,"(' Note: There are attractors having very low absolute value (<',1PE8.2,') and thus insignificant, how to deal with them?')") threslowvalatt
@@ -507,7 +493,6 @@ do while(.true.)
 				exit
 			end if
 		end do
-		
 		!Generate actual coordinate of attractors, which will be used to plot in the local GUI, and in any other external GUIs
 		if (allocated(attxyz)) deallocate(attxyz,attval)
 		allocate(attxyz(numatt,3),attval(numatt))
@@ -521,16 +506,12 @@ do while(.true.)
 			attval(iatt)=cubmat(ix,iy,iz)
 		end do
 		!Currently attractors have been finally determined, one shouldn't perturb them further more
-		
 		call clusdegenatt(0) !Cluster degenerate attractors as "real attractors" and calculate average coordinate and value for the real attractors
-
 		call detectinterbasgrd(6) !Detect interbasin grids
-		numinterbas=count(interbasgrid==.true.)
+		numinterbas=count(interbasgrid)
 		write(*,"(' The number of interbasin grids:',i12)") numinterbas
-		
 	else if (isel==2) then
 		call integratebasin
-		
 	else if (isel==3.or.isel==4.or.isel==5.or.isel==6.or.isel==7.or.isel==-7.or.isel==8) then
 		if (.not.allocated(b)) then
 			write(*,"(a)") " Note: No GTF (Gaussian type function) information is available in your input file, please input the file &
@@ -561,7 +542,6 @@ do while(.true.)
 		else if (isel==8) then
 			call integratebasinmix(10)
 		end if
-		
 ! 	else if (isel==100) then
 ! 		call integratebasinrefine
 	else if (isel==9) then
@@ -570,11 +550,7 @@ do while(.true.)
         call HELP_HELV
 	end if
 end do
-
 end subroutine
-
-
-
 !!---- setup move vector and move length for the 26 neighbour
 subroutine setupmovevec
 use defvar
@@ -650,9 +626,6 @@ if (allocated(gridbas)) then
 	gridbas(:,:,nz)=-2
 end if
 end subroutine
-
-
-
 !!------- Generate basins from regular grid
 ! igridmethod=1: On grid, Comput.Mat.Sci.,36,354    =2: Near-grid method (slower, but more accurate), see J.Phys.:Condens.Matter,21,084204
 ! =3: Near-grid with refinement
@@ -671,7 +644,6 @@ allocate(attgrid(nint(nx*ny*nz/20D0),3)) !I think the number of attractors in ge
 numatt=0
 write(*,*) "  Attractor       X,Y,Z coordinate (Angstrom)                Value"
 !Cycle all grids, but the box boundary ones are ignored (due to gridbas=-2), since can't evalute its gradients in all directions by finite difference
-
 nsteplimit=min( nmaxtrjgrid,nint(dsqrt(dfloat(nx*nx+ny*ny+nz*nz))*2) )
 nstepdiscorr=nint(nsteplimit/2D0)
 if (igridmethod==1) then
@@ -730,7 +702,7 @@ cyciatt3:				do iatt=1,numatt
 							attgrid(numatt,1)=inowx
 							attgrid(numatt,2)=inowy
 							attgrid(numatt,3)=inowz
-							if (grdposneg(inowx,inowy,inowz)==.true.) then
+							if (grdposneg(inowx,inowy,inowz)) then
 								write(*,"(i8,3f14.8,f20.8)") numatt,(orgx+(inowx-1)*dx)*b2a,(orgy+(inowy-1)*dy)*b2a,(orgz+(inowz-1)*dz)*b2a,cubmat(inowx,inowy,inowz)
 							else !This grid should has negative value
 								write(*,"(i8,3f14.8,f20.8)") numatt,(orgx+(inowx-1)*dx)*b2a,(orgy+(inowy-1)*dy)*b2a,(orgz+(inowz-1)*dz)*b2a,-cubmat(inowx,inowy,inowz)
@@ -763,7 +735,6 @@ cyciatt3:				do iatt=1,numatt
 		end do !End cycle y
 	end do !End cycle z
 	!$OMP END PARALLEL DO
-	
 else if (igridmethod==2.or.igridmethod==3) then
 	!$OMP PARALLEL DO private(ix,iy,iz,corrx,corry,corrz,ntrjgrid,inowx,inowy,inowz,trjgrid,valnow,imove,gradtmp,igradmax,gradmax,iatt,&
 	!$OMP itrjgrid,idtmp,icorrx,icorry,icorrz,gradx,grady,gradz,sclgrad,ineiidx) shared(gridbas,numatt,attgrid) schedule(DYNAMIC) NUM_THREADS(nthreads)
@@ -831,7 +802,7 @@ cyciatt:				do iatt=1,numatt
 							attgrid(numatt,1)=inowx
 							attgrid(numatt,2)=inowy
 							attgrid(numatt,3)=inowz
-							if (grdposneg(inowx,inowy,inowz)==.true.) then
+							if (grdposneg(inowx,inowy,inowz)) then
 								write(*,"(i8,3f14.8,f20.8)") numatt,(orgx+(inowx-1)*dx)*b2a,(orgy+(inowy-1)*dy)*b2a,(orgz+(inowz-1)*dz)*b2a,cubmat(inowx,inowy,inowz)
 							else !This grid should has negative value
 								write(*,"(i8,3f14.8,f20.8)") numatt,(orgx+(inowx-1)*dx)*b2a,(orgy+(inowy-1)*dy)*b2a,(orgz+(inowz-1)*dz)*b2a,-cubmat(inowx,inowy,inowz)
@@ -898,13 +869,12 @@ cyciatt:				do iatt=1,numatt
 		end do !End cycle y
 	end do !End cycle z
 	!$OMP END PARALLEL DO
-	
 	!!!!   Refining the basin boundary
 	if (igridmethod==3) then
 ! 		do itime=1,3 !Refine one time in general is sufficient
 		write(*,*) "Detecting boundary grids..."
 		call detectinterbasgrd(6) !It seems that using 26 directions to determine boundary grids doesn't bring evident benefit
-		write(*,"(' There are',i12,' grids at basin boundary')") count(interbasgrid==.true.)
+		write(*,"(' There are',i12,' grids at basin boundary')") count(interbasgrid)
 		write(*,*) "Refining basin boundary..."
 		!Below code is the adapted copy of above near-grid code
 		!$OMP PARALLEL DO private(ix,iy,iz,corrx,corry,corrz,ntrjgrid,inowx,inowy,inowz,valnow,imove,gradtmp,igradmax,gradmax,iatt,&
@@ -912,7 +882,7 @@ cyciatt:				do iatt=1,numatt
 		do iz=2,nz-1
 			do iy=2,ny-1
 				do ix=2,nx-1
-					if (interbasgrid(ix,iy,iz)==.false.) cycle
+					if (.not.interbasgrid(ix,iy,iz)) cycle
 					if (gridbas(ix,iy,iz)<=0) cycle !Ignored the ones unassigned or gone to box boundary
 					ntrjgrid=0
 					inowx=ix
@@ -997,12 +967,8 @@ cyciatt2:					do iatt=1,numatt
 		!$OMP END PARALLEL DO
 ! 		end do
 	end if
-	
 end if
 end subroutine
-
-
-
 !!------- Eliminate low value attractors and the corresponding basin
 ! imode=1 Do nothing
 ! imode=2 Set corresponding grids as unassigned status
@@ -1091,9 +1057,6 @@ else
 	write(*,"(i6,' insignificant attractors have been eliminated')") nlowvalatt
 end if
 end subroutine
-
-
-
 !!------- !Detect interbasin grids for real attractors
 !ndir can be 6 and 26, meaning if only primary 6 directions or all 26 directions are used to determine boundary grids
 subroutine detectinterbasgrd(ndir)
@@ -1119,9 +1082,6 @@ do iz=2,nz-1
 	end do
 end do
 end subroutine
-
-
-
 !!------- Cluster degenerate and adjacent attractors together
 !!Nearest neighbour method is used to cluster the attractors, see Leach book p493. Each cluster corresponds to a final attractor
 !If imode=0, run the whole subroutine; if imode=1, then external attconv is provided, and only some code in this routine is used to make the index contiguous
@@ -1137,15 +1097,12 @@ real*8 attdismat(numatt,numatt),attvalmat(numatt,numatt) !Distance matrix and re
 distcrit=mergeattdist*dsqrt(dx*dx+dy*dy+dz*dz) !Distance criterion
 irefined=0 !If 1, that means this combining process takes effects
 idebugclusdegenatt=0 !If output debug information
-
 if (imode==1) goto 2
-
 if (allocated(attconv)) deallocate(attconv)
 allocate(attconv(-2:numatt))
 do iatt=-2,numatt !First assume that each attractor is a real attractor
 	attconv(iatt)=iatt
 end do
-
 !Generate difference matrix for distance and relative value 
 attdismat=0D0
 attvalmat=0D0
@@ -1193,7 +1150,6 @@ end if
 ! 		write(10,*) i,j,attdismat(i,j)
 ! 	end do
 ! end do
-
 !Clustering via nearest neighbour method, and accordingly update conversion list
 passlist=0
 do iatt=1,numatt
@@ -1217,7 +1173,6 @@ do iatt=1,numatt
 		write(*,"(' The number of initial clusters:',i5,', corresponding to these attractor:')") neleatt
 		write(*,"(15i5)") eleatt(1:neleatt)
 	end if
-
 	!Start clustering. Now you should forget actual index of attractors. Only consider element 1,2,3...
 	!Initialize, assume that each element in this batch of degenerate attractors is a cluster
 	ncluster=neleatt
@@ -1277,7 +1232,6 @@ do iatt=1,numatt
 		end do
 	end do
 end do
-
 ! do iatt=1,numatt !Print conversion list just after clustering
 ! 	write(*,*) iatt,attconv(iatt)
 ! end do
@@ -1308,9 +1262,7 @@ end do
 ! do iatt=1,numatt !Print conversion list after reordered
 ! 	write(*,*) iatt,attconv(iatt)
 ! end do
-
 call updaterealattprop
-
 if (imode==1) return
 !Update basin attribution
 do iz=2,nz-1
@@ -1327,9 +1279,6 @@ do irealatt=1,numrealatt
 	write(*,"(i8,3f15.8,f20.8)") irealatt,realattxyz(irealatt,:)*b2a,realattval(irealatt)
 end do
 end subroutine
-
-
-
 !!------- Update real attractors' properties (average value, xyz, the number of members)
 subroutine updaterealattprop
 use defvar
@@ -1352,9 +1301,6 @@ do irealatt=1,numrealatt
 	realattxyz(irealatt,:)=realattxyz(irealatt,:)/nrealatthas(irealatt)
 end do
 end subroutine
-
-
-
 !!------------------ Set grid for generating basin, adapted from the subroutine "setgrid"
 subroutine setgridforbasin(ifuncsel)
 use defvar
@@ -1388,7 +1334,6 @@ do while(.true.)
 	ntotmed=(nint(molxlen/spcmedqual)+1)*(nint(molylen/spcmedqual)+1)*(nint(molzlen/spcmedqual)+1)
 	ntothigh=(nint(molxlen/spchighqual)+1)*(nint(molylen/spchighqual)+1)*(nint(molzlen/spchighqual)+1)
 	ntotluna=(nint(molxlen/spclunaqual)+1)*(nint(molylen/spclunaqual)+1)*(nint(molzlen/spclunaqual)+1)
-	
 	write(*,*) "Please select a method for setting up grid"
 	if (iselexttype==1) write(*,"(a,f10.5,a)") " -10 Set grid extension distance for mode 1~6, current: Fixed,",gridextdist," Bohr"
 	if (iselexttype==2) write(*,"(a)") " -10 Set grid extension distance for mode 1~6, current: Adaptive"
@@ -1410,7 +1355,6 @@ do while(.true.)
 	write(*,*) "8 Set center position, grid spacing and box length"
 	write(*,*) "9 Use grid setting of another cube file"
 	write(*,*) "10 Set box of grid data visually using a GUI window"
-	
 	read(*,*) igridsel
 	if (igridsel/=-10) then
 		exit
@@ -1465,7 +1409,6 @@ do while(.true.)
 		end if
 	end if
 end do
-
 if (igridsel==1.or.igridsel==2.or.igridsel==3.or.igridsel==4.or.igridsel==5.or.igridsel==6) then
 	if (iselexttype==1) then
 		aug3D=gridextdist !Set aug3D, which only affects GUI display, so that the scope of the axis is wide enough to contain the whole grid region
@@ -1485,7 +1428,6 @@ if (igridsel==1.or.igridsel==2.or.igridsel==3.or.igridsel==4.or.igridsel==5.or.i
 		aug3D=maxval(tmparr6)+1
 	end if
 end if
-
 !Note: orgx,orgy,orgz,endx,endy,endz as well as molx/y/zlen for igridsel==1~6 have already been set above
 if (igridsel==1.or.igridsel==2.or.igridsel==3.or.igridsel==4.or.igridsel==5) then
 	if (igridsel==1) dx=spclowqual
@@ -1582,9 +1524,7 @@ else if (igridsel==9) then
 	endy=orgy+dy*(ny-1)
 	endz=orgz+dz*(nz-1)
 end if
-
 if (igridsel==10) call setboxGUI
-
 !If system is symmetric to Cartesian plane, then slightly adjust grid setting, so that the distribution of grids are symmetric to Cartesian plane
 !This treatment will make the integrals have much better symmetry
 diffx=abs(orgx+endx)
@@ -1618,12 +1558,10 @@ if (igridsel>=1.and.igridsel<=6) then
 		orgz=orgz+(dz/2D0-distzmin) !+1D-15
 	end if
 end if
-
 write(*,"(' Coordinate of origin in X,Y,Z is   ',3f12.6)") orgx,orgy,orgz
 write(*,"(' Coordinate of end point in X,Y,Z is',3f12.6)") endx,endy,endz
 write(*,"(' Spacing in X,Y,Z is',3f11.6)") dx,dy,dz
 write(*,"(' Number of points in X,Y,Z is',3i5,'   Total',i10)") nx,ny,nz,nx*ny*nz
-
 gridvec1=0;gridvec1(1)=dx
 gridvec2=0;gridvec2(2)=dy
 gridvec3=0;gridvec3(3)=dz
@@ -1644,8 +1582,6 @@ gridvec3=0;gridvec3(3)=dz
 ! end do
 ! read(*,*)
 end subroutine
-
-
 !!-- Detect proper box (namely set orgx/y/z,endx/y/z) so that the box can just enclose the isosurface of rho=rhocrit
 subroutine detectboxrho(rhocrit)
 use defvar
@@ -1767,12 +1703,7 @@ yh:do ix=1,nstpx
 	if (iok==1) exit
 	endy=endy+0.2D0
 end do
-
 end subroutine
-
-
-
-
 !!------- Integrate a real space function in the basins already partitioned
 subroutine integratebasin
 use defvar
@@ -1783,7 +1714,6 @@ implicit real*8(a-h,o-z)
 real*8 intval(-1:numatt),basinvol(-1:numatt),intvalpriv(-1:numatt),basinvolpriv(-1:numatt)
 integer walltime1,walltime2
 character grdfilename*200
-
 write(*,*) "Please select integrand:"
 write(*,*) "-2 Return"
 write(*,*) "-1 The values of the grid data stored in an external file (.cub/.grd)"
@@ -1809,7 +1739,6 @@ if (ifuncint==-1) then
 else if (ifuncint==-2) then
 	return
 end if
-
 call walltime(walltime1)
 CALL CPU_TIME(time_begin)
 write(*,*) "Integrating, please wait..."
@@ -1857,21 +1786,17 @@ end do
 write(*,"(' Sum of above values:',f20.8)") sum(intval(1:numrealatt))
 if (any(gridbas(2:nx-1,2:ny-1,2:nz-1)==0)) write(*,"(' Integral of unassigned grids:',f20.8)") intval(0)
 if (any(gridbas(2:nx-1,2:ny-1,2:nz-1)==-1)) write(*,"(' Integral of the grids travelled to box boundary:',f20.8)") intval(-1)
-
 CALL CPU_TIME(time_end)
 call walltime(walltime2)
 write(*,"(' Integrating basins took up CPU time',f12.2,'s, wall clock time',i10,'s')") time_end-time_begin,walltime2-walltime1
 end subroutine
-
-
-
 !!------- Obtain atomic population in a basin region (e.g. ELF bond basin) via AIM partition
 subroutine atmpopinbasin
 use defvar
 use basinintmod
 implicit real*8(a-h,o-z)
 inquire(file="basin.cub",exist=alive)
-if (alive==.false.) then
+if (.not.alive) then
 	write(*,*) "Error: basin.cub is not existed in current folder!"
 	return
 else
@@ -1909,9 +1834,6 @@ do while(.true.)
 end do
 deallocate(cubmattmp)
 end subroutine
-
-
-
 !!----------------- Calculate multipole moment in the basins
 subroutine multipolebasin
 use defvar
@@ -1939,7 +1861,6 @@ do while(.true.)
 	write(*,*) "Calculating, please wait..."
 	write(ioutid,*) "Note: All units shown below are in a.u.!"
 	write(ioutid,*)
-	
 	dipelextot=0D0
 	dipeleytot=0D0
 	dipeleztot=0D0
@@ -1974,7 +1895,6 @@ do while(.true.)
 		dvol=dx*dy*dz
 	! 	write(*,"(' The X,Y,Z of the center of the basin:')")
 	! 	write(*,"(3f14.8,' Bohr',/)") xcen,ycen,zcen
-	
 		eleint=0D0
 		xint=0D0
 		yint=0D0
@@ -2097,8 +2017,6 @@ do while(.true.)
 	end if
 end do
 end subroutine
-
-
 !!------------------ Calculate localized index and delocalization index within and between basins
 !Most of the codes are adapted from fuzzyana.f90
 !itask==0 means calculate BOM and LI,DI
@@ -2117,7 +2035,6 @@ real*8,allocatable :: BOM(:,:,:),BOMa(:,:,:),BOMb(:,:,:),BOMsum(:,:),BOMsuma(:,:
 real*8 :: BOMtmp(nmo,nmo),orbval(nmo),atmDIa(ncenter,ncenter),atmDIb(ncenter,ncenter)
 character selectyn
 integer itask,maplist(ncenter)
-
 !Allocate space for BOM
 if (wfntype==0.or.wfntype==2.or.wfntype==3) then !RHF,ROHF,R-post-HF
 	if (wfntype==3) then !R-post-HF, need to consider all orbitals
@@ -2165,7 +2082,6 @@ else if (wfntype==1.or.wfntype==4) then !UHF,U-post-HF
 	BOMsuma=0
 	BOMsumb=0
 end if
-
 !Calculate BOM
 dvol=dx*dy*dz
 call walltime(nwalltime1)
@@ -2235,7 +2151,6 @@ else if (wfntype==1.or.wfntype==4) then !UHF,U-post-HF
 		do imo=1,nmatsizea
 			BOMa(imo,imo,ibas)=BOMa(imo,imo,ibas)/2D0
 		end do
-		
 		!Beta part
 		if (nmatsizeb>0) then !If there is no beta orbital, then nmatsizeb=0, and we will do nothing
 			MOinit=iendalpha+1
@@ -2275,7 +2190,6 @@ else if (wfntype==1.or.wfntype==4) then !UHF,U-post-HF
 		end if
 	end do
 end if
-
 write(*,*)
 !Check sanity of BOM
 if (wfntype==0.or.wfntype==2.or.wfntype==3) then !RHF,ROHF,R-post-HF
@@ -2299,7 +2213,6 @@ else if (wfntype==1.or.wfntype==4) then !UHF,U-post-HF
 	if (BOMerrora>0.02D0.or.BOMerrorb>0.02D0) write(*,"(a)") " Warning: The integration is not very accurate"
 ! 	call showmatgau(BOMsumb,"BOMsumb",0,"f14.8",6)
 end if
-
 if (itask==1) then !Output BOM
 	open(10,file="BOM.txt",status="replace")
 	if (wfntype==0.or.wfntype==2.or.wfntype==3) then
@@ -2348,9 +2261,8 @@ else if (itask==2) then !Output AOM
 	write(*,*) "Done, the matrices have been exported to AOM.txt in current folder"
 	return
 end if
-
 !Generate DI and LI
-!RHF,R-post-HF, DI_A,B=2¡Æ[i,j]dsqrt(n_i*n_j)*S_i,j_A * S_i,j_B     where i and j are non-spin orbitals
+!RHF,R-post-HF, DI_A,B=2[i,j]dsqrt(n_i*n_j)*S_i,j_A * S_i,j_B     where i and j are non-spin orbitals
 write(*,*) "Generating LI and DI..."
 if (any(MOocc<0)) then
 	where(MOocc<0) MOocc=0
@@ -2414,7 +2326,7 @@ else if (wfntype==2) then !ROHF
 	!Combine alpha and Beta to total
 	DI=DIa+DIb
 	LI=LIa+LIb
-!UHF,U-post-HF   DI(A,B)=2¡Æ[i,j]dsqrt(n_i*n_j)*S_i,j_A * S_i,j_B   where i and j are spin orbitals
+!UHF,U-post-HF   DI(A,B)=2[i,j]dsqrt(n_i*n_j)*S_i,j_A * S_i,j_B   where i and j are spin orbitals
 else if (wfntype==1.or.wfntype==4) then
 	!Alpha
 	DIa=0D0
@@ -2458,10 +2370,8 @@ else if (wfntype==1.or.wfntype==4) then
 	DI=DIa+DIb
 	LI=LIa+LIb
 end if
-
 call walltime(nwalltime2)
 write(*,"(' Calculation took up',i8,' seconds wall clock time',/)")  nwalltime2-nwalltime1
-
 !Output LI and DI
 ioutid=6
 100 write(ioutid,"(a,/)") " Note: Diagonal terms are the sum of corresponding row or column elements"
@@ -2497,7 +2407,6 @@ do ibas=1,numrealatt
 	if (mod(ibas,5)==0) write(ioutid,*)
 end do
 if (mod(numrealatt,5)/=0) write(ioutid,*)
-
 !Write LI and DI in atom indices
 if (ifuncbasin==1) then
     write(ioutid,*)
@@ -2554,13 +2463,11 @@ if (ifuncbasin==1) then
     end do
     if (mod(numrealatt,5)/=0) write(ioutid,*)
 end if
-
 if (ioutid==10) then
 	write(*,*) "Done!"
 	close(10)
 	return
 end if
-
 write(*,*)
 write(*,*) "If also output above information to LIDI.txt in current folder? (y/n)"
 read(*,*) selectyn
@@ -2570,9 +2477,6 @@ if (selectyn=='y'.or.selectyn=='Y') then
 	goto 100
 end if
 end subroutine
-
-
-
 !!------- Find basin indices corresponding to various atom indices in the case of AIM analysis
 !maplist(i) is the attractor index that corresponds to atom i. If no corresponding can be found, the value is 0
 !info: =1 show correspondence, =0 do not show
@@ -2598,9 +2502,6 @@ do iatm=1,ncenter
     if (ibas==numrealatt+1.and.info==1) write(ioutid,"(a,i6)") " Warning: Unable to find basin index that corresponds to atom",iatm
 end do
 end subroutine
-
-
-
 !!------- Integrate a real space function in the basins with multi-level refinement, indenspensible for Laplacian
 !DEPRECATED, since mixed type of grids perform better and faster
 subroutine integratebasinrefine
@@ -2618,7 +2519,6 @@ if (ifuncbasin/=1) then
 	write(*,*) "Error: This function is only applicable to AIM basins!"
 	return
 end if
-
 do while(.true.)
 	write(*,*) "-2 Return"
 	write(*,*) "-1 Print and set parameters for multi-level refinement"
@@ -2647,7 +2547,6 @@ do while(.true.)
 		write(*,*)
 	end if
 end do
-
 call walltime(walltime1)
 CALL CPU_TIME(time_begin)
 write(*,*) "Integrating, please wait..."
@@ -2723,14 +2622,10 @@ end do
 write(*,"(' Sum of above values:',f20.8)") sum(intval(1:numrealatt))
 if (any(gridbas(2:nx-1,2:ny-1,2:nz-1)==0)) write(*,"(' Integral of unassigned grids:',f20.8)") intval(0)
 if (any(gridbas(2:nx-1,2:ny-1,2:nz-1)==-1)) write(*,"(' Integral of the grids travelled to box boundary:',f20.8)") intval(-1)
-
 CALL CPU_TIME(time_end)
 call walltime(walltime2)
 write(*,"(' Integrating basins took up CPU time',f12.2,'s, wall clock time',i10,'s')") time_end-time_begin,walltime2-walltime1
 end subroutine
-
-
-
 !!------- Integrate AIM basins using mixed atomic-center and uniform grids
 ! itype=1: Integrate specific real space function
 ! itype=2: Integrate specific real space function with exact refinement of basin boundary
@@ -2767,7 +2662,6 @@ if (ifuncbasin/=1) then
 	write(*,"(a)") " Error: This function is only applicable to AIM basins! That means in option 1, you should select electron density to construct the basins."
 	return
 end if
-
 if (ispecial==0) then
 	if (itype==1.or.itype==2.or.itype==3) then
 		write(*,*) "Please select integrand:"
@@ -2786,7 +2680,6 @@ else if (ispecial==2) then
 	call setpromol !Don't let user to select integrand
 	expcutoff=1 !Use full accuracy for shubin's 2nd project
 end if
-
 call walltime(walltime1)
 CALL CPU_TIME(time_begin)
 intval=0D0
@@ -2803,7 +2696,6 @@ xyint=0D0
 yzint=0D0
 xzint=0D0
 numcp=0
-
 att2atm=0
 !Determine trust radius and then integrate in the trust sphere
 !We use CPpos to record the center of the trust sphere
@@ -2852,7 +2744,6 @@ do iatt=1,numrealatt !Cycle each attractors
 			CPpos(3,numcp)=a(iatmtmp)%z
 		end if
 	end if
-	
 	!Determine trust radius and set integration points and weight
 	radpotAIM=200
 	parm=1
@@ -2871,7 +2762,6 @@ do iatt=1,numrealatt !Cycle each attractors
 ! 		radx=dfloat(ish)/(radpotAIM+1D0)
 ! 		radr=radx**2/(1-radx)**2*parm
 ! 		radw=2*radx**5/dfloat(radpotAIM+1)/(1-radx)**7*parm**3 *4*pi
-		
 		!Set Lebedev grids according to shell radius
 		!For more inner shell, the distribution is more akin to spherically symmetric, therefore lower number of grids could be used
 		if (att2atm(iatt)==0) then !NNA
@@ -2932,7 +2822,6 @@ do iatt=1,numrealatt !Cycle each attractors
 		if (ispecial==2) trustrad(iatt)=20 !For Shubin's 2nd project, should not be as large as 1000, because for a point very far from nucleus the relative entropy cannot be evaluated
 		write(*,"(' The trust radius of attractor',i6,' is',f10.3,' Bohr',/)") iatt,trustrad(iatt)
 	end if
-	
 	!Use DFT integration algorithm to integrate the region inside trust radius
 	!$OMP PARALLEL private(ipt,ptx,pty,ptz,rx,ry,rz,dist,tmps,iter,switchwei,intvalp,&
 	!$OMP eleintp,xintp,yintp,zintp,xxintp,yyintp,zzintp,xyintp,yzintp,xzintp,tmpval,tmpval2,tmpval3,tmpval4) &
@@ -2972,7 +2861,6 @@ do iatt=1,numrealatt !Cycle each attractors
 		gridval(ipt,3)=switchwei
 ! 		if (dist>trustrad(iatt)) cycle !Discrete separation between atomic-center and uniform integration
 		if (switchwei<1D-7) cycle !For saving computational time
-		
 		if (itype==1.or.itype==2.or.itype==3) then !Integrate a function
 			if (ifuncint==-1) then !Deformation density, store molecular density of present center temporarily
 				gridval(ipt,1)=fdens(ptx,pty,ptz)
@@ -3024,7 +2912,6 @@ do iatt=1,numrealatt !Cycle each attractors
 	end if
 	!$OMP end CRITICAL
 	!$OMP END PARALLEL
-	
 	!Some special cases:
 	if (ispecial==2) then !Shubin's 2nd project, integrate relative Shannon and Fisher information
 		!Current gridval content: 1=rho, 2=gradrho^2, 3=switchwei, 4=gradrho_x, 5=gradrho_y, 6=gradrho_z
@@ -3074,7 +2961,6 @@ do iatt=1,numrealatt !Cycle each attractors
 		call readinfile(firstfilename,1) !Retrieve to first loaded file(whole molecule) to calc real rho again
 	end if
 end do !End cycle attractors
-
 if (itype==1.or.itype==2.or.itype==3) then
 	write(*,*) "Integration result inside trust spheres"
 	if (ispecial/=2) then
@@ -3093,7 +2979,6 @@ if (itype==1.or.itype==2.or.itype==3) then
 		write(*,"(' Sum of rel.Fisher(new): ',f20.8)") sum(intval(1:numrealatt,3))
 	end if
 end if
-
 !Set coordinate of uniform grids
 dvol=dx*dy*dz
 do ix=1,nx
@@ -3105,7 +2990,6 @@ end do
 do iz=1,nz
 	zarr(iz)=orgz+(iz-1)*dz
 end do
-
 !--------- Integrating uniform grids, basin boundary grids will be calculated in the later stage
 !NOTE: For shubin's 2nd project or deformation density, do not integrate here. At next stage boundary grids will be updated, and then at the next stage,&
 !they will be integrated by a special module. Because at each grid if we reload atomic .wfn file will be too time consuming
@@ -3135,7 +3019,7 @@ do iz=2,nz-1
 		rnowy=yarr(iy)
 		do ix=2,nx-1
 			rnowx=xarr(ix)
-			if ((itype==2.or.itype==3).and.interbasgrid(ix,iy,iz)==.true.) cycle !If refine boundary grid at next stage, we don't calculate them at present stage
+			if ((itype==2.or.itype==3).and.interbasgrid(ix,iy,iz)) cycle !If refine boundary grid at next stage, we don't calculate them at present stage
 ! 			if (iz==nint(nz/2D0)) write(1,"('C',3f14.8)") rnowx*b2a,rnowy*b2a,rnowz*b2a !Examine grid distribution
 			iatt=gridbas(ix,iy,iz)
 ! 			do icp=1,numcp
@@ -3218,7 +3102,6 @@ else if (itype==10) then
 end if
 !$OMP end CRITICAL
 !$OMP END PARALLEL
-
 10 continue
 !---- Exact refinement with/without multi-level splitting of boundary grids
 if (itype==2.or.itype==3) then
@@ -3243,7 +3126,7 @@ if (itype==2.or.itype==3) then
 			rnowy=yarr(iy)
 			do ix=2,nx-1
 				rnowx=xarr(ix)
-				if (interbasgrid(ix,iy,iz)==.false.) cycle
+				if (.not.interbasgrid(ix,iy,iz)) cycle
 ! 				if (cubmat(ix,iy,iz)>0.001D0) then
 ! 					nrefine=2 !3 is the best
 ! 				else if (cubmat(ix,iy,iz)>0.001D0) then !0.0001 is the best
@@ -3403,10 +3286,9 @@ if (itype==2.or.itype==3) then
 	!$OMP END PARALLEL
 	call detectinterbasgrd(6)
 	write(*,*) "Basin boundary has been updated"
-	numinterbas=count(interbasgrid==.true.)
+	numinterbas=count(interbasgrid)
 	write(*,"(' The number of interbasin grids:',i12)") numinterbas	
 end if
-
 !Below are special modules for the cases when density of atom in free-state are involved
 if (ispecial==2) then !Shubin's 2nd project, integrate relative Shannon and relative Fisher information
 	allocate(rhogrid(nx,ny,nz),rhogradgrid(3,nx,ny,nz))
@@ -3545,7 +3427,6 @@ else if (ifuncint==-1) then !Deformation density
 	call dealloall
 	call readinfile(firstfilename,1) !Retrieve to first loaded file(whole molecule) to calc real rho again
 end if
-
 !!----------- Output SUMMARY
 if (itype==1.or.itype==2.or.itype==3) then !Integrate specific real space function(s)
 	write(*,*)
@@ -3710,11 +3591,9 @@ else if (itype==10) then !Electric multipole moment
 		return
 	end if
 end if
-
 CALL CPU_TIME(time_end)
 call walltime(walltime2)
 write(*,"(' Integrating basins took up CPU time',f12.2,'s, wall clock time',i10,'s')") time_end-time_begin,walltime2-walltime1
-
 if (itype==10) then
 	write(*,*)
 	write(*,*) "If also output the result to multipol.txt in current folder? y/n"
@@ -3726,11 +3605,6 @@ if (itype==10) then
 	end if
 end if
 end subroutine
-
-
-
-
-
 !!------ Generate grid data of gradient of electron density, used to refine basin boundary
 subroutine gengradmat
 use defvar
@@ -3765,9 +3639,6 @@ do iz=1,nz
 end do
 !$OMP END PARALLEL DO
 end subroutine
-
-
-
 !!------- Calculate high ELF localization domain populations and volumes (HELP and HELV), ChemPhysChem, 14, 3714 (2013)
 subroutine HELP_HELV
 use defvar
@@ -3776,7 +3647,6 @@ use basinintmod
 implicit real*8(a-h,o-z)
 real*8 :: ELFthres=0.5D0,rhothres=0.001D0
 real*8 HELP,HELV,HELP_priv,HELV_priv
-
 do while(.true.)
     write(*,*)
     write(*,*) "-1 Return"
@@ -3796,7 +3666,6 @@ do while(.true.)
         write(*,*) "Input index of the ELF basin for which HELP and HELV will be calculated"
         write(*,*) "For example, 3"
         read(*,*) ibasin
-
         write(*,*) "Integrating, please wait..."
         HELP=0
         HELV=0
@@ -3850,5 +3719,4 @@ do while(.true.)
         write(*,"(' High ELF localization domain volume (HELV):    ',f10.4,' Bohr^3')") HELV
     end if
 end do
-
 end subroutine
