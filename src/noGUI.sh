@@ -1,5 +1,5 @@
-#rm -rf noGUI
-#mkdir noGUI
+rm -rf noGUI
+mkdir noGUI
 cp ./Makefile_noGUI noGUI/Makefile
 cp *.a noGUI
 cp *.F noGUI
