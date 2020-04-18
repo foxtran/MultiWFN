@@ -846,7 +846,7 @@ if (itype==2.or.itype==3) then
 			rnowy=yarr(iy)
 			do ix=2,nx-1
 				rnowx=xarr(ix)
-				if (interbasgrid(ix,iy,iz)==.false.) cycle
+				if (.not.interbasgrid(ix,iy,iz)) cycle
  				nrefine=1
 				ndiv=nrefine**3
 				orgxref=rnowx-dx/2 !Take corner position as original point of microcycle
