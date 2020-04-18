@@ -71,10 +71,6 @@ do while(.true.)
 	end if
 end do
 end subroutine
-
-
-
-
 !!----- Calculate atomic and bond dipole moments in Hilbert space
 !For derivation, see Ideas of Quantum Chemistry, p634
 subroutine atmbonddip
@@ -83,7 +79,6 @@ use util
 implicit real*8 (a-h,o-z)
 real*8 xdipmat(nbasis,nbasis),ydipmat(nbasis,nbasis),zdipmat(nbasis,nbasis),Ptottmp(nbasis,nbasis)
 character c80tmp*80
-
 if (.not.allocated(CObasa)) then
 	write(*,"(a)") " Error: No basis function information is provided in your input file! See Section 2.5 of Multiwfn manual for detail"
 	write(*,*) "Press ENTER button to return"
@@ -102,11 +97,9 @@ end if
 xdipmat=Dbas(1,:,:)
 ydipmat=Dbas(2,:,:)
 zdipmat=Dbas(3,:,:)
-
 ! call showmatgau(xdipmat,"dip x",0,"f14.8",6)
 ! call showmatgau(ydipmat,"dip y",0,"f14.8",6)
 ! call showmatgau(zdipmat,"dip z",0,"f14.8",6)
-
 !Calculate total dipole moment
 xnucdip=sum(a(:)%charge*a(:)%x)
 ynucdip=sum(a(:)%charge*a(:)%y)
@@ -123,7 +116,6 @@ ymoldip=ynucdip+yeledip
 zmoldip=znucdip+zeledip
 write(*,"(' Molecular dipole moment (a.u.):')")
 write(*,"('  X=',f12.6,'  Y=',f12.6,'  Z=',f12.6,'  Norm=',f12.6)") xmoldip,ymoldip,zmoldip,dsqrt(xmoldip**2+ymoldip**2+zmoldip**2)
-
 do while(.true.)
 	write(*,*)
 	write(*,*) "         ----- Atomic and bond dipole moments in Hilbert space -----"
@@ -306,8 +298,6 @@ do while(.true.)
 	end if
 end do
 end subroutine
-
-
 !!------------ Generate cube file for multiple orbitals
 subroutine genmultiorbcube
 use defvar
@@ -328,7 +318,6 @@ else if (allocated(CObasa).and.wfntype/=2) then !For RO form, HOMO and LUMO are 
 end if
 write(*,*) "Input q can return"
 read(*,"(a)") c1000tmp
-
 if (index(c1000tmp,'q')/=0) return
 if (index(c1000tmp,'h')==0.and.index(c1000tmp,'l')==0) then !Use inputted a series of orbital indices
     call str2arr(c1000tmp,norbsel,orbsellist)
@@ -343,7 +332,6 @@ if (index(c1000tmp,'h')==0.and.index(c1000tmp,'l')==0) then !Use inputted a seri
     write(*,*) "1 Output the grid data of these orbitals as separate cube files"
     write(*,*) "2 Output the grid data of these orbitals as a single cube file"
     read(*,*) ioutmode
-
     if (ioutmode==1) then
 	    do iorbidx=1,norbsel
 		    iorb=orbsellist(iorbidx)
@@ -355,7 +343,6 @@ if (index(c1000tmp,'h')==0.and.index(c1000tmp,'l')==0) then !Use inputted a seri
 		    close(10)
 		    write(*,"(' Orbital',i7,' has been exported to ',a,' in current folder',/)") iorb,trim(cubname)
 	    end do
-	
     else if (ioutmode==2) then
 	    allocate(orbcubmat(nx,ny,nz,norbsel))
 	    do iorbidx=1,norbsel
@@ -437,12 +424,7 @@ else
 	write(*,"(' Orbital',i7,' has been exported to ',a,' in current folder')") iorb,trim(cubname)
     deallocate(cubmat)
 end if
-
 end subroutine
-
-
-
-
 !!---------- Generate grid data of iso-chemical shielding surfaces (ICSS) or related quantities
 subroutine ICSS
 use defvar
@@ -492,7 +474,6 @@ if (selectyn=='n'.or.selectyn=='N') then
 		end if
 	end do
 	close(10)
-
 	gauinpfile="NICS"
 	do ifile=1,nfile
 		write(c200tmp,"(a,i4.4,a)") trim(gauinpfile),ifile,".gjf"
@@ -581,7 +562,6 @@ do ifile=1,nfile
 	backspace(10)
 	iformat=1
 	if (c200tmp(25:25)=='=') iformat=2 !Since G09 D.01
-	
 	do i=1,ncenter !Skip atom's result
 		read(10,*)
 		read(10,*)
@@ -673,9 +653,6 @@ do while(.true.)
 	end if
 end do
 end subroutine
-
-
-
 !!----- Plot radial distribution function for a real space function
 subroutine plotraddis
 use defvar
@@ -755,7 +732,6 @@ do while(.true.)
 			end if
 		end do
 		!$OMP END PARALLEL DO
-		
 		!Calculate integration of RDF
 		intradval(1)=0D0
 		do irad=2,nradpt
@@ -831,13 +807,9 @@ do while(.true.)
 				write(*,*) "The second column is radial distance (Bohr), the third column is value"
 			end if
 		end do
-	
 	end if
 end do
 end subroutine
-
-
-
 !!--------- Analyze correspondence between orbitals in two wavefunctions
 subroutine orbcorres
 use defvar
@@ -860,7 +832,6 @@ if (iautointgrid==1) then
     radcut=15
 end if
 allocate(gridatm(radpot*sphpot),gridatmorg(radpot*sphpot),beckeweigrid(radpot*sphpot))
-
 do isep=nmo,1,-1
 	if (MOtype(isep)==1) exit
 end do
@@ -874,7 +845,6 @@ if (c80tmp==" ") then
 else
 	read(c80tmp,*) istart1,iend1
 end if
-
 write(*,*)
 write(*,*) "Input path of the second wavefunction, e.g. C:\ltwd.fch"
 do while(.true.)
@@ -901,26 +871,21 @@ if (c80tmp==" ") then
 else
 	read(c80tmp,*) istart2,iend2
 end if
-
 call dealloall
 call readinfile(firstfilename,1)
 allocate(MOvalgrd(radpot*sphpot,nmo),MOvalgrd2(radpot*sphpot,nmo2),convmat(nmo,nmo2),Snormmat(nmo,nmo2))
 convmat=0D0
 Snormmat=0D0
-
 write(*,"(' Radial points:',i5,'    Angular points:',i5,'   Total:',i10,' per center')") radpot,sphpot,radpot*sphpot
 write(*,*) "Calculating, please wait..."
 call gen1cintgrid(gridatmorg,iradcut)
-
 call walltime(iwalltime1)
 CALL CPU_TIME(time_begin)
-
 do iatm=1,ncenter
 	write(*,"(' Progress: ',i5,' /',i5)") iatm,ncenter
 	gridatm%x=gridatmorg%x+a(iatm)%x !Move quadrature point to actual position in molecule
 	gridatm%y=gridatmorg%y+a(iatm)%y
 	gridatm%z=gridatmorg%z+a(iatm)%z
-	
 	!Calculate value of all MOs of the first and second wavefunction at all grids
 	call dealloall
 	call readinfile(filename2,1) !Load wfn2
@@ -936,10 +901,8 @@ do iatm=1,ncenter
 		call orbderv(1,istart1,iend1,gridatm(ipt)%x,gridatm(ipt)%y,gridatm(ipt)%z,MOvalgrd(ipt,:))
 	end do
 	!$OMP end parallel do
-
 	!Calculate Becke weight at all grids
 	call gen1cbeckewei(iatm,iradcut,gridatm,beckeweigrid)
-	
 	!$OMP parallel do shared(convmat,Snormmat) private(imo,jmo,tmpval,tmpval2,ipt) num_threads(nthreads) schedule(dynamic)
 	do imo=istart1,iend1
 		do jmo=istart2,iend2
@@ -958,9 +921,7 @@ end do
 CALL CPU_TIME(time_end)
 call walltime(iwalltime2)
 write(*,"(' Calculation took up CPU time',f12.2,'s, wall clock time',i10,'s',/)") time_end-time_begin,iwalltime2-iwalltime1
-
 ! call showmatgau(convmat,"convmat",0,"f12.3")
-
 devmax=0D0
 idevmax=1
 ! write(*,*) "The sum of composition of each orbital of current wavefunction"
@@ -1006,7 +967,6 @@ do imo=istart1,iend1
 	end do
 	write(*,*)
 end do
-
 write(*,*)
 do while(.true.)
 	write(*,*) "Input the orbital index to print detail compositions and coefficients, e.g. 5"
@@ -1048,18 +1008,12 @@ do while(.true.)
 		write(*,*)
 	end if
 end do
-
 if (iautointgrid==1) then
 	radpot=nradpotold
 	sphpot=nsphpotold
     radcut=radcutold
 end if
 end subroutine
-
-
-
-
-
 !!-------- Parse the output of (hyper)polarizability task of Gaussian to make it more understandable
 subroutine parseGauPolar
 use defvar
@@ -1127,15 +1081,12 @@ do while(.true.)
 		exit
 	end if
 end do
-
 if (irdfreq==1.and.(isel/=1.and.isel/=7)) then
 	write(*,*) "ERROR: Frequency-dependent values are only available for HF/DFT/semi-empirical!"
 	return
 end if
-
 open(10,file=filename,status="old")
 if (ides==11) open(ides,file="polar.txt",status="replace")
-
 if (iunit==1) then
 	write(ides,*) "Note: All units shown below are in a.u."
 	form=formau
@@ -1147,7 +1098,6 @@ else if (iunit==3) then
 	form=formother
 end if
 write(ides,*)
-
 ! Dipole moment part (miu)
 call loclabel(10,"Dipole moment (field-independent basis, Debye)",ifound)
 if (ifound==1) then
@@ -1167,7 +1117,6 @@ if (ifound==1) then
 	end if
 	write(ides,*)
 end if
-
 !Selecting the result at which frequency will be loaded
 if (irdfreq==1) then
 	nfreqval=0
@@ -1196,8 +1145,6 @@ if (irdfreq==1) then
 	if (freqval(ifreq)==0) write(*,"(' Note: Printed (hyper)polarizability will correspond to w=',f12.6,' ( Static )',/)") freqval(ifreq)
 	rewind(10) !Move to the beginning
 end if
-
-
 !!!! Print polarizability part (Alpha)
 ireadalpha_archive=0
 if (isel==1.or.isel==4.or.isel==5.or.isel==7) then !Standard orientation
@@ -1250,7 +1197,6 @@ if (isel==6.or.ireadalpha_archive==1) then !Find result from archive part, this 
 	c210tmp(iend:)=" "
 	read(c210tmp,*) alpha(1,1),alpha(2,1),alpha(2,2),alpha(3,1),alpha(3,2),alpha(3,3)
 end if
-
 alpha(1,2)=alpha(2,1)
 alpha(1,3)=alpha(3,1)
 alpha(2,3)=alpha(3,2)
@@ -1299,7 +1245,6 @@ if (ioutpol==1) then
     write(*,"(a)") " The sequence is ((alpha(i,j),j=1,3),i=1,3), where j loops first. The unit is a.u."
     write(*,*)
 end if
-
 !!!! Print first hyperpolarizability part (Beta)
 if (isel==1.or.isel==3.or.isel==5) then
 	if (irdfreq==0) then
@@ -1376,14 +1321,12 @@ if (isel==1.or.isel==3.or.isel==5) then
 		write(ides,form) " Beta ||(z)  :",betaZ/5D0*3D0
 		write(ides,form) " Beta _|_(z) :",betaZ/5D0
         write(ides,"(/,a)") " Note: The beta information printed above corresponds to standard orientation"
-		
 	else if (irdfreq==1) then !Frequency-dependent hyperpolarizability, only available for HF/DFT/semi-empirical
 		write(*,*) "Loading which type of hyperpolarizability?"
 		write(*,*) "1: Beta(-w;w,0)   2: Beta(-2w;w,w)"
 		write(*,*) "Note: Option 2 is meaningless if ""DCSHG"" keyword was not used" 
 		read(*,*) ibeta
 		rewind(10)
-		
         !Load beta data
 		if (ibeta==1) then !Beta(-w;w,0) case
 			call loclabel(10,"-- Beta(-w,w,0) frequency",ifound)
@@ -1444,7 +1387,6 @@ if (isel==1.or.isel==3.or.isel==5) then
 			write(ides,form) " XZZ= ZXZ=",beta(1,3,3)
 			write(ides,form) " YZZ= ZYZ=",beta(2,3,3)
 			write(ides,form) " ZZZ=     ",beta(3,3,3)
-			
 		else if (ibeta==2) then !used DCSHG, parsing Beta(-2w;w,w)
 			call loclabel(10,"-- Beta(w,w,-2w) frequency",ifound)
             if (ifound==0) then
@@ -1512,7 +1454,6 @@ if (isel==1.or.isel==3.or.isel==5) then
 			write(ides,form) " ZZZ=     ",beta(3,3,3)
 			write(ides,*)
 		end if
-		
         !Output beta of various forms
 		betaX=0
 		betaY=0
@@ -1542,7 +1483,7 @@ if (isel==1.or.isel==3.or.isel==5) then
         !Beta(-2w;w,w) as been parsed before, in this case we also output HRS related quantites
         if (ibeta==2) then
             !Calculate <beta_ZZZ^2> and <beta_XZZ^2>, without Kleinman condition approximation
-            !Below, the Eqs. 4 and 5 in Phys. Chem. Chem. Phys., 10, 6223¨C6232 (2008) are employed
+            !Below, the Eqs. 4 and 5 in Phys. Chem. Chem. Phys., 10, 6223 C6232 (2008) are employed
             !Note that <beta_xzz^2> is equivalent to the <beta_zxx^2> occured in many literatures
             u1=0;u2=0;u3=0;u4=0;u5=0;u6=0;u7=0;u8=0;u9=0;u10=0;u11=0
             t1=0;t2=0;t3=0;t4=0;t5=0;t6=0;t7=0;t8=0;t9=0;t10=0;t11=0
@@ -1643,8 +1584,6 @@ if (isel==1.or.isel==3.or.isel==5) then
         write(*,"(a)") " The sequence is (((beta(i,j,k),k=1,3),j=1,3),i=1,3), where k loops first. The unit is a.u."
     end if
 end if
-
-
 !!!! Print second polarizability part (gamma)
 if (isel==7) then
     form=formother !Because magnitude of gamma is often quite large
@@ -1841,7 +1780,6 @@ if (isel==7) then
             write(ides,form) " ZXZZ=XZZZ=",gamma(3,1,3,3)
             write(ides,form) " ZYZZ=YZZZ=",gamma(3,2,3,3)
             write(ides,form) " ZZZZ=",gamma(3,3,3,3)
-
         else if (igamma==2) then
 			do i=1,ifreq-1
 				call loclabel(10,"Gamma(-2w;w,w,0)",ifound,0)
@@ -2041,16 +1979,10 @@ if (isel==7) then
         write(*,"(a)") " The sequence is ((((gamma(i,j,k,l),l=1,3),k=1,3),j=1,3),i=1,3), where l loops first. The unit is a.u."
     end if
 end if !End gamma
-
 close(10)
 if (ides==11) close(ides)
 goto 10
 end subroutine
-
-
-
-
-
 !!-----------------------------------------------------------------------------------------------------------
 !!--------- Sum-over-states (SOS) calculation for (hyper)polarizability and two/three-level analyses --------
 !!-----------------------------------------------------------------------------------------------------------
@@ -2067,7 +1999,6 @@ real*8 :: alpha(3,3),beta(3,3,3),gamma(3,3,3,3),gamma1(3,3,3,3),gamma2(3,3,3,3),
 real*8 eigval(3),eigvecmat(3,3),tmpw(5)
 real*8,allocatable :: freqlist(:,:) !Store the frequency to be calculated for beta and gamma
 integer tmpdir(5),arrb(6,3),arrg(24,4),arrd(120,5),dir1,dir2,dir3,dir4,dir5
-
 write(*,*) "Loading data..."
 open(10,file=filename,status="old")
 call loclabel(10,"Gaussian, Inc",igauout,maxline=100)
@@ -2156,7 +2087,6 @@ do i=0,nstates
 		trandip(j,i,:)=trandip(i,j,:)
 	end do
 end do
-
 !! Output some information
 ! write(*,*) "  State#      Exc.ene.(a.u.)     Transition dipole moment in X,Y,Z (a.u.)"
 ! do istat=1,nstates
@@ -2186,7 +2116,6 @@ if (ionlyalpha==0) write(*,*) "17 Calculate gamma in a range of frequencies"
 if (ionlyalpha==0) write(*,*) "19 Scanning w1 and w2 of beta(-(w1+w2);w1,w2)"
 if (ionlyalpha==0) write(*,*) "20 Two or three-level model analysis of beta"
 read(*,*) isel
-
 if (isel==0) then
 	return
     
@@ -2209,7 +2138,6 @@ else if (isel==1.or.isel==5.or.isel==15) then !Analysis of polarizability (alpha
 		write(*,*) "e.g. 0.2,0.5,0.01"
 		read(*,*) freq,freqend,freqstep
 	end if
-	
 	if (isel==1) then
 		istart=nstates
 		iend=nstates
@@ -2222,7 +2150,6 @@ else if (isel==1.or.isel==5.or.isel==15) then !Analysis of polarizability (alpha
 		iend=nstates
 		open(10,file="alpha_w.txt",status="replace")
 	end if
-	
 	write(*,*) "Please wait..."
 	do numstat=istart,iend !Cycle number of states
 		do while(.true.) !For isel==15, vary frequency (freq) from initial value until reaching ending (freqend); For other cases, do once
@@ -2244,7 +2171,6 @@ else if (isel==1.or.isel==5.or.isel==15) then !Analysis of polarizability (alpha
 			call diagmat(alpha,eigvecmat,eigval,300,1D-10)
 			call sort(eigval)
 			alphaani2=eigval(3)-(eigval(1)+eigval(2))/2D0
-		
 			if (isel==1) then
 				write(*,*) "Polarizability tensor:"
 				write(*,*) "             1              2              3"
@@ -2286,7 +2212,6 @@ else if (isel==1.or.isel==5.or.isel==15) then !Analysis of polarizability (alpha
 		write(*,*) "Column 9:  XZ"
 		write(*,*) "Column 10: YZ"
 	end if
-
 else if (isel==2.or.isel==6.or.isel==16.or.isel==19) then !Analysis of first hyperpolarizability (beta)
 !2=Calculate first hyperpolarizability (beta)
 !6=Show the variation of beta w.r.t. the number of states in consideration
@@ -2391,7 +2316,6 @@ else if (isel==2.or.isel==6.or.isel==16.or.isel==19) then !Analysis of first hyp
         end do
         write(11,*)
 	end if
-	
 	write(*,*) "Please wait..."
     if (isel==16.or.isel==19) call showprog(0,nfreq)
 	call fullarrange(arrb,6,3) !Generate full arrangement matrix (3!=6 :3) for beta, each row corresponds to one permutation, e.g. 231
@@ -2405,7 +2329,6 @@ else if (isel==2.or.isel==6.or.isel==16.or.isel==19) then !Analysis of first hyp
 		do idir=1,3
 			do jdir=1,3
 				do kdir=1,3
-
 					tmpval=0
 					tmpdir(1:3)=(/ idir,jdir,kdir /)
 					do iper=1,6 !Do permutation, arrb(1,:)=1,2,3
@@ -2463,7 +2386,6 @@ else if (isel==2.or.isel==6.or.isel==16.or.isel==19) then !Analysis of first hyp
 				end do
 			end do
 		end do
-
 		betaX=0
 		betaY=0
 		betaZ=0
@@ -2482,7 +2404,6 @@ else if (isel==2.or.isel==6.or.isel==16.or.isel==19) then !Analysis of first hyp
 		do j=1,3
 			beta_per=beta_per+(2*beta(3,j,j)+2*beta(j,j,3)-3*beta(j,3,j))/5
 		end do
-		
 		if (isel==2) then
 			write(*,*) "First hyperpolarizability tensor:"
 			do jdir=1,3
@@ -2512,7 +2433,6 @@ else if (isel==2.or.isel==6.or.isel==16.or.isel==19) then !Analysis of first hyp
 		end if
 	end do
 	end do
-	
 	if (isel==6.or.isel==16.or.isel==19) then
 		close(10)
         close(11)
@@ -2547,8 +2467,6 @@ else if (isel==2.or.isel==6.or.isel==16.or.isel==19) then !Analysis of first hyp
             have been exported to beta_w_comp.txt in current folder"
 		end if 
 	end if
-	
-
 else if (isel==3.or.isel==7.or.isel==17) then !Analysis of second hyperpolarizability (gamma)
 !3=Calculate second hyperpolarizability (gamma)
 !7=Show the variation of gamma w.r.t. the number of states in consideration
@@ -2592,7 +2510,6 @@ else if (isel==3.or.isel==7.or.isel==17) then !Analysis of second hyperpolarizab
 		end do
 		write(*,*)
 	end if
-	
 	if (isel==3.or.isel==17) then
 		write(*,"(' Consider how many states? Should be <=',i6)") nstates
 		read(*,*) istart
@@ -2643,7 +2560,6 @@ else if (isel==3.or.isel==7.or.isel==17) then !Analysis of second hyperpolarizab
             write(ifile,*)
         end do
     end if
-	
 	write(*,*) "Please wait..."
 	call walltime(iwalltime1)
 	call fullarrange(arrg,24,4) !Generate full arrangement matrix (4!=24 :4) for gamma, each row corresponds to one permutation, e.g. 2341
@@ -2658,7 +2574,6 @@ else if (isel==3.or.isel==7.or.isel==17) then !Analysis of second hyperpolarizab
 		freq3=freqlist(ifreq,3)
 		freqtot=freq1+freq2+freq3
 		tmpw(1:4)=(/ -freqtot,freq1,freq2,freq3 /)
-	
 		do idir=1,3 !Cycle direction component
 			do jdir=1,3
 				do kdir=1,3
@@ -2732,7 +2647,6 @@ else if (isel==3.or.isel==7.or.isel==17) then !Analysis of second hyperpolarizab
             end do
         end do
         gamma_nor=gamma_nor/15
-		
 		if (isel==3) then
 			write(*,*) "Second hyperpolarizability tensor:"
 			do jdir=1,3
@@ -2776,7 +2690,6 @@ else if (isel==3.or.isel==7.or.isel==17) then !Analysis of second hyperpolarizab
 		end if
 	end do !end cycle freqlist
 	end do !end cycle the number of states
-	
 	call walltime(iwalltime2)
 	write(*,"(' Calculation took up wall clock time',i10,' s')") iwalltime2-iwalltime1
 	if (isel==7.or.isel==17) then
@@ -2814,7 +2727,6 @@ else if (isel==3.or.isel==7.or.isel==17) then !Analysis of second hyperpolarizab
             Section 3.200.8 of manual) have been respectively exported to gamma_I_w_comp.txt and gamma_II_w_comp.txt."
 		end if 
 	end if
-
 ! Calculate third hyperpolarizability (delta)
 else if (isel==4) then
 	write(*,*) "Input w1,w2,w3,w4 for delta(-(w1+w2+w3+w4);w1,w2,w3,w4)"
@@ -2846,7 +2758,6 @@ else if (isel==4) then
 	write(*,*)
 	write(*,"(' Consider how many states? Should <=',i6)") nstates
 	read(*,*) numstat
-	
 	write(*,*) "Please wait patiently..."
 	call walltime(iwalltime1)
 	call fullarrange(arrd,120,5) !Generate full arrangement matrix (4!=24 :4) for gamma, each row corresponds to one permutation, e.g. 2341
@@ -2925,7 +2836,6 @@ else if (isel==4) then
 			end do
 		end do
 	end do
-	
 	write(*,*)
 	write(*,*) "Third hyperpolarizability tensor:"
 	do jdir=1,3
@@ -2943,7 +2853,6 @@ else if (isel==4) then
 	end do
 	call walltime(iwalltime2)
 	write(*,"(' Calculation took up wall clock time',i10,' s')") iwalltime2-iwalltime1
-	
 else if (isel==20) then !Two or three-level analysis of beta
     write(*,"(a)") " Excitation energy (E,eV) and transition dipole moment (X,Y,Z,total) between ground state to excited states (a.u.)"
     do istat=1,nstates
@@ -2989,15 +2898,8 @@ else if (isel==20) then !Two or three-level analysis of beta
         write(*,"(' beta evaluated by the three-level model:',f16.6,' a.u.')") term1+term2+term3
     end if
 end if
-
 end do
-
 end subroutine
-
-
-
-
-
 !!---------- Calculate average bond length between two elements and average coordinate number
 subroutine atmavgdist
 use defvar
@@ -3019,7 +2921,6 @@ end if
 write(*,*) "Input distance cutoff in Angstrom, e.g. 3.2"
 read(*,*) discrit
 discrit=discrit/b2a
-
 call gendistmat
 avgdist=0
 iwithin=0
@@ -3076,11 +2977,6 @@ if (selectyn=='y'.or.selectyn=='Y') then
 	write(*,"(/,' The average coordinate number of ',a,' due to ',a,' - ',a,' bond:',f10.5)") elesel1,elesel1,elesel2,dfloat(ncoordtot)/ntmp
 end if
 end subroutine
-
-
-
-
-
 !!!------- Calculate electric/magnetic/velocity... integral between orbitals
 subroutine outorbint
 use defvar
@@ -3115,9 +3011,7 @@ else if (irange==6) then
 	read(*,*) iMOsel,jMOsel
 	if (iMOsel==0.and.jMOsel==0) return
 end if
-
 call walltime(iwalltime1)
-
 nsize=nprims*(nprims+1)/2
 if (itype==1.or.itype==2.or.itype==3) then
 	allocate(GTFvecint(3,nsize))
@@ -3135,7 +3029,6 @@ else if (itype==4) then
 else if (itype==5) then	
 	call genGTFSmat(GTFint,nsize)
 end if
-
 if (irange/=6) open(10,file="orbint.txt",status="replace")
 do imo=1,nmo
 	do jmo=1,nmo
@@ -3150,7 +3043,6 @@ do imo=1,nmo
 		else if (irange==6) then
 			if (imo/=iMOsel.or.jmo/=jMOsel) cycle
 		end if
-		
 		if (itype==1.or.itype==2.or.itype==3) then !Vector integral
 			vecint=0D0
 			!$OMP PARALLEL SHARED(vecint) PRIVATE(iGTF,jGTF,ides,vecinttmp) NUM_THREADS(nthreads)
@@ -3221,11 +3113,6 @@ else
 	end if
 end if
 end subroutine
-
-
-
-
-
 !!----------- Calculate center, first and second moments of a real space function
 subroutine funcmoment
 use defvar
@@ -3246,7 +3133,6 @@ do while(.true.)
 	write(*,"(a,i5)") " 3 Select the function to be studied, current:",ifunc
 	write(*,"(a,3f11.5,' Ang')") " 4 Set the center for option 1, current:",cenx*b2a,ceny*b2a,cenz*b2a
 	read(*,*) isel
-	
 	if (isel==0) then
 		return
 	else if (isel==3) then
@@ -3260,13 +3146,10 @@ do while(.true.)
 		cenz=cenz/b2a
 		cycle
 	end if
-
 	write(*,"(' Radial points:',i5,'    Angular points:',i5,'   Total:',i10,' per center')") radpot,sphpot,radpot*sphpot
 	call gen1cintgrid(gridatmorg,iradcut)
-
 	call walltime(iwalltime1)
 	CALL CPU_TIME(time_begin)
-
 	intval=0
 	moment1=0
 	moment2=0
@@ -3307,7 +3190,6 @@ do while(.true.)
 	CALL CPU_TIME(time_end)
 	call walltime(iwalltime2)
 	write(*,"(' Calculation took up CPU time',f12.2,'s, wall clock time',i10,'s',/)") time_end-time_begin,iwalltime2-iwalltime1
-	
 	if (isel==1) then
 		moment2(3,1)=moment2(1,3)
 		moment2(2,1)=moment2(1,2)
@@ -3321,13 +3203,11 @@ do while(.true.)
 		write(*,"(' XX=',1PE16.8,'   XY=',1PE16.8,'   XZ=',1PE16.8)") moment2(1,:)
 		write(*,"(' YX=',1PE16.8,'   YY=',1PE16.8,'   YZ=',1PE16.8)") moment2(2,:)
 		write(*,"(' ZX=',1PE16.8,'   ZY=',1PE16.8,'   ZZ=',1PE16.8)") moment2(3,:)
-
 		call diagmat(moment2,eigvecmat,eigval,300,1D-10)
 		call sort(eigval)
 		write(*,"(a,3(1PE16.8))") ' Eigenvalues:',eigval
 		write(*,"(' Anisotropy:',1PE16.8,/)") eigval(3)-(eigval(1)+eigval(2))/2D0
 		write(*,"(' Radius of gyration:',1PE16.8,/)") dsqrt((moment2(1,1)+moment2(2,2)+moment2(3,3))/intval)
-
 		if (ifunc==1) then
 			moment2nuc=0
 			do iatm=1,ncenter
@@ -3356,7 +3236,6 @@ do while(.true.)
 			write(*,"(' YX=',f16.8,'   YY=',f16.8,'   YZ=',f16.8)") moment2nuc(2,:)-moment2(2,:)
 			write(*,"(' ZX=',f16.8,'   ZY=',f16.8,'   ZZ=',f16.8)") moment2nuc(3,:)-moment2(3,:)
 		end if
-		
 	else if (isel==2) then
 		write(*,"(' Integral:',1PE16.8,/)") intval
 		realcenx=realcenx/intval
@@ -3374,11 +3253,6 @@ do while(.true.)
 	end if
 end do
 end subroutine
-
-
-
-
-
 !!----------- Calculate energy index (EI) or bond polarity index (BPI)
 !!J. Phys. Chem., 94, 5602-5607 and J. Phys. Chem.,96, 157-164
 subroutine calcEIBPI
@@ -3432,8 +3306,6 @@ do while(.true.)
 	write(*,"(' The EI index:   ',f12.6,' a.u.',/)") val1/val2
 end do
 end subroutine
-
-
 !!------------ Domain analysis (Integrate real space function within isosurface of a real space function)
 !I use the same data structure as basin analysis to illustrate definition of isosurfaces
 subroutine domainana
@@ -3447,7 +3319,6 @@ integer :: ifunciso=13,ifuncint=1
 integer,allocatable :: mergelist(:),grididx(:,:,:),dogrid(:,:)
 logical,allocatable :: boundgrid(:)
 character :: defdomain*20="<0.5",c1000tmp*1000
-
 if (allocated(gridxyz)) deallocate(gridxyz)
 if (allocated(domainsize)) deallocate(domainsize)
 if (allocated(domaingrid)) deallocate(domaingrid)
@@ -3471,7 +3342,6 @@ do while(.true.)
 		read(*,"(a)") defdomain
 	end if
 end do
-
 !Set grid and generate grid data
 if (isel==1) then
 	call setgridfixspc
@@ -3480,7 +3350,6 @@ if (isel==1) then
 	call savecubmat(ifunciso,0,iorbsel)
 end if
 dvol=dx*dy*dz
-
 !Count the number of grids satisfying the criterion
 read(defdomain(2:),*) valiso
 if (defdomain(1:1)=='<') then
@@ -3492,7 +3361,6 @@ else
 	return
 end if
 write(*,"(/,' The number of grids satisfied the criterion:',i10)") ngrid
-
 !Clustering grids that satisfied criterion to domain
 !The idea is very clever:
 !For grids that meet isovalue criterion, I assign each grid with a different index, and perform iterations, in each iteration all of these grids &
@@ -3506,7 +3374,6 @@ call walltime(iwalltime1)
 !boundgrid: If the grid is boundary grid
 allocate(dogrid(ngrid,3),grididx(nx,ny,nz),gridxyz(ngrid,3),boundgrid(ngrid))
 boundgrid=.false.
-
 !Initialize grid indices
 grididx=-1 !Irrelevant grids have very small value
 idx=0
@@ -3526,9 +3393,7 @@ do iz=1,nz
 		end do
 	end do
 end do
-
 call setupmovevec
-
 !Determine if grid is boundary grid
 do igrid=1,ngrid !Loop each grid statisfying condition
 	ix=dogrid(igrid,1);iy=dogrid(igrid,2);iz=dogrid(igrid,3) !ix,iy,iz index of current grid
@@ -3546,7 +3411,6 @@ do igrid=1,ngrid !Loop each grid statisfying condition
 		end if
 	end do
 end do
-
 !Iteration to make indices of grids in each domain are identical
 icyc=0
 do while(.true.)
@@ -3570,7 +3434,6 @@ do while(.true.)
 	end do
 	if (iupdate==0) exit
 end do
-
 !After below step, grididx will records domain index of each grid that satisfies condition
 ndone=0
 ndomain=0
@@ -3591,7 +3454,6 @@ do while(.true.)
 	end do
 	if (ndone==ngrid) exit
 end do
-
 !Generate domainsize and domaingrid (grid index that contained in each domain)
 allocate(domainsize(ndomain),domaingrid(ndomain,ngrid))
 do idom=1,ndomain
@@ -3604,15 +3466,12 @@ do idom=1,ndomain
 	end do
 	domainsize(idom)=j
 end do
-
 write(*,*) "Clustering domains finished!"
 call walltime(iwalltime2)
 write(*,"(' Clustering took up wall clock time',i10,' s')") iwalltime2-iwalltime1
-
 do idom=1,ndomain
 	write(*,"(' Domain:',i6,'     Grids:',i8)") idom,domainsize(idom)
 end do
-
 do while(.true.)
 	write(*,*)
 	write(*,*) "-1 Merge specific domains"
@@ -3806,7 +3665,7 @@ do while(.true.)
 		open(10,file="domain.pdb",status="replace")
 		do igrd=1,domainsize(idomain)
 			idx=domaingrid(idomain,igrd)
-			if (boundgrid(idx)==.true.) then
+			if (boundgrid(idx)) then
 				xnow=gridxyz(idx,1)
 				ynow=gridxyz(idx,2)
 				znow=gridxyz(idx,3)
@@ -3818,8 +3677,6 @@ do while(.true.)
 	end if
 end do
 end subroutine
-
-
 !------ Calculate electron correlation index proposed by Matito et al.
 subroutine elecorridx
 use defvar
@@ -3860,9 +3717,6 @@ write(*,"(' Nondynamic correlation index:',f12.8)") I_ND
 write(*,"(' Dynamic correlation index:   ',f12.8)") I_D
 write(*,"(' Total correlation index:     ',f12.8)") I_T
 end subroutine
-
-
-
 !!------ Generate natural orbitals based on the density matrix loaded from .fch/.fchk file
 !gennatorb is invoked in this routine
 subroutine fch_gennatorb
@@ -3897,7 +3751,6 @@ if (wfntype==1.or.wfntype==2.or.wfntype==4) then
 	write(*,*) "3 Spin natural orbitals (diagonalization of spin density matrix)"
 	read(*,*) iNOtype
 end if
-
 write(*,*) "Loading density matrix..."
 !Load total density matrix
 Ptot=0D0
@@ -3923,10 +3776,8 @@ if (iNOtype>1) then
 end if
 close(10)
 write(*,*) "Density matrix was loaded from .fch/.fchk file"
-
 call gennatorb(iNOtype,1)
 write(*,*) "Done! Basis function information now correspond to natural orbitals"
-
 write(*,"(/,a)") " If next you intend to analyze real space functions based on the NOs, you should export new.molden &
 in current folder and then reload it, so that GTF information will also correspond to NOs"
 write(*,*) "Would you like to do this immediately? (y/n)"
@@ -3940,9 +3791,6 @@ if (selectyn=='y') then
 	write(*,"(a)") " Loading finished, now you can use main function 0 to visualize NOs as isosurfaces"
 end if
 end subroutine
-
-
-
 !!------ Generate natural orbitals based on the density matrix in memory, wavefunction information will be updated to NO case
 !iNOtype=1: Spatial NO, =2: Alpha and beta NO, =3: Spin NO
 !ioutmode=1: Print intermediate information =0: Do not print
@@ -3953,7 +3801,6 @@ implicit real*8 (a-h,o-z)
 integer iNOtype
 real*8,allocatable :: tmparr(:),Pspin(:,:)
 real*8 Xmat(nbasis,nbasis),Xmatinv(nbasis,nbasis)
-
 !To produce natural orbitals, we need to convert P to orthogonalized basis and then diagonalize it
 allocate(tmparr(nbasis))
 if (ioutmode==1) write(*,*)
@@ -4043,10 +3890,6 @@ else
 	wfntype=4
 end if
 end subroutine
-
-
-
-
 !!--------- Calculate core-valence bifurcation (CVB) index and related quantities
 subroutine CVB_index
 use defvar
@@ -4054,14 +3897,12 @@ use function
 implicit real*8 (a-h,o-z)
 integer,parameter :: nptELFcurve=6000 !The number of points comprising the ELF curve,it is adequate to find exact ELF_CV and ELF_DHA
 real*8 ELF_x(nptELFcurve),ELF_y(nptELFcurve)
-
 write(*,*) "Original paper of CVB index: Theor. Chem. Acc., 104, 13 (2000)"
 write(*,*)
 write(*,*) "------ Calculating core-valence bifurcation (CVB) and related quantities -----"
 write(*,*) "Input index of donor atom, hydrogen and acceptor atom in the H-bond (D-H...A)"
 write(*,*) "For example: 1,3,4"
 read(*,*) iD,iH,iA
-
 !First time: calculate and analyze D<-H ELF curve
 !Second time: calculate and analyze H->A ELF curve
 ELF_DHA_x=0
@@ -4091,7 +3932,6 @@ do itime=1,2
 		ELF_y(ipt)=ELF_LOL(rnowx,rnowy,rnowz,"ELF")
 	end do
 	!$OMP end parallel do
-			
 	!Find minimum
 	do ipt=2,nptELFcurve-1
 		gradold=ELF_y(ipt)-ELF_y(ipt-1)
@@ -4113,7 +3953,6 @@ do itime=1,2
 			end if
 		end if
 	end do
-	
 	if (itime==1) then
 		write(*,"(' Core-valence bifurcation value at donor, ELF(C-V,D):',f8.4)") ELF_CV_D
 		write(*,"(' Distance between corresponding minimum and the hydrogen:',f8.3,' Angstrom')") ELF_CV_x_D*b2a
@@ -4127,20 +3966,12 @@ do itime=1,2
 		write(*,*)
 	end if
 end do
-
 !ELF_CV=max(ELF_CV_D,ELF_CV_A)
 !write(*,"(' ELF(C-V): ',f12.6)") ELF_CV
 !write(*,*)
 !write(*,"(' CVB index:',f12.6)") ELF_CV-ELF_DHA
 write(*,"(' The CVB index, namely ELF(C-V,D) - ELF(DH-A):',f12.6)") ELF_CV_D - ELF_DHA
 end subroutine
-
-
-
-
-
-
-
 !!------------------------------------------------------------------------------------------
 !!---- Fit Fukui function or other kind of density difference to orbital representation ----
 !!------------------------------------------------------------------------------------------
@@ -4158,7 +3989,6 @@ real*8 orbval(nmo)
 integer,allocatable :: idxlist(:)
 integer :: isetcons=1,imode=1,ioutfitcub=1
 real*8 :: consval=1
-
 write(*,*)
 write(*,"(a)") " Input path of a cube file containing density difference (or other kind of grid data), e.g. C:\rize\f+.cub"
 do while(.true.)
@@ -4170,11 +4000,9 @@ do while(.true.)
 end do
 call readcube(c200tmp,1,1)
 write(*,*) "Loading finished"
-
 !Store EDD
 allocate(EDD(nx,ny,nz))
 EDD=cubmat
-
 do while(.true.)
     write(*,*)
     write(*,*) "  ----------- Calculation of orbital contributions to grid data -----------"
@@ -4233,7 +4061,6 @@ do while(.true.)
             allocate(orbidx(norb))
             call str2arr(c2000tmp,norb,orbidx)
         end if
-
         if (imode==1) then !Calculate grid data of |psi|^2 for all selected orbitals and store to memory
             if (allocated(orbgrid)) deallocate(orbgrid)
             allocate(orbgrid(nx,ny,nz,norb))
@@ -4274,7 +4101,6 @@ do while(.true.)
                 end if
             end do
         end if
-
         !Construct A matrix and B vector
         if (isetcons==0) then
             ndim=norb
@@ -4315,7 +4141,6 @@ do while(.true.)
     
             call showprog(idx,norb)
         end do
-
         !Finalize matrix and solve linear equation
         if (isetcons==1) then
             Amat(ndim,1:norb)=1
@@ -4325,7 +4150,6 @@ do while(.true.)
         end if
         Amatinv=invmat(Amat,ndim)
         fvec=matmul(Amatinv,Bvec)
-
         !Show result
         forall(i=1:norb) idxlist(i)=i
         fval=fvec(1:norb)
@@ -4336,7 +4160,6 @@ do while(.true.)
             write(*,"(' Orbital',i6,'   Value:',f10.3)") orbidx(idxold),fval(idx)
         end do
         write(*,"(' Sum of all values:',f12.3)") sum(fval)
-
         !Show fitting error
         cubmat=0
         do idx=1,norb
@@ -4351,7 +4174,6 @@ do while(.true.)
         end do
         write(*,"(' Fitting error (definition 1):',f12.4)") sum(abs(EDD-cubmat))*dx*dy*dz
         write(*,"(' Fitting error (definition 2):',f12.6)") sum(abs(EDD-cubmat)**2)*dx*dy*dz
-
         do while(.true.)
             write(*,*)
             write(*,*) "0 Exit"
@@ -4386,7 +4208,6 @@ do while(.true.)
                 cubmat=cubmattmp
             end if
         end do
-
         if (imode==2) then
             write(*,*) "Do you want to clean all .cub files involved in this run? (y/n)"
             read(*,*) selectyn
@@ -4405,16 +4226,10 @@ do while(.true.)
         end if
         
         deallocate(orbidx,Amat,Amatinv,Bvec,fvec,fval,idxlist)
- 
    end if
     
 end do
-
 end subroutine
-
-
-
-
 !!--------------------------------------------------------------------------------
 !!--------- Calculate Coulomb and exchange integral between two orbitals ---------
 !!--------------------------------------------------------------------------------
@@ -4425,7 +4240,6 @@ implicit real*8 (a-h,o-z)
 character c200tmp*200
 real*8,allocatable :: cubx(:),cuby(:),cubz(:),rhoii(:,:,:),rhojj(:,:,:),rhoij(:,:,:)
 real*8 :: Coulcrit=1D-6,exccrit=1D-5 !Only leads to marginal error, speed may increase several times
-
 if (allocated(b)) then !cubmat and cubmattmp will record orbital wavefunction grid data of j and i orbitals
     write(*,*) "Input index of two orbitals, e.g. 4,10"
     read(*,*) iorb,jorb
@@ -4449,12 +4263,10 @@ else
     call readcubetmp(c200tmp,1,itmp)
 end if
 dvol=dx*dy*dz
-
 allocate(rhoii(nx,ny,nz),rhojj(nx,ny,nz),rhoij(nx,ny,nz))
 rhoii=cubmattmp**2
 rhojj=cubmat**2
 rhoij=cubmattmp*cubmat
-
 allocate(cubx(nx),cuby(ny),cubz(nz))
 do i=1,nx
 	cubx(i)=orgx+(i-1)*dx
@@ -4465,7 +4277,6 @@ end do
 do i=1,nz
 	cubz(i)=orgz+(i-1)*dz
 end do
-
 do while(.true.)
     write(*,*)
     write(*,*) "------- Calculate Coulomb and exchange integrals based on uniform grid -------"
@@ -4484,7 +4295,6 @@ do while(.true.)
         write(*,*) "Input a value, e.g. 1E-5"
         read(*,*) exccrit
     end if
-
     if (isel==1.or.isel==3) then
         write(*,*) "Calculating integrals, please wait..."
         call walltime(iwalltime1)
@@ -4557,11 +4367,6 @@ do while(.true.)
     
 end do
 end subroutine
-
-
-
-
-
 !!---------------------------------------------------------------
 !!------------- Calculate bond length/order alternation (BLA/BOA)
 !!---------------------------------------------------------------
@@ -4573,20 +4378,16 @@ character c2000tmp*2000,selectyn
 integer,allocatable :: chainatm(:),atmseq(:),atmtmp(:)
 real*8,allocatable :: PSmat(:,:),PSmata(:,:),PSmatb(:,:)
 integer :: cenind(12)
-
 write(*,*) "Input atom indices in the chain (the sequence is arbitrary)"
 write(*,*) "e.g. 2,14,16-17,19,21,23-24"
 read(*,"(a)") c2000tmp
 call str2arr(c2000tmp,nchainatm)
 allocate(chainatm(nchainatm),atmseq(nchainatm),atmtmp(ncenter))
 call str2arr(c2000tmp,nchainatm,chainatm)
-
 write(*,*) "Input index of the two atoms at the two ends of the path, e.g. 13,24"
 write(*,"(a)") " If the path is a closed path (e.g. a ring), input twice of starting atom index, e.g. 5,5"
 read(*,*) ibeg,iend
-
 if (.not.allocated(connmat)) call genconnmat !Generate connectivity matrix
-
 !Identify the atom sequence in the chain
 !From ibeg, gradually add adjacent atom to the sequence, until the iend is encountered
 atmtmp(:)=0 !All atoms have not been added to the sequence. If atmtmp(i)=1, that means the atom i has already been added to the sequence
@@ -4612,13 +4413,10 @@ do while(.true.)
         if (idx>2.and.connmat(inow,ibeg)/=0) exit
     end if
 end do
-
 write(*,*)
 write(*,*) "Sequence of the atoms in the chain from the beginning side to the ending side"
 write(*,"(9i8)") atmseq
-
 open(10,file="bondalter.txt",status="replace")
-
 write(*,*)
 if (allocated(CObasa)) then
     iBO=1
@@ -4635,7 +4433,6 @@ else
     iBO=0
     write(*,*) " Bond     Atom1     Atom2   Length (Angstrom)"
 end if
-
 avglen_even=0
 avglen_odd=0
 avgBO_even=0
@@ -4686,7 +4483,6 @@ do idx=1,idxend
         end if
     end if
 end do
-
 write(*,*)
 write(*,*) "The data shown above have also been exported to bondalter.txt in current folder"
 write(*,"(a,i6)") " The number of even bonds:",n_even
@@ -4705,7 +4501,6 @@ if (iBO==1) then
     BOA=avgBO_even-avgBO_odd
     write(*,"(a,f12.4)") " Bond order alternation (BOA):    ",BOA
 end if
-
 write(*,"(/,a)") " Do you also want to calculate variation of bond angle and dihedral along the path? (y/n)"
 read(*,*) selectyn
 if (selectyn=='y'.or.selectyn=='Y') then
@@ -4746,13 +4541,7 @@ if (selectyn=='y'.or.selectyn=='Y') then
         write(*,"(' Atoms:',4i6,'  Dihedral:',f7.2,', deviation to planar:',f7.2)") iatm,jatm,katm,latm,dih,dev
     end do
 end if
-
-
 end subroutine
-
-
-
-
 !!-------------------------------------------------------------------
 !!------------ AV1245, used for calculating aromaticity of large ring
 !!-------------------------------------------------------------------
@@ -4765,7 +4554,6 @@ character c2000tmp*2000
 integer,allocatable :: atmarr(:),atmarrorg(:)
 integer cenind(12)
 real*8,allocatable :: PSmat(:,:),PSmatA(:,:),PSmatB(:,:)
-
 iopsh=0
 if (allocated(CObasa)) then !Calculate AV1245 in original basis
     if (allocated(Palpha)) then !Open shell
@@ -4808,7 +4596,6 @@ else !Load NAO and DMNAO information
 end if
 iMCBOtype_old=iMCBOtype
 iMCBOtype=2
-
 do while(.true.)
     write(*,*)
     write(*,*) "          ------- AV1245 (Phys. Chem. Chem. Phys., 18, 11839) -------"
@@ -4911,13 +4698,8 @@ do while(.true.)
     !write(*,"(a,f14.8)") " AV1245 times 1000 for the selected atoms is",totval*1000*0.635 !mimic data of AV1245 paper
     deallocate(atmarr)
 end do
-
 iMCBOtype=iMCBOtype_old
 end subroutine
-
-
-
-
 !!------  Bond order density (BOD) and natural adaptive orbitals (NAdOs) analyses
 subroutine BOD
 use defvar
@@ -4929,14 +4711,12 @@ real*8,allocatable :: BOM1b(:,:),BOM2b(:,:),AOM1b(:,:),AOM2b(:,:)
 real*8,allocatable :: eigvecmat(:,:),eigvalarr(:)
 real*8 tmparr(nbasis)
 character c80tmp*80,c200tmp*200,selectyn
-
 if (wfntype>=2) then !Only for R and U SCF currently
     write(*,"(a)") " Error: Only restricted and unresticted single-determinant wavefunction is not supported!"
     write(*,*) "Press ENTER button to return"
     read(*,*)
     return
 end if
-
 !User may use basin analysis module before, which called "delvirorb" routine and some arrays were modified
 if (imodwfn==1) then
     write(*,"(a)") " The wavefunction has been modified previously. Reloading "//trim(filename)//" to recover initial status..."
@@ -4944,14 +4724,12 @@ if (imodwfn==1) then
     call readinfile(filename,1)
 end if
 call getHOMOidx
-
 write(*,*)
 write(*,*) "            ======= bond order density calculation analysis ======="
 write(*,*) "0 Return"
 write(*,*) "1 Use atomic overlap matrix (AOM) outputted by fuzzy/basin analysis module"
 write(*,*) "2 Use basin overlap matrix (BOM) outputted by basin analysis module"
 read(*,*) isel
-
 if (isel==0) then
     return
 else if (isel==1) then
@@ -5003,7 +4781,6 @@ else if (isel==1) then
     end if
     close(10)
     write(*,*) "AOMs of the two atoms have been successfully loaded"
-
 else if (isel==2) then
     write(*,*) "Input the path of the file containing BOM, e.g. C:\BOM.txt"
     write(*,*) "If press ENTER button directly, BOM.txt in current folder will be loaded"
@@ -5056,10 +4833,8 @@ else if (isel==2) then
     close(10)
     write(*,*) "BOMs of the two basins have been successfully loaded"
 end if
-
 write(*,*)
 write(*,*) "Generating natural adaptive orbitals (NAdOs)..."
-
 !Deal with closed-shell case or alpha part of unrestricted wavefunction
 allocate(BODmat(idxHOMO,idxHOMO))
 if (isel==1) BODmat=matmul(AOM1,AOM2)+matmul(AOM2,AOM1)
@@ -5084,7 +4859,6 @@ else
     write(*,"(a,f10.5,a)") " Eigenvalues of alpha NAdOs: (sum=",sum(eigvalarr)," )"
     write(*,"(7f10.5)") eigvalarr
 end if
-
 if (wfntype==1) then !Deal with beta part of unrestricted wavefunction
     !nborb is the number of occupied beta orbitals
     allocate(BODmatb(nborb,nborb))
@@ -5105,7 +4879,6 @@ if (wfntype==1) then !Deal with beta part of unrestricted wavefunction
     write(*,"(a,f10.5,a)") " Eigenvalues of beta NAdOs: (sum=",sum(eigvalarr)," )"
     write(*,"(7f10.5)") eigvalarr
 end if
-
 call outmwfn("NAdOs.mwfn",10,0)
 write(*,"(/,a)") " All NAdO orbitals has been exported to NAdOs.mwfn in current folder"
 write(*,*) "Do you want to load it now so that you can visualize NAdOs? (y/n)"
@@ -5120,5 +4893,4 @@ else
     call readinfile(filename,1)
     write(*,*) "Loading finished!"
 end if
-
 end subroutine
