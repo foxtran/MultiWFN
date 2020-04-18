@@ -1,7 +1,6 @@
 !------ Integrate fuzzy atomic space
 !Normally iwork=0. If iwork=1, directly choose isel==4 to calculate delocalization index in fuzzy atomic spase (namely fuzzy bond order, see statement in JPCA,110,5108 below Eq.9) and then return
 !If iwork=2, directly choose isel==8 to calculate Laplacian bond order and then return
-!
 !The integration grid is directly controlled by sphpot and radpot in settings.ini, since integrand may be not proportional to electron density,
 !the grid will not be adjusted automatically as proposed by Becke for more efficient integration of XC functional
 subroutine intatomspace(iwork)
@@ -34,17 +33,14 @@ real*8 hess(3,3),rhogradw(3)
 character :: radfilename*200,selectyn,c80inp*80,specatmfilename*80,c200tmp*200,c2000tmp*2000
 real*8,external :: fdens_rad
 integer,allocatable :: aromatatm(:)
-
 if (ispecial==2) then
 	ipartition=2 !Use Hirshfeld for shubin's 2nd project
 	expcutoff=1 !Full accuracy
 end if
-
 do i=1,ncenter !Initialize the list of the atoms to be integrated
 	atmcalclist(i)=i
 end do
 natmcalclist=ncenter
-
 if (all(covr_becke==0D0)) then
 	if (iraddefine==-1) covr_becke=covr_tianlu !The first time
 	if (iraddefine==1) covr_becke=covr
@@ -61,12 +57,9 @@ end if
 !Backup original grid setting, because calculating bond order may use lower grid quality
 nradpotold=radpot
 nsphpotold=sphpot
-
-
 !==== Interface loop ====!
 !==== Interface loop ====!
 do while(.true.) 
-
 !For some functions, e.g. calculate DI, it is safe to use relatively low grid quality for saving time,
 !so sphpot and radpot may be adjusted automatically, but each time enter main interface we recover the ones set by users
 radpot=nradpotold
@@ -114,23 +107,18 @@ if (iwork==0) then
 		write(*,*) "104 The same as 99, but also calculate relative g1,g2,g3"
 	end if
 	read(*,*) isel
-	
 else if (iwork==1) then
 	isel=4 !Directly calculate delocalization index
 else if (iwork==2) then
 	isel=8 !Directly calculate Laplacian bond order
 end if
-
-
 !!===================================
 !!--------- Adjust settings ---------
 !!===================================
 if (isel==0) then
 	exit
-	
 else if (isel==101) then
 	call intHirsh_molgrid
-	
 else if (isel==-11) then
 	if (numcp>0) then
 		write(*,*) "Summary of found CPs (in Bohr):"
@@ -146,7 +134,6 @@ else if (isel==-11) then
 	else
 		write(*,*) "Error: No CPs have been found"
 	end if
-	
 else if (isel==-10) then
 	write(*,*) "Input X,Y,Z of reference point, e.g. 3.0,-4.12,0.0"
 	read(*,*) refx,refy,refz
@@ -157,7 +144,6 @@ else if (isel==-10) then
 		refy=refy/b2a
 		refz=refz/b2a
 	end if
-	
 else if (isel==-5) then
 	do while(.true.)
 		write(*,*) "Input atom indices, e.g. 1,3-7,9,12"
@@ -172,7 +158,6 @@ else if (isel==-5) then
 	write(*,*) "Done! The atoms you chose:"
 	write(*,"(10i6)") atmcalclist(1:natmcalclist)
 	write(*,*)
-	
 else if (isel==-4) then
 	write(*,*) "Current FLU reference paramters:"
 	do iref=1,nelesupp
@@ -191,7 +176,6 @@ else if (isel==-4) then
 		FLUref(jtmp,itmp)=refval
 		write(*,*) "Done!"
 	end do
-	
 else if (isel==-3) then
 	nbeckeiterold=nbeckeiter
 	write(*,*) "Do how many times of iteration? e.g. 3"
@@ -201,7 +185,6 @@ else if (isel==-3) then
 		if (allocated(AOM)) deallocate(AOM,AOMsum)
 		if (allocated(AOMa)) deallocate(AOMa,AOMb,AOMsuma,AOMsumb)
 	end if
-	
 else if (isel==-2) then
 	if (allocated(AOM)) deallocate(AOM,AOMsum)
 	if (allocated(AOMa)) deallocate(AOMa,AOMb,AOMsuma,AOMsumb)
@@ -216,7 +199,6 @@ else if (isel==-2) then
 		write(*,*) "10 Read radii from external file"
 		write(*,*) "11 Modify current radii by manual input"
 		write(*,*) "12 Print current radii list"
-		
 		read(*,*) iselrad
 		if (iselrad==-1) then
 			covr_becke=covr_TianLu
@@ -277,7 +259,6 @@ else if (isel==-2) then
 			end do
 		end if
 	end do
-	
 else if (isel==-1) then
 	ipartitionold=ipartition
 	write(*,*) "Select atomic space partition method"
@@ -303,12 +284,9 @@ else if (isel==-1) then
 	end if
 end if
 if (isel==101.or.isel<0) cycle
-
-
 !!=======================================
 !!--------- Prepare calculation ---------
 !!=======================================
-
 if (isel==1.or.isel==8) then !Select which function to be integrated in single atomic space or overlap between two atomic spaces
 	if (isel==8.and.ipartition/=1) then
 		write(*,"(a)") " Error: Only the fuzzy atomic space defined by Becke can be used together with this function"
@@ -328,7 +306,6 @@ else if (isel==2) then !Multipole moment integral needs electron density
 	ifunc=1
 	write(*,*) "Note: All units below are in a.u."
 	write(*,*)
-	
 !AOM,LI/DI,PDI,FLU/-pi/CLRK/PLR/Multicenter DI. Note: MO values will be generated when collecting data
 else if (isel==3.or.isel==4.or.isel==5.or.isel==6.or.isel==7.or.isel==9.or.isel==10.or.isel==11) then
 	!Even (30,110) can be used for fuzzy bond order, so (45,170) is absolutely enough
@@ -413,9 +390,6 @@ else if (isel==12) then
 	allocate(aromatatm(naromatatm))
 	call str2arr(c2000tmp,naromatatm,aromatatm)
 end if
-
-
-
 !!=======================================
 !!---------------------------------------
 !!--------- Start calculation -----------
@@ -432,17 +406,13 @@ write(*,"(' Radial points:',i5,'    Angular points:',i5,'   Total:',i10,' per ce
 write(*,*) "Please wait..."
 write(*,*)
 call walltime(nwalltime1)
-
 call Lebedevgen(sphpot,potx,poty,potz,potw)
-
 !! Cycle each atom !!!! Cycle each atom !!!! Cycle each atom !!!! Cycle each atom !!
 do iatm=1,ncenter
 	!Show progress for integrating function. For electric multipole moment integration the process is not shown, because it prints data in the process
 	if (isel/=2) write(*,"(' Progress:',i6,'   /',i6)") iatm,ncenter
-
 	if ( (isel==1.or.isel==2).and.all(atmcalclist(1:natmcalclist)/=iatm) ) cycle
 	if (isel==12.and.all(aromatatm/=iatm)) cycle
-
 	!Prepare grid points on current center
 	iradcut=0 !Before where the radial points will be cut
 	parm=1D0
@@ -460,7 +430,6 @@ do iatm=1,ncenter
 	gridatm%x=gridatm%x+a(iatm)%x !Move quadrature point to actual position in molecule
 	gridatm%y=gridatm%y+a(iatm)%y
 	gridatm%z=gridatm%z+a(iatm)%z
-	
 	!For integrating real space function (1,8), calculate selected function value at each point here
 	!For multipole moment integration (2), calculate electron density here
     !For information-theoretic aromaticity index (12), calculate selected information density at each point here
@@ -475,7 +444,6 @@ do iatm=1,ncenter
 			end if
 		end do
 		!$OMP end parallel do
-		
 		!Calculate deformation density. We have calculated total density, thus now minusing it by each atomic density in free-state
 		if ((isel==1.or.isel==8).and.ifunc==-2) then
 			do jatm=1,ncenter_org !Calc free atomic density
@@ -504,7 +472,6 @@ do iatm=1,ncenter
 		end do
 		!$OMP end parallel do
 	end if
-	
 	!Calculate "iatm" atomic space weight at all points around it (recorded in atmspcweight), which will be used later
 	!Also integrate fuzzy overlap region here (only available for Becke partition)
 	if (ipartition==1) then !Becke partition
@@ -546,7 +513,6 @@ do iatm=1,ncenter
 			end do
 			Pvec=Pvec/sum(Pvec)
 			atmspcweight(i)=Pvec(iatm) !Normalized Pvec, Pvec contain partition weight of each atom in current point, namely i
-			
 			if (isel==8) then !Integration between two fuzzy atoms
 				tmpval=Pvec(iatm)*funcval(i)*gridatm(i)%value
 				!if (ELF_LOL(rnowx,rnowy,rnowz,"LOL")>0.7D0) then
@@ -810,7 +776,6 @@ do iatm=1,ncenter
 		xintacc=xintacc+xint
 		yintacc=yintacc+yint
 		zintacc=zintacc+zint
-	
 	!Calculate atomic overlap matrix (AOM) for all tasks that require it
 	else if (isel==3.or.isel==4.or.isel==5.or.isel==6.or.isel==7.or.isel==9.or.isel==10.or.isel==11) then
 		if (wfntype==0.or.wfntype==2.or.wfntype==3) then !RHF,ROHF,R-post-HF
@@ -869,14 +834,9 @@ do iatm=1,ncenter
 			end if
 		end if
 	end if
-	
 end do !End cycling atoms
-
 call walltime(nwalltime2)
 write(*,"(' Calculation took up',i8,' seconds wall clock time')") nwalltime2-nwalltime1
-
-
-
 !==== Check sanity of AOM ====!
 if (isel==3.or.isel==4.or.isel==5.or.isel==6.or.isel==7.or.isel==9.or.isel==10.or.isel==11) then
 	if (wfntype==0.or.wfntype==2.or.wfntype==3) then !RHF,ROHF,R-post-HF
@@ -902,7 +862,6 @@ if (isel==3.or.isel==4.or.isel==5.or.isel==6.or.isel==7.or.isel==9.or.isel==10.o
 		you need to set ""iautointgrid"" to 0 and proper set ""radpot"" and ""sphpot"" parameters"		
 	end if
 end if
-
 !==== Generate DI, LI or condensed linear response kernel (CLRK) ====!
 !DI-pi will be calculated for FLU-pi at later stage
 !Multicenter DI will be calculated at later stage
@@ -913,7 +872,7 @@ end if
 		write(*,*) "Press ENTER button to continue"
 		read(*,*)
 	end if
-	!RHF,R-post-HF, DI_A,B=2¡Æ[i,j]dsqrt(n_i*n_j)*S_i,j_A * S_i,j_B     where i and j are non-spin orbitals
+	!RHF,R-post-HF, DI_A,B=2[i,j]dsqrt(n_i*n_j)*S_i,j_A * S_i,j_B     where i and j are non-spin orbitals
 	if (wfntype==0.or.wfntype==3) then
 		DI=0D0
 		do iatm=1,ncenter
@@ -970,7 +929,7 @@ end if
 		!Combine alpha and Beta to total
 		DI=DIa+DIb
 		LI=LIa+LIb
-	!UHF,U-post-HF   DI(A,B)=2¡Æ[i,j]dsqrt(n_i*n_j)*S_i,j_A * S_i,j_B   where i and j are spin orbitals
+	!UHF,U-post-HF   DI(A,B)=2[i,j]dsqrt(n_i*n_j)*S_i,j_A * S_i,j_B   where i and j are spin orbitals
 	else if (wfntype==1.or.wfntype==4) then
 		!Alpha
 		DIa=0D0
@@ -1014,7 +973,6 @@ end if
 		DI=DIa+DIb
 		LI=LIa+LIb
 	end if
-	
 else if (isel==9.or.isel==10) then !Calculate condensed linear response kernel, PLR also uses it
 	CLRK=0D0
 	do iatm=1,ncenter
@@ -1034,10 +992,6 @@ else if (isel==9.or.isel==10) then !Calculate condensed linear response kernel, 
 		CLRK(iatm,iatm)=CLRK(iatm,iatm)/2D0
 	end do
 end if
-
-
-
-
 !!====================================================
 !!------- Statistic results or post-processing -------
 !!====================================================
@@ -1059,7 +1013,6 @@ if (isel==1) then
 		write(*,"(' Summing up above values:',f20.8)") sumval
 		write(*,"(' Summing up absolute value of above values:',f20.8)") sumabsval
 	end if
-	
 else if (isel==99.or.isel==104) then !SPECIAL: Relative Shannon and Fisher entropy and 2nd-order term
 	write(*,*) "Relative Shannon entropy and relative Fisher information w.r.t. its free-state"
 	write(*,*) "   Atom           Rel.Shannon       Rel.Fisher(old)   Rel.Fisher(new)"
@@ -1116,7 +1069,6 @@ else if (isel==103) then !SPECIAL: Quadratic and cubic Renyi relative entropy
 	write(*,*)
 	write(*,"(' Molecular quadratic Renyi relative entropy:',f18.8)") -log10(sum(rintval(:,1)))
 	write(*,"(' Molecular cubic Renyi relative entropy:    ',f18.8)") -log10(sum(rintval(:,2)))
-		
 else if (isel==2) then !Multipole moment integration
 	write(*,"(' Total number of electrons:',f14.6)") -sum(atmmono)
 	xmoldip=-xintacc+sum(a(:)%x*(atmmono(:)+a(:)%charge))
@@ -1126,7 +1078,6 @@ else if (isel==2) then !Multipole moment integration
 	write(*,"(' Molecular dipole moment (Debye):',3f14.6)") xmoldip*au2debye,ymoldip*au2debye,zmoldip*au2debye
 	xmoldipmag=sqrt(xmoldip**2+ymoldip**2+zmoldip**2)
 	write(*,"(' Magnitude of molecular dipole moment (a.u.&Debye):',2f14.6)") xmoldipmag,xmoldipmag*au2debye
-	
 else if (isel==3) then !Output AOM
 	open(10,file="AOM.txt",status="replace")
 	if (wfntype==0.or.wfntype==2.or.wfntype==3) then
@@ -1148,7 +1099,6 @@ else if (isel==3) then !Output AOM
 	end if
 	close(10)
 	write(*,*) "Done, AOM have been exported to AOM.txt in current folder"
-	
 else if (isel==4) then !Show LI and DI or fuzzy bond order
 	if (iwork==0) then !Output LI and DI
 		write(*,"(a)") " Note: Delocalization index in fuzzy atomic space is also known as fuzzy bond order"
@@ -1211,7 +1161,6 @@ else if (isel==4) then !Show LI and DI or fuzzy bond order
 				exit
 			end if
 		end do
-		
 	else if (iwork==1) then !Output fuzzy bond order
 		write(*,"(' The total bond order >=',f10.6)") bndordthres
 		itmp=0
@@ -1283,7 +1232,6 @@ else if (isel==4) then !Show LI and DI or fuzzy bond order
 		sphpot=nsphpotold
 		return !Fuzzy bond order has been shown, now (normally) return to bond order analysis interface
 	end if
-	
 else if (isel==5) then !PDI
 	call showmatgau(DI,"Delocalization index matrix",0,"f14.8")
 	write(*,"(a)") " Note: Diagonal terms are the sum of corresponding row or column elements, for closed-shell cases, these also known as atomic valence"
@@ -1299,7 +1247,6 @@ else if (isel==5) then !PDI
 		write(*,"(' Delocalization index of ',i5,'(',a,')   --',i5,'(',a,'):',f12.6)") PDIatom(3),a(PDIatom(3))%name,PDIatom(6),a(PDIatom(6))%name,DI(PDIatom(3),PDIatom(6))
 		write(*,"(' PDI value is',f12.6)") ( DI(PDIatom(1),PDIatom(4))+DI(PDIatom(2),PDIatom(5))+DI(PDIatom(3),PDIatom(6)) )/3D0
 	end do
-	
 else if (isel==6) then !FLU
 	call showmatgau(DI,"Delocalization index matrix",0,"f14.8")
 	write(*,"(a)") " Note: Diagonal terms are the sum of corresponding row or column elements, for closed-shell cases, these also known as atomic valence"
@@ -1339,12 +1286,11 @@ else if (isel==6) then !FLU
 		end do
 		write(*,"(' FLU value is',f12.6)") FLUval
 	end do
-	
 else if (isel==7) then !FLU-pi
 	write(*,*) "Which occupied orbitals are pi orbitals? Input their indices, e.g. 17,20,21"
 	read(*,"(a)") c80inp
 	call str2arr(c80inp,nFLUorb,FLUorb)
-	!Generate DI for pi orbitals. DI_A,B=2¡Æ[i,j]dsqrt(n_i*n_j)*S_i,j_A * S_i,j_B     where i and j are non-spin orbital
+	!Generate DI for pi orbitals. DI_A,B=2[i,j]dsqrt(n_i*n_j)*S_i,j_A * S_i,j_B     where i and j are non-spin orbital
 	DI=0D0
 	do iatm=1,ncenter
 		do jatm=iatm+1,ncenter
@@ -1398,7 +1344,6 @@ else if (isel==7) then !FLU-pi
 		end do
 		write(*,"(' FLU-pi value is',f12.6)") FLUval
 	end do
-	
 else if (isel==8) then !Integral in overlap region
 	ovlpintpos=ovlpintpos+transpose(ovlpintpos)
 	ovlpintneg=ovlpintneg+transpose(ovlpintneg)
@@ -1483,7 +1428,6 @@ else if (isel==8) then !Integral in overlap region
 			write(*,*) "Done, the matrices have been outputted to intovlp.txt in current folder"
 		end if
 	end if
-	
 else if (isel==9) then !CLRK
 	call showmatgau(CLRK,"Condensed linear response kernel (CLRK) matrix",0,"f14.8")
 	write(*,*)
@@ -1495,7 +1439,6 @@ else if (isel==9) then !CLRK
 		close(10)
 		write(*,*) "Done, the CLRK matrix has been outputted to CLRK.txt in current folder"
 	end if
-	
 else if (isel==10) then !PLR
 	call showmatgau(CLRK,"Condensed linear response kernel (CLRK) matrix",0,"f14.8")
 	write(*,*)
@@ -1510,7 +1453,6 @@ else if (isel==10) then !PLR
 		write(*,"(' CLRK of ',i5,'(',a,')   --',i5,'(',a,'):',f12.6)") PLRatom(3),a(PLRatom(3))%name,PLRatom(6),a(PLRatom(6))%name,CLRK(PLRatom(3),PLRatom(6))
 		write(*,"(' PLR index is',f12.6)") ( CLRK(PLRatom(1),PLRatom(4))+CLRK(PLRatom(2),PLRatom(5))+CLRK(PLRatom(3),PLRatom(6)) )/3D0
 	end do
-	
 else if (isel==11) then !Multicenter DI
 	do while(.true.)
 		write(*,*) "Input atom indices, e.g. 3,4,7,8,10    (Up to 10 atoms)"
@@ -1716,7 +1658,6 @@ else if (isel==11) then !Multicenter DI
 		write(*,"(' Multicenter DI:',f13.7,/)") DImulti
 		write(*,"(' Multicenter DI in normalized form: ',f13.7,/)") DImulti**(1D0/nDIcen)
 	end do
-	
 else if (isel==12) then !Information-theoretic defined aromaticity
 	valavg=0
 	do idx=1,naromatatm
@@ -1727,12 +1668,5 @@ else if (isel==12) then !Information-theoretic defined aromaticity
 	end do
 	write(*,"(' The result (average of above data) is',f12.6)") valavg/naromatatm
 end if
-	
 end do !End interface loop
-
 end subroutine
-
-
-
-
-
