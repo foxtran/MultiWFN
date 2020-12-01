@@ -1,5 +1,7 @@
 *       text=auto eol=lf
 
+*.h     text diff=fortran linguist-language=Fortran-Free-Form eol=lf
+
 *.f     text diff=fortran linguist-language=Fortran           eol=lf
 *.f77   text diff=fortran linguist-language=Fortran           eol=lf
 *.f90   text diff=fortran linguist-language=Fortran-Free-Form eol=lf
