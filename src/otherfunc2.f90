@@ -3836,7 +3836,7 @@ do while(.true.)
 		open(10,file="domain.pdb",status="replace")
 		do igrd=1,domainsize(idomain)
 			idx=domaingrid(idomain,igrd)
-			if (boundgrid(idx)==.true.) then
+			if (boundgrid(idx)) then
 				xnow=gridxyz(idx,1)
 				ynow=gridxyz(idx,2)
 				znow=gridxyz(idx,3)

@@ -123,7 +123,7 @@ if (index(filename,"multiple.txt")/=0) then !Multiple file list with weights is 
 		nsystem=nsystem+1
         
 		inquire(file=c200tmp,exist=alive)
-		if (alive==.false.) then
+		if (.not.alive) then
 			write(*,"(' Error: Cannot find ',a)") trim(c200tmp)
 			if (index(c200tmp,'/')/=0) then
 				write(*,*) "Reminder: Since the file path contains / symbol, you should add "" at the two ends of the path, so that the file can be properly loaded"
@@ -362,7 +362,7 @@ do while(.true.)
         read(*,"(a)") c200tmp
         if (c200tmp==" ") c200tmp="spectrum.dat"
 	    inquire(file=c200tmp,exist=alive)
-	    if (alive==.false.) then
+	    if (.not.alive) then
 	        write(*,*) "Error: Cannot find the file! Press ENTER button to return"
             read(*,*)
             cycle
@@ -2335,7 +2335,7 @@ if (index(filename,"multiple.txt")/=0) then !Load multiple systems
 			if (mollegend(i)(1:1)=='$') mollegend(i)=mollegend(i)(2:)
 		end if
 		inquire(file=c200tmp,exist=alive)
-		if (alive==.false.) then
+		if (.not.alive) then
 			write(*,"(' Error: Cannot find ',a)") trim(c200tmp)
 			if (index(c200tmp,'/')/=0) then
 				write(*,*) "Reminder: Since the file path contains / symbol, you should add "" at the two ends of the path, so that the file can be properly loaded"
@@ -2533,7 +2533,7 @@ do while(.true.)
         read(*,"(a)") c200tmp
         if (c200tmp==" ") c200tmp="NMR.dat"
 	    inquire(file=c200tmp,exist=alive)
-	    if (alive==.false.) then
+	    if (.not.alive) then
 	        write(*,*) "Error: Cannot find the file! Press ENTER button to return"
             read(*,*)
             cycle

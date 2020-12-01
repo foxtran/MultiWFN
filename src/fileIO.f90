@@ -58,7 +58,7 @@ else if (thisfilename(inamelen-2:inamelen)=="chk") then
 		stop
 	end if
 	inquire(file=formchkpath,exist=alive)
-	if (alive==.false.) then
+	if (.not.alive) then
 		write(*,"(a)") " Note: Albeit ""formchkpath"" parameter in settings.ini has been defined, &
 		the formchk executable file cannot be located, therefore the .chk file cannot be directly opened by Multiwfn"
 		write(*,*) "Press ENTER button to exit"
@@ -97,7 +97,7 @@ else if (thisfilename(inamelen-2:inamelen)=="gbw") then
 		stop
 	end if
 	inquire(file=orca_2mklpath,exist=alive)
-	if (alive==.false.) then
+	if (.not.alive) then
 		write(*,"(a)") " Note: Albeit ""orca_2mklpath"" parameter in settings.ini has been defined, &
 		the orca_2mkl executable file cannot be located, therefore the .gbw file cannot be directly opened by Multiwfn"
 		write(*,*) "Press ENTER button to exit"
@@ -2806,7 +2806,9 @@ read(10,*)
 read(10,*) a%charge
 call loclabel(10,"<Nuclear Cartesian Coordinates>")
 read(10,*)
-read(10,*) ((a(i)%x,a(i)%y,a(i)%z),i=1,ncenter)
+do i=1,ncenter
+  read(10,*) a(i)%x,a(i)%y,a(i)%z
+enddo
 call loclabel(10,"<Number of Electrons>")
 read(10,*)
 read(10,*) nelec
@@ -6978,9 +6980,9 @@ call getarg_str("-set",settingpath,ifound)
 
 if (ifound==0) then
     inquire(file="settings.ini",exist=alive)
-    if (alive==.true.) then
+    if (alive) then
 	    settingpath="settings.ini"
-    else if (alive==.false.) then
+    else if (.not.alive) then
 	    call getenv("Multiwfnpath",c80tmp)
 	    if (isys==1) then
 		    settingpath=trim(c80tmp)//"\settings.ini"
@@ -6988,7 +6990,7 @@ if (ifound==0) then
 		    settingpath=trim(c80tmp)//"/settings.ini"
 	    end if
 	    inquire(file=settingpath,exist=alive)
-	    if (alive==.false.) then
+	    if (.not.alive) then
 		    write(*,"(a)") " Warning: ""settings.ini"" was found neither in current folder nor in the path defined by ""Multiwfnpath"" &
 		    environment variable. Now using default settings instead"
 		    write(*,*)

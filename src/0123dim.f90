@@ -215,7 +215,7 @@ else !Common case
 		    alive=.false.
 		    if (cubegenpath/=" ".and.ifiletype==1.and.isel==12) then
 			    inquire(file=cubegenpath,exist=alive)
-			    if (alive==.false.) then
+			    if (.not.alive) then
 				    write(*,"(a)") " Note: Albeit current file type is fch/fchk/chk and ""cubegenpath"" parameter in settings.ini has been defined, &
 				    the cubegen cannot be found, therefore electrostatic potential will still be calculated using internal code of Multiwfn"
 			    end if
@@ -2405,7 +2405,7 @@ do while(.true.)
 		do while(.true.)
 			read(*,"(a)") extctrsetting
 			inquire(file=extctrsetting,exist=alive)
-			if (alive==.true.) exit
+			if (alive) exit
 			write(*,*) "File not found, input again"
 		end do
 		open(10,file=extctrsetting,status="old")

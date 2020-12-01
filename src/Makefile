@@ -1,11 +1,10 @@
-SIMD = -msse3
-OPT = -O2 -qopenmp -qopenmp-link=static -threads -qopt-matmul $(SIMD) -diag-disable 8290,8291,6371,10316 -fpp -mkl -static-intel
+OPT = -O2 -fopenmp -ffree-line-length-none -cpp
 #Options in the next line is for debugging purpose
 #OPT = -O0 -qopenmp -diag-disable 8290,8291,6371 -threads -qopenmp-link=static -debug all -g -traceback -check all -fstack-protector -fpp -mkl -static-intel
 
-LIB = ./dislin_d-11.0.a -lXm -lXt -lX11 -lGL #Works for CentOS 7.x
-FC = ifort
-EXE = Multiwfn
+LIB = ./dislin_d-11.0.a -lXm -lXt -lX11 -lGL -lblas -llapack #Works for CentOS 7.x
+FC = gfortran
+EXE = gMultiwfn
 LIBRETAPATH = ./libreta_slow
 
 objects = define.o util.o plot.o Bspline.o sym.o libreta.o function.o GUI.o sub.o integral.o Lebedev-Laikov.o \
@@ -168,7 +167,7 @@ ean.o: ${LIBRETAPATH}/ean.f90 hrr_012345.o eanvrr_012345.o boysfunc.o ${LIBRETAP
 	$(FC) $(OPT) -c ${LIBRETAPATH}/ean.f90
 
 hrr_012345.o: ${LIBRETAPATH}/hrr_012345.f90
-	$(FC) -O2 -diag-disable 6843 $(SIMD) -c ${LIBRETAPATH}/hrr_012345.f90
+	$(FC) $(OPT) -c ${LIBRETAPATH}/hrr_012345.f90
 
 eanvrr_012345.o: ${LIBRETAPATH}/eanvrr_012345.f90 boysfunc.o
 	$(FC) $(OPT) -c ${LIBRETAPATH}/eanvrr_012345.f90

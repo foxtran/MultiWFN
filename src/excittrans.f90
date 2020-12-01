@@ -1129,7 +1129,7 @@ use function
 implicit real*8 (a-h,o-z)
 integer :: idomag=0
 real*8 orbval(nmo),wfnderv(3,nmo)
-integer,allocatable :: skippair(:) !Record which orbital pairs will be ignored due to negligible coefficient
+logical,allocatable :: skippair(:) !Record which orbital pairs will be ignored due to negligible coefficient
 real*8,allocatable :: holegrid(:,:,:),elegrid(:,:,:),Sm(:,:,:),Sr(:,:,:),transdens(:,:,:),holecross(:,:,:),elecross(:,:,:),Cele(:,:,:),Chole(:,:,:),magtrdens(:,:,:,:)
 real*8,allocatable :: cubx(:),cuby(:),cubz(:) !Used to calculate Coulomb attractive energy
 character cubsuff*12
@@ -1257,14 +1257,14 @@ do k=1,nz
 				! Currently only take below cases into account:
 				! Cross term of hole (do <i|j>):     i->l,j->l substract i<-l,j<-l
 				! Cross term of electron (do <l|m>): i->l,i->m substract i<-l,i<-m
-				if (skippair(iexcitorb)==.true.) cycle
+				if (skippair(iexcitorb)) cycle
 				ileft=orbleft(iexcitorb)
 				iright=orbright(iexcitorb)
 				tmpleft=exccoeff(iexcitorb)*orbval(ileft) !Use temporary variable to save the time for locating element
 				tmpright=exccoeff(iexcitorb)*orbval(iright)
 				idir=excdir(iexcitorb)
 				do jexcitorb=1,excnorb
-					if (skippair(jexcitorb)==.true.) cycle
+					if (skippair(jexcitorb)) cycle
 					jleft=orbleft(jexcitorb)
 					jright=orbright(jexcitorb)
 					jdir=excdir(jexcitorb)
@@ -4282,7 +4282,7 @@ do while(.true.)
 			imo=orbleft(iexcitorb)
 			jmo=orbright(iexcitorb)
 			strdir=" ->"
-			if (excdir(iexcitorb)==2) strtmp1=" <-"
+			if (excdir(iexcitorb)==2) strdir=" <-"
 			if (wfntype==0.or.wfntype==3) then
 				write(10,"(i8,i7,a,i7,f12.6,3x,3f11.6)") iexcitorb,imo,strdir,jmo,exccoeff(iexcitorb),dipcontri(:,iexcitorb)
 			else
