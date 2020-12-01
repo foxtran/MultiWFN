@@ -18,6 +18,7 @@ use util
 implicit real*8 (a-h,o-z)
 character c2000tmp*2000
 character :: MPApath*200=" "
+
 if (ifragcontri==1) then
 	write(*,*) "Population analysis function could not be used combining with self-defined fragment"
 else
@@ -55,6 +56,7 @@ else
 		write(*,*) "18 Restrained ElectroStatic Potential (RESP) atomic charge"
         write(*,*) "19 Gasteiger (PEOE) charge"
 		read(*,*) ipopsel
+		
 		if (ipopsel==0) then
 			if (allocated(frag1)) deallocate(frag1)
 			return
@@ -171,6 +173,8 @@ else
 	end do
 end if
 end subroutine
+
+
 !!---------- Calculate Coulomb interaction between two fragment based on atomic charges in .chg file
 subroutine coulint_atmchg
 use defvar
@@ -202,6 +206,9 @@ do while(.true.)
 	write(*,"(' Electrostatic interaction energy:',f12.2,' kJ/mol',f12.2,' kcal/mol',/)") eleint*au2kJ,eleint*au2kcal
 end do
 end subroutine
+
+
+
 !!---------- Modified Mulliken population analysis defined by Bickelhaupt
 subroutine Bickelhaupt
 use defvar
@@ -236,6 +243,7 @@ do itime=1,2
 	end do
 	if (wfntype==0.or.wfntype==3) exit
 end do
+
 if (wfntype==0.or.wfntype==3) then
 	do iatm=1,ncenter
 		write(*,"(' Atom',i6,'(',a2,')','  Population:',f12.8,'  Atomic charge:',f12.8)") iatm,a(iatm)%name,atmeletot(iatm),a(iatm)%charge-atmeletot(iatm)
@@ -252,15 +260,20 @@ else if (wfntype==1.or.wfntype==2.or.wfntype==4) then
 	end do
 	write(*,"(' Total net charge:',f12.8,'      Total spin electrons:',f12.8)") sum(a(:)%charge)-sum(atmeletot(:)),sum(atmelea(:))-totbetapop
 end if
+
 !Show fragment information
 if (allocated(frag1)) then
-	write(*,"(/,' Fragment charge:',f12.8)") sum(a(frag1)%charge-atmeletot(frag1))
-	write(*,"(' Fragment population:',f12.8)") sum(atmeletot(frag1))
+	write(*,"(/,' Fragment charge:',f14.8)") sum(a(frag1)%charge-atmeletot(frag1))
+	write(*,"(' Fragment population:',f14.8)") sum(atmeletot(frag1))
 	if (wfntype==1.or.wfntype==2.or.wfntype==4) write(*,"(' Fragment spin population:',f12.8)") sum(spinpop(frag1))
 end if
+
 write(*,*)
 call outatmchg(10,a(:)%charge-atmeletot(:))
 end subroutine
+
+
+
 !!---------- Modified Mulliken population analysis
 ! isel=1 :Defined by Ros & Schuit (SCPA)"
 ! isel=2 :Defined by Stout & Politzer
@@ -323,8 +336,8 @@ if (wfntype==0.or.wfntype==3) then
 	end do
 	write(*,"(' Total net charge:',f12.8)") sum(a(:)%charge)-sum(atmelea(:))
 	if (allocated(frag1)) then
-        write(*,"(/,' Fragment charge:',f12.8)") sum(a(frag1)%charge-atmelea(frag1))
-        write(*,"(' Fragment population:',f12.8)") sum(atmelea(frag1))
+        write(*,"(/,' Fragment charge:',f14.8)") sum(a(frag1)%charge-atmelea(frag1))
+        write(*,"(' Fragment population:',f14.8)") sum(atmelea(frag1))
     end if
 else if (wfntype==1.or.wfntype==2.or.wfntype==4) then
 	write(*,*) "    Atom      Alpha pop.    Beta pop.     Spin pop.      Charge"
@@ -333,18 +346,24 @@ else if (wfntype==1.or.wfntype==2.or.wfntype==4) then
 	end do
 	write(*,"(' Total net charge:',f12.8,'   Total spin electrons:',f12.8)") sum(a(:)%charge)-sum(atmelea(:))-sum(atmeleb(:)),sum(atmelea(:))-sum(atmeleb(:))
 	if (allocated(frag1)) then
-		write(*,"(/,' Fragment charge:',f12.8)") sum(a(frag1)%charge-atmelea(frag1)-atmeleb(frag1))
-        write(*,"(' Fragment population:',f12.8)") sum(atmelea(frag1)+atmeleb(frag1))
-		write(*,"(' Fragment spin population:',f12.8)") sum(atmelea(frag1)-atmeleb(frag1))
+		write(*,"(/,' Fragment charge:',f14.8)") sum(a(frag1)%charge-atmelea(frag1)-atmeleb(frag1))
+        write(*,"(' Fragment population:',f14.8)") sum(atmelea(frag1)+atmeleb(frag1))
+		write(*,"(' Fragment spin population:',f14.8)") sum(atmelea(frag1)-atmeleb(frag1))
 	end if
 end if
+
 write(*,*)
 if (wfntype==0.or.wfntype==3) then
     call outatmchg(10,a(:)%charge-atmelea(:))
 else
     call outatmchg(10,a(:)%charge-atmelea(:)-atmeleb(:))
 end if
+
 end subroutine
+
+
+
+
 !!--------- Mulliken/Lowdin population analysis & decompose to orbital contributions
 ! isel=1 Output Mulliken/Lowdin population
 ! isel=2 Output gross atomic population matrix and decompose it to orbital contributions
@@ -361,12 +380,14 @@ real*8,pointer :: ptmat(:,:)
 real*8,allocatable :: tmpmat(:,:),basmata(:,:),angorbpop(:,:),angorbpopa(:,:),angorbpopb(:,:)
 character selectyn,corbnum*6,cOcc*12
 character(LEN=*) MPApath
+
 if (MPApath==" ") then
 	ides=6
 else if (isel/=4) then
 	open(10,file=trim(MPApath),status="replace")
 	ides=10
 end if
+
 if (isel==1.or.isel==2.or.isel==4) then
 	allocate(tmpmat(nbasis,nbasis),basmata(nbasis,nbasis)) !basmata stores basis gross population of alpha part
 	do itime=1,3 !Total elec, alpha elec, beta elec
@@ -394,6 +415,7 @@ if (isel==1.or.isel==2.or.isel==4) then
 			groatmmat(ncenter+1,i)=sum(groatmmat(1:ncenter,i))
 		end do
 		totelec=0D0
+		
 		if (isel==1) then !Contract gross atomic population matrix and output population in each basis function/shell/atom
 			if (wfntype==0.or.wfntype==3) then !Notice that only perform once (itime=1)
 				allocate(angorbpop(ncenter,0:5)) !Record the population number in each angular moment orbitals, up to H
@@ -506,20 +528,23 @@ if (isel==1.or.isel==2.or.isel==4) then
 				write(ides,"(' Total net charge:',f12.8,'      Total spin electrons:',f12.8)") sum(charge),totspinpop
 			end if
 			if (itime==2) atmele(:)=groatmmat(ncenter+1,:) !Store alpha occupation of each atom to a temporary array
+			
 		else if (isel==2) then !Output gross atomic population matrix
 			if (itime==1) call showmatgau(groatmmat,"Total gross atomic population matrix",0,"f14.8",ides)
 			if (itime==2) call showmatgau(groatmmat,"Alpha gross atomic population matrix",0,"f14.8",ides)
 			if (itime==3) call showmatgau(groatmmat,"Beta gross atomic population matrix",0,"f14.8",ides)
 			write(ides,*)
 		end if
+		
 		if (wfntype==0.or.wfntype==3) exit !RHF or ROHF, don't continue to process alpha & beta respectively
 	end do
+	
 	!Show fragment information or some prompts
 	if (isel==1) then
 		write(*,*)
 		if (allocated(frag1)) then
-			write(ides,"(' Fragment charge:',f12.8)") sum(charge(frag1))
-            write(ides,"(' Fragment population:',f12.8)") sum(a(frag1)%charge) - sum(charge(frag1))
+			write(ides,"(' Fragment charge:',f14.8)") sum(charge(frag1))
+            write(ides,"(' Fragment population:',f14.8)") sum(a(frag1)%charge) - sum(charge(frag1))
 			if (wfntype==1.or.wfntype==2.or.wfntype==4) write(ides,"(' Fragment spin population:',f12.8)") sum(spinpop(frag1))
 			write(*,*)
 		end if
@@ -531,6 +556,7 @@ if (isel==1.or.isel==2.or.isel==4) then
 		close(10)
 		write(*,"(' Done! Data have been outputted to ',a,/)") trim(MPApath) 
 	end if
+	
 	!Decompose to orbital contributions
 	selectyn='n'
 	if (isel==2) then
@@ -610,9 +636,11 @@ if (isel==1.or.isel==2.or.isel==4) then
 			write(*,"(a)") " Done! The result have been outputted to atmpopdcp.txt in current folder"
 		end if
 	end if
+	
     call outatmchg(10,charge(:))
+		
 else if (isel==3) then
-	write(ides,*) "The (i,j) element corresponds to [imo] Occ(imo)*C(i,imo)*C(j,imo)*S(i,j)"
+	write(ides,*) "The (i,j) element corresponds to ¡Æ[imo] Occ(imo)*C(i,imo)*C(j,imo)*S(i,j)"
 	write(ides,*)
 	call showmatgau(Ptot*Sbas,"Total gross basis function population matrix",0,"f14.8",ides)
 	write(ides,*)
@@ -645,6 +673,7 @@ else if (isel==3) then
 				write(corbnum,"(i6)") imo
 				write(cOcc,"(f12.8)") MOocc(irealmo)
 				if (MOocc(irealmo)==0D0) cycle
+
 				do ii=1,nbasis
 					do jj=1,nbasis
 						tmpmat(ii,jj)=MOocc(irealmo)*ptmat(ii,imo)*ptmat(jj,imo)*Sbas(ii,jj)
@@ -669,6 +698,10 @@ else if (isel==3) then
 	end if
 end if
 end subroutine
+
+
+
+
 !!-------------- Calculate charge based on space partition method
 !1=Hirshfeld, 2=VDD, 3=Integrate electron density in voronoi cell
 !4=Adjusted method 3 by Rousseau et al., 5= Becke with/without ADC, 6= ADCH, 7= CM5
@@ -682,8 +715,8 @@ real*8 molrho(radpot*sphpot),promol(radpot*sphpot),tmpdens(radpot*sphpot),beckew
 type(content) gridatm(radpot*sphpot),gridatmorg(radpot*sphpot)
 real*8 atmdipx(ncenter),atmdipy(ncenter),atmdipz(ncenter),charge(ncenter)
 real*8 :: covr_becke(0:nelesupp) !covalent radii used for Becke population
-character(200) :: radfilename
 integer :: nbeckeiter=3
+
 if (chgtype==5) then !Select atomic radii for Becke population
 	covr_becke=covr_TianLu
 	iraddefine=2
@@ -744,7 +777,7 @@ if (chgtype==5) then !Select atomic radii for Becke population
 			write(*,*) "Input file path, e.g. C:\radall.txt"
 			read(*,"(a)") radfilename
 			inquire(file=radfilename,exist=alive)
-			if (alive) then
+			if (alive.eqv..true.) then
 				open(10,file=radfilename,status="old")
 				read(10,*) nmodrad
 				do irad=1,nmodrad
@@ -770,8 +803,10 @@ if (chgtype==5) then !Select atomic radii for Becke population
 		end if
 	end do
 end if
+
 !Generate quadrature point and weighs by combination of Gauss-Chebyshev and Lebedev grids
 call gen1cintgrid(gridatmorg,iradcut)
+
 !***** 1=Hirshfeld, 2=VDD, 6=ADCH, 7=CM5
 if (chgtype==1.or.chgtype==2.or.chgtype==6.or.chgtype==7) then
 	write(*,*) "This task requests atomic densities, please select how to obtain them"
@@ -868,6 +903,7 @@ if (chgtype==1.or.chgtype==2.or.chgtype==6.or.chgtype==7) then
 		if (chgtype==1.or.chgtype==6.or.chgtype==7) write(*,"(' Hirshfeld charge of atom ',i5,'(',a2,')',' is',f12.8)") iatm,a_org(iatm)%name,charge(iatm)
 		if (chgtype==2) write(*,"(' VDD charge of atom ',i5,'(',a2,')',' is',f12.8)") iatm,a_org(iatm)%name,charge(iatm)
 	end do
+	
 !***** 3=Integrate electron density in Voronoi cell, 4=Adjusted method 3 by Rousseau et al
 else if (chgtype==3.or.chgtype==4) then
 	write(*,"(' Radial grids:',i5,'    Angular grids:',i5,'   Total:',i10)") radpot,sphpot,radpot*sphpot
@@ -936,6 +972,7 @@ else if (chgtype==3.or.chgtype==4) then
 		atmdipz(iatm)=dipz
 		write(*,"(' The charge of atom ',i5,'(',a2,')',' is',f12.8)") iatm,a(iatm)%name,charge(iatm)
 	end do
+	
 !***** Becke population
 else if (chgtype==5) then
 	write(*,"(' Radial grids:',i5,'    Angular grids:',i5,'   Total:',i10)") radpot,sphpot,radpot*sphpot
@@ -972,6 +1009,7 @@ else if (chgtype==5) then
 		write(*,"(' Becke charge of atom ',i5,'(',a2,')',' is',f12.8)") iatm,a(iatm)%name,charge(iatm)
 	end do
 end if
+
 write(*,"(' Summing up all charges:',f15.8)") sum(charge)
 write(*,*)
 xmoldip=0.0D0
@@ -985,6 +1023,7 @@ end do
 totdip=dsqrt(xmoldip**2+ymoldip**2+zmoldip**2)
 write(*,"(' Total dipole moment from atomic charges:',f12.6,' a.u.')") totdip
 write(*,"(' X/Y/Z of dipole moment from atomic charges:',3f12.6,' a.u.')") xmoldip,ymoldip,zmoldip
+
 if (chgtype==5.or.chgtype==6) then
 	write(*,*)
 	write(*,*) "Atomic dipole moments (a.u.):"
@@ -1004,17 +1043,24 @@ if (chgtype==5.or.chgtype==6) then
 else if (chgtype==7) then
 	call doCM5(charge)
 end if
+
 call normalizecharge(charge) !Calculate and print normalized charge
+
 if (allocated(frag1)) then
-    write(*,"(/,' Fragment charge:',f12.8)") sum(charge(frag1))
-    write(*,"(' Fragment population:',f12.8)") sum(a(frag1)%charge) - sum(charge(frag1))
+    write(*,"(/,' Fragment charge:',f14.8)") sum(charge(frag1))
+    write(*,"(' Fragment population:',f14.8)") sum(a(frag1)%charge) - sum(charge(frag1))
 end if
+
 write(*,*)
 call walltime(nwalltime2)
 write(*,"(' Calculation took up',i8,' seconds wall clock time')")  nwalltime2-nwalltime1
 write(*,*)
 call outatmchg(10,charge(:))
 end subroutine
+
+
+
+
 !!------ Calculate atomic dipole moment corrected charge based on existing atomic charge (charge) and atomic dipole moments (dipx/y/z)
 !This routine is previously specific for ADCH, but can be extended to any other types of atomic charges
 !The "charge" is inputted Hirshfeld charge, finally it is replaced by ADC charge 
@@ -1027,10 +1073,12 @@ integer chgtype
 real*8 gammamat(3,3),mat(3,3),avgr(3,1),avgrr(3,3),r(3,1),dip(3,1),tmp(1,1),eigval(3),eigvecmat(3,3)
 real*8 w(ncenter),chargecorr(ncenter),charge(ncenter)
 real*8 dipx(ncenter),dipy(ncenter),dipz(ncenter),realdip
+
 write(*,*)
 write(*,*) "Now calculating atomic dipole moment corrected charge..."
 write(*,*)
 chargecorr=charge
+
 do i=1,ncenter
 	if (ishowchgtrans==1) write(*,"('Atom: 'i4,a)") i,a(i)%name !ishowchgtrans==1 means output detail of charge transferation process during atomic dipole moment correction
 	!Initialize variables
@@ -1043,6 +1091,7 @@ do i=1,ncenter
 	dip(1,1)=dipx(i)
 	dip(2,1)=dipy(i)
 	dip(3,1)=dipz(i)
+
 	!Calculate weight of every atom
 	do j=1,ncenter
 		r(1,1)=a(j)%x-a(i)%x
@@ -1050,6 +1099,7 @@ do i=1,ncenter
 		r(3,1)=a(j)%z-a(i)%z
 		r2=r(1,1)**2+r(2,1)**2+r(3,1)**2
 		distij=dsqrt(r2)
+		
 		!Use modified Becke weight function with vdW radii criterion
 		rmaxdist=vdwr(a(i)%index)+vdwr(a(j)%index)
 		tr=distij/(rmaxdist/2.0D0)-1 !Transform variable so that it can in 0~rmaxdist range
@@ -1057,9 +1107,11 @@ do i=1,ncenter
 		tr=1.5*tr-0.5*tr**3
 		w(j)=0.5*(1-(1.5*tr-0.5*tr**3))
 		if (distij>rmaxdist) w(j)=0.0D0
+
 		avgr=avgr+w(j)*r
 		avgrr=avgrr+w(j)*matmul(r,transpose(r))
 	end do
+
 	wtot=sum(w)
 	avgr=avgr/wtot !Now avgr is <r> column vector
 	avgrr=avgrr/wtot !Now avgrr is <r r^T> matrix
@@ -1067,6 +1119,7 @@ do i=1,ncenter
 ! 	call showmatgau(gammamat,form="f12.6")
 	call Diagmat(gammamat,eigvecmat,eigval,500,1D-10)
 	if (outmedinfo==1) write(*,"(i5,a,3f14.10)") i,a(i)%name,eigval !Test eigenvalue of gamma matrix
+	
 	!Idea of the treatment:
 	!The gammamat is a symmetric matrix, however some of its eigenvalues may be too close to zero to get reasonable inversed matrix,
 	!therefore we diagonalize it, get its eigenvalues and eigenvectors, then all following steps are operated in new local coordinate.
@@ -1080,10 +1133,12 @@ do i=1,ncenter
 		if (abs(eigval(ii))>1D-5) mat(ii,ii)=1/eigval(ii) !Ignore ADC for component less than 1E-4 to avoid numerical unstablity. This treatment is more meaningful
 ! 		mat(ii,ii)=1D0/(eigval(ii)+addtmp) !Original ADC implementation, still has numerical unstability problem in rare case and may worse result
 	end do
+	
 	!Use transform matrix to transform r in old coordinate to r' in new coordinate, and transform P to P'
 	!r=matmul(eigvecmat,r'), so r'=matmul(eigvecmat^(-1),r), because eigvecmat is unitary matrix, r'=matmul(transepose(eigvecmat),r)
 	avgr=matmul(transpose(eigvecmat),avgr)
 	dip=matmul(transpose(eigvecmat),dip)
+	
 ! 	ishowchgtrans=1
 ! 	if (i==10.or.i==12) then
 ! 		ishowchgtrans=1
@@ -1093,6 +1148,7 @@ do i=1,ncenter
 ! 		write(*,"(3f14.10)") avgr
 ! 		write(*,"(3f14.10)") dip
 ! 	end if
+
 	!All values need have been calculated, now calculate final result
 	do j=1,ncenter
 		r(1,1)=a(j)%x-a(i)%x
@@ -1107,8 +1163,10 @@ do i=1,ncenter
 		tottmpdipy=tottmpdipy+(a(j)%y-a(i)%y)*tmp(1,1)
 		tottmpdipz=tottmpdipz+(a(j)%z-a(i)%z)*tmp(1,1)
 	end do
+	
 	if (ishowchgtrans==1) write(*,*)
 end do
+
 write(*,*) "   ======= Summary of atomic dipole moment corrected (ADC) charges ======="
 do i=1,ncenter
 	write(*,"(' Atom: ',i4,a,'  Corrected charge:',f12.6,'  Before:',f12.6)") i,a(i)%name,chargecorr(i),charge(i)
@@ -1125,6 +1183,8 @@ write(*,"(' Total dipole from ADC charges (a.u.)',f11.7,'  Error:',f11.7)") ADCd
 write(*,"(' X/Y/Z of dipole moment from the charge (a.u.)',3f11.7)") ADCdipx,ADCdipy,ADCdipz
 charge=chargecorr !Overlay charge array, then return to Hirshfeld module and output result to .chg file
 end subroutine
+
+
 !!--------- Calculate CM5 charges by correcting inputted Hirshfeld charges
 subroutine doCM5(charge)
 use defvar
@@ -1182,7 +1242,9 @@ Dparm(118)=-0.0189D0
 radius(1:96)=(covr(1:96)+covr_pyy(1:96))/2D0
 radius(97:118)=covr_pyy(97:118)
 radius=radius*b2a !Because the radii have already been converted to Bohr, so we convert them back to Angstrom
+
 if (ishowchgtrans==1) write(*,"(/,a)") " Details of CM5 charge correction:"
+
 do iatm=1,ncenter
 	CMcorr=0
 	iZ=a(iatm)%index
@@ -1239,11 +1301,24 @@ write(*,"(' Total dipole moment from CM5 charges',f12.7,' a.u.')") CM5dip
 write(*,"(' X/Y/Z of dipole moment from CM5 charges',3f10.5, ' a.u.')") CM5dipx,CM5dipy,CM5dipz
 charge=CMcharge
 end subroutine
+
+
+
+
+
+
+
+
+
+
+
 !!============================ ESP charge ============================!!
 !!============================ ESP charge ============================!!
 !!============================ ESP charge ============================!!
 !!============================ ESP charge ============================!!
 !!============================ ESP charge ============================!!
+
+
 !!------------ Calculate Restrained ElectroStatic Potential (RESP) charge
 subroutine RESP
 use util
@@ -1254,6 +1329,8 @@ character molfilepath*200,gauoutfilepath*200,eqvconsfilepath*200,addcenfilepath*
 real*8 :: hyper_a=0.0005D0,hyper_a_1=0.0005D0,hyper_a_2=0.001D0,hyper_b=0.1D0 !Hyperbolic restraint parameters
 integer :: ideterbond=1,igridtype=1,iradiisel=1,iESPtype=1
 real*8 tmpmat(1,1)
+integer :: maxRESPiter=50
+real*8 :: RESPconv=0.000001D0
 !Charge constraint
 character chgconsfilepath*200
 integer nchgcons !The number of charge constraint terms
@@ -1291,17 +1368,21 @@ real*8 bondedmat(ncenter,ncenter) !1/0 means the two atoms are bonded / not bond
 integer H_list(5) !Temporarily record index
 integer nCHlist,CHlist(ncenter) !Record index of sp3 carbons, methyl carbons, and hydrogens attached to them, they are atoms to be fitted in RESP stage 2. nCHlist is actual length
 integer neqvlist_H,eqvlistlen_H(ncenter),eqvlist_H(10,ncenter) !Constraint hydrogens in -CH3, =CH2, -CH2- to be equivalent
+
 !By default, only one conformer
 nconf=1
 allocate(confweight(nconf),conffilepath(nconf))
 confweight(1)=1
 conffilepath(1)=firstfilename
+
 ifloadconflist=0
 iloadgau=0
 ieqvcons=2
 ichgcons=0 !=0/1 apply/disable charge constraint
 naddcen=0 !The number of additional fitting centers
+
 maincyc: do while(.true.) !Main loop
+
 do while(.true.) !Interface loop
 	write(*,*)
 	write(*,*) "            ------------ Calculation of RESP charges ------------"
@@ -1314,7 +1395,7 @@ do while(.true.) !Interface loop
 		if (igridtype==1) write(*,*) "3 Set method and parameters for distributing fitting points, current: MK"
 		if (igridtype==2) write(*,*) "3 Set method and parameters for distributing fitting points, current: CHELPG"
 	end if
-	write(*,*) "4 Set hyperbolic penalty parameters"
+	write(*,*) "4 Set hyperbolic penalty and various other running parameters"
 	if (ieqvcons==0) write(*,*) "5 Set equivalence constraint in fitting, current: No constraint"
 	if (ieqvcons==1) write(*,*) "5 Set equivalence constraint in fitting, current: Customized"
 	if (ieqvcons==2) write(*,*) "5 Set equivalence constraint in fitting, current: H in CH2 and CH3"
@@ -1338,6 +1419,7 @@ do while(.true.) !Interface loop
 	if (iESPtype==2) write(*,*) "11 Choose ESP type, current: Electronic"
 	if (iESPtype==3) write(*,*) "11 Choose ESP type, current: Transition electronic"
 	read(*,*) isel
+	
 	if (isel==-1) then
 		write(*,*) "Input path of the file containing conformer list, e.g. C:\conflist.txt"
 		do while(.true.)
@@ -1428,6 +1510,7 @@ do while(.true.) !Interface loop
 				end if
 			end do
 		end if
+		
 	else if (isel==4) then
 		do while(.true.)
 			write(*,*)
@@ -1436,6 +1519,8 @@ do while(.true.) !Interface loop
 			write(*,"(' 2 Set restraint strength (a) for one-stage fitting, current:',f8.5)") hyper_a
 			write(*,"(' 3 Set restraint strength in stage 1 of standard RESP, current:',f8.5)") hyper_a_1
 			write(*,"(' 4 Set restraint strength in stage 2 of standard RESP, current:',f8.5)") hyper_a_2
+			write(*,"(' 5 Set maximum number of RESP iterations, current:',i4)") maxRESPiter
+			write(*,"(' 6 Set convergence threshold of RESP charge, current:',f14.10)") RESPconv
 			read(*,*) isel2
 			if (isel2==0) then
 				exit
@@ -1451,9 +1536,16 @@ do while(.true.) !Interface loop
 			else if (isel2==4) then
 				write(*,*) "Input a value, e.g. 0.002"
 				read(*,*) hyper_a_2
+			else if (isel2==5) then
+				write(*,*) "Input maximum number of RESP iterations, e.g. 35"
+				read(*,*) maxRESPiter
+			else if (isel2==6) then
+				write(*,*) "Input charge convergence threshold, e.g. 0.0001"
+				read(*,*) RESPconv
 			end if
 			write(*,*) "Done!"
 		end do
+		
 	else if (isel==5) then
         write(*,*)
         write(*,"(a)") " Please select options 1~3. You can also use options 10 or 11 to generate file containing &
@@ -1492,6 +1584,7 @@ do while(.true.) !Interface loop
 		    end if
             if (ieqvcons==0.or.ieqvcons==1.or.ieqvcons==2) exit
         end do
+		
 	else if (isel==6) then
         write(*,"(a)") " Note: For standard two-stage RESP fitting, below options only take effect for the first stage"
         write(*,*)
@@ -1508,6 +1601,7 @@ do while(.true.) !Interface loop
 			end do
 			write(*,*) "OK, charge constraints will be loaded from it during calculation"
 		end if
+		
 	else if (isel==7) then
 		write(*,*) "1 Guess connectivity based on atomic covalent radii and interatomic distance"
 		write(*,*) "2 Load connectivity from a .mol file"
@@ -1522,6 +1616,7 @@ do while(.true.) !Interface loop
 			end do
 			write(*,*) "OK, the connectivity will be loaded from this file during calculation"
 		end if
+		
 	else if (isel==8) then
 		if (iloadgau==1) then
 			iloadgau=0
@@ -1539,7 +1634,7 @@ do while(.true.) !Interface loop
             write(*,*) "The current additional fitting centers have been cleaned"
         else
             inquire(file=addcenfilepath,exist=alive)
-            if (.not.alive) then
+            if (alive==.false.) then
                 write(*,*) "Error: Cannot find the file! Press ENTER button to cancel"
                 read(*,*)
                 cycle
@@ -1549,12 +1644,14 @@ do while(.true.) !Interface loop
             close(10)
             write(*,"(i6,' additional centers will be loaded from this file before fitting')") naddcen
         end if
+		
 	else if (isel==10) then
 		write(*,*) "Please choose the way of determining atomic radii:"
 		write(*,"(a)") " 1 Automatic (The radii actually used will depend on the way of distributing fitting points)"
 		write(*,"(a)") " 2 UFF radii scaled by 1/1.2, defined for entire periodic table"
 		write(*,"(a)") " 3 Customized (The radii will be loaded from external file during fitting)"
 		read(*,*) iradiisel
+		
 	else if (isel==11) then
 		write(*,*) "Choose ESP type:"
 		write(*,*) "1 Nuclear + Electronic"
@@ -1571,11 +1668,14 @@ do while(.true.) !Interface loop
 		end if
 	end if
 end do !end interface cycle
+
+
 !*** Prepare calculation ***
 nfitcen=ncenter+naddcen !Actual number of fitting centers
 allocate(fitcen(3,nfitcen,nconf),fitcenvdwr(nfitcen),nESPpt(nconf))
 allocate(atmchg(nfitcen),atmchg_stage1(nfitcen),eqvlistlen(nfitcen))
 allocate(eqvlist(500,nfitcen)) !The size is sufficiently large
+
 !Generate fitting centers, fitting points and calculate ESP value using internal code
 if (iloadgau==0) then
 	!Set and check sanity of vdW radii used in fitting
@@ -1595,6 +1695,7 @@ if (iloadgau==0) then
         fitcenvdwr(ncenter+1:nfitcen)=0
         write(*,*) "Note: Radii of all additional fitting centers are set to zero"
     end if
+	
 	!Cycle conformers. nconf may be 1
 	do iconf=1,nconf
 		if (ifloadconflist==1) then
@@ -1628,6 +1729,7 @@ if (iloadgau==0) then
             end do
             close(10)
         end if
+		
 		if (igridtype==1) then !MK
 			nMKatoms=ncenter !All atoms are used to construct MK fitting points
 			forall(i=1:ncenter) MKatmlist(i)=i
@@ -1648,22 +1750,26 @@ if (iloadgau==0) then
 			call setCHELPGpt(2,nfitcen,fitcen(:,:,iconf),fitcenvdwr,nptthis,ESPpt(:,:,iconf),extdis,fitspc,nCHELPGatoms,CHELPGatmlist)
 		end if
 		nESPpt(iconf)=nptthis
+
 		!Calculate ESP value at fitting points
 		if (nconf==1) then !Show prompts
 			call fitESP_calcESP(1,iESPtype,nptthis,ESPpt(:,1:nptthis,iconf),ESPptval(1:nptthis,iconf),conffilepath(iconf))
 		else !Don't show prompts
 			call fitESP_calcESP(0,iESPtype,nptthis,ESPpt(:,1:nptthis,iconf),ESPptval(1:nptthis,iconf),conffilepath(iconf))
 		end if
+		
 	end do
+	
 	if (ifloadconflist==1) then
 		write(*,*) "Reloading the first file when Multiwfn boots up..."
 		call dealloall
 		call readinfile(firstfilename,1)
 	end if
+	
 !Reading ESP and coordinates of fitting points from Gaussian Iop(6/33=2) output. File containing geometry must be loaded to provide atom coordinates
 else
 	if (nconf==1) then
-		write(*,"(a)") " Input file path of the Gaussian pop=MK/CHELPG task with IOp(6/33=2) keyword, e.g. C:\tsushima_yoshiko.out. &
+		write(*,"(a)") " Input path of the output file of Gaussian pop=MK/CHELPG task with IOp(6/33=2), e.g. C:\tsushima_yoshiko.out. &
 		Note that the geometry used in the Gaussian calculation must be exactly identical to current geometry"
 		do while(.true.)
 			read(*,"(a)") gauoutfilepath
@@ -1692,6 +1798,8 @@ else
 	end if
 end if
 write(*,*)
+
+
 !For standard two-stage RESP fitting, or one-stage fitting with eqv. cons. on H in -CH3, -CH2-, =CH2, &
 !we need to identify bonding and generate relevant arrays
 if (isel==1.or.ieqvcons==2) then
@@ -1713,6 +1821,7 @@ if (isel==1.or.ieqvcons==2) then
 			end do
 		end do
 	end if
+	
 	!Identify active C and H in stage 2 of standard RESP fitting, meantime generate equivalence &
     !list considering hydrogens in each -CH3, -CH2-, =CH2 is equivalent
 	neqvlist_H=0
@@ -1774,6 +1883,8 @@ if (isel==1.or.ieqvcons==2) then
         goto 30
     end if
 end if
+
+
 !Setting up charge constraint
 if (ichgcons==1) then !Load setting from plain text file
 	write(*,"(' Loading charge constraint setting from ',a)") trim(chgconsfilepath)
@@ -1796,6 +1907,8 @@ else !No charge constraint
 	allocate(chgconsnatm(nchgcons),chgconsval(nchgcons),chgconsatm(nfitcen,nchgcons))
 	write(*,*) "No charge constraint is imposed in this stage"
 end if
+
+
 !Setting up equivalence constraint
 !First assume that no equivalence constraint is imposed
 neqvlist=nfitcen
@@ -1838,6 +1951,7 @@ else if (ieqvcons==2) then !Impose equivalence constraint on hydrogens in each C
         end if
     end if
 end if
+
 !write(*,*) neqvlist,nfitcen
 !do ieqv=1,neqvlist
 !    write(*,*) eqvlist(1:eqvlistlen(ieqv),ieqv)
@@ -1845,18 +1959,21 @@ end if
 !pause
 call showeqvcons(neqvlist,nfitcen,eqvlistlen,eqvlist)
 write(*,*)
+
+
 !------ Start charge fitting now!
 !------ Start charge fitting now!
 !Do first step of standard RESP fitting
 if (isel==1) then
 	write(*,*) "**** Stage 1: RESP fitting under weak hyperbolic penalty"
 	call RESPiter(hyper_a_1,hyper_b,nconf,confweight,nfitcen,fitcen,maxESPpt,nESPpt,ESPpt,ESPptval,&
-	atmchg_stage1,nchgcons,chgconsnatm,chgconsatm,chgconsval,neqvlist,eqvlistlen,eqvlist,iESPtype)
+	atmchg_stage1,nchgcons,chgconsnatm,chgconsatm,chgconsval,neqvlist,eqvlistlen,eqvlist,iESPtype,maxRESPiter,RESPconv)
 else if (isel==2) then !One-stage ESP fitting	
 	write(*,*) "One-stage restrainted ESP fitting iteration has started"
 	call RESPiter(hyper_a,hyper_b,nconf,confweight,nfitcen,fitcen,maxESPpt,nESPpt,ESPpt,ESPptval,&
-	atmchg,nchgcons,chgconsnatm,chgconsatm,chgconsval,neqvlist,eqvlistlen,eqvlist,iESPtype)
+	atmchg,nchgcons,chgconsnatm,chgconsatm,chgconsval,neqvlist,eqvlistlen,eqvlist,iESPtype,maxRESPiter,RESPconv)
 end if
+
 !Do second step of standard RESP fitting
 if (isel==1) then
 	write(*,*)
@@ -1880,6 +1997,7 @@ if (isel==1) then
 			write(*,"(i5,a)",advance='no') CHlist(i),a(CHlist(i))%name
 			if (mod(i,10)==0) write(*,*)
 		end do
+		
 		deallocate(chgconsatm,chgconsnatm,chgconsval)
 		nchgcons=nfitcen-nCHlist
 		allocate(chgconsnatm(nchgcons),chgconsval(nchgcons),chgconsatm(nfitcen,nchgcons))
@@ -1903,14 +2021,18 @@ if (isel==1) then
 			write(*,"(/,a)") " The charges that kept fixed at stage 2 of RESP fitting &
 			has been written to chgcons_stage2.txt in current folder"
 		end if
+		
 		write(*,*)
 		call RESPiter(hyper_a_2,hyper_b,nconf,confweight,nfitcen,fitcen,maxESPpt,nESPpt,ESPpt,ESPptval,&
-		atmchg,nchgcons,chgconsnatm,chgconsatm,chgconsval,neqvlist,eqvlistlen,eqvlist,iESPtype)
+		atmchg,nchgcons,chgconsnatm,chgconsatm,chgconsval,neqvlist,eqvlistlen,eqvlist,iESPtype,maxRESPiter,RESPconv)
 	else
 		write(*,*) "Stage 2 of standard RESP fitting is skipped since no atom needs to be fitted"
 		atmchg=atmchg_stage1
 	end if
+	
 end if
+
+
 !Output summary
 write(*,*)
 write(*,*) "  Center       Charge"
@@ -1922,6 +2044,7 @@ do icen=1,nfitcen
     end if
 end do
 write(*,"(' Sum of charges:',f15.10)") sum(atmchg)
+
 !Calculate RMSE and RRMSE
 weiRMSE=0;weiRRMSE=0
 do iconf=1,nconf
@@ -1945,11 +2068,13 @@ do iconf=1,nconf
 	end if
 end do
 if (nconf>1) write(*,"(' Weighted RMSE:',f12.6,'   Weighted RRMSE',f12.6)") weiRMSE,weiRRMSE
+
 !Show fragment charge
 if (allocated(frag1)) then
-    write(*,"(/,' Fragment charge:',f12.6)") sum(atmchg(frag1))
-    write(*,"(' Fragment population:',f12.6)") sum(a(frag1)%charge) - sum(atmchg(frag1))
+    write(*,"(/,' Fragment charge:',f14.8)") sum(atmchg(frag1))
+    write(*,"(' Fragment population:',f14.8)") sum(a(frag1)%charge) - sum(atmchg(frag1))
 end if
+
 !Export .chg file
 if (nconf==1) then
     write(*,*)
@@ -1961,13 +2086,19 @@ if (nconf==1) then
 else
     write(*,"(/,a)") " Note: Because present calculation involves multiple conformers, the result cannot be exported to .chg file"
 end if
+
 deallocate(fitcen,fitcenvdwr,nESPpt,ESPptval,ESPpt,chgconsatm,chgconsnatm,chgconsval)
 deallocate(atmchg,atmchg_stage1,eqvlistlen,eqvlist)
+
 end do maincyc
+
 end subroutine
+
+
+
 !!------ Perform RESP iteration
 subroutine RESPiter(hyper_a,hyper_b,nconf,confweight,nfitcen,fitcen,maxESPpt,nESPpt,ESPpt,ESPptval,&
-atmchg,nchgcons,chgconsnatm,chgconsatm,chgconsval,neqvlist,eqvlistlen,eqvlist,iESPtype)
+atmchg,nchgcons,chgconsnatm,chgconsatm,chgconsval,neqvlist,eqvlistlen,eqvlist,iESPtype,maxiter,convcrit)
 use defvar
 use util
 implicit real*8 (a-h,o-z)
@@ -1978,14 +2109,16 @@ real*8 confweight(nconf),fitcen(3,nfitcen,nconf),ESPpt(3,maxESPpt,nconf),ESPptva
 integer chgconsnatm(nchgcons),chgconsatm(nfitcen,nchgcons),eqvlistlen(nfitcen),eqvlist(500,nfitcen)
 real*8,allocatable :: Bvec(:),Amat(:,:),Amat_bk(:,:),Amat_tmp(:,:),Amatinv(:,:),qvec(:),qvec_old(:)
 real*8,allocatable :: Bveceqv(:),Amateqv(:,:),Amateqvinv(:,:),qveceqv(:) !The counterpart of Amat,Bvec,qvec when considering equivalence contraint
-integer :: maxiter=30
-real*8 :: convcrit=0.000001D0
+integer maxiter
+real*8 convcrit
+
 if (hyper_a==0) then
 	write(*,*) "Since restraint strength was set to zero, no iteration will be carried out"
 else
-	write(*,"(' Convergence criterion:',f11.8)") convcrit
+	write(*,"(' Convergence criterion:',f14.10)") convcrit
 	write(*,"(' Hyperbolic restraint strength (a):',f9.6,'    Tightness (b):',f9.6)") hyper_a,hyper_b
 end if
+
 ! write(*,*) nESPpt,nconf
 ! write(*,*) neqvlist,nchgcons,nfitcen
 ! do ieqv=1,neqvlist
@@ -1997,8 +2130,10 @@ end if
 ! do iconf=1,nconf
 ! 	write(*,*) iconf,confweight(iconf)
 ! end do
+
 matdim=nfitcen+nchgcons+1
 allocate(Bvec(matdim),Amat(matdim,matdim),Amat_bk(matdim,matdim),Amatinv(matdim,matdim),qvec(matdim),qvec_old(matdim))
+
 !Forming Amat
 Amat=0D0
 do icen=1,nfitcen
@@ -2025,6 +2160,7 @@ do icons=1,nchgcons
 	end do
 end do
 Amat_bk=Amat !Backup, its diagonal terms will be used during RESP calculation
+
 !Forming Bvec
 Bvec=0D0
 do icen=1,nfitcen
@@ -2047,12 +2183,15 @@ end if
 do icons=1,nchgcons
 	Bvec(nfitcen+1+icons)=chgconsval(icons)
 end do
+
 matdimeqv=neqvlist+nchgcons+1
 allocate(Amateqv(matdimeqv,matdimeqv),Amateqvinv(matdimeqv,matdimeqv),Bveceqv(matdimeqv),qveceqv(matdimeqv))
 allocate(Amat_tmp(matdimeqv,matdim)) !Used to temporarily store Amat with contracted rows due to eqv. cons.
 qvec=0
+
 do iter=1,maxiter
 	qvec_old=qvec
+	
 	!Only diagonal terms have an additional term due to hyperbolic restraint
 	do icen=1,nfitcen !Penalty function is only applied to non-hydrogen atoms
         if (icen<=ncenter) then
@@ -2060,6 +2199,7 @@ do iter=1,maxiter
 		end if
         Amat(icen,icen)=Amat_bk(icen,icen)+ hyper_a/dsqrt(qvec(icen)**2+hyper_b**2)
 	end do
+	
 	!Construct matrices with consideration of equivalence constraint
 	Amat_tmp=0
 	Amateqv=0
@@ -2086,6 +2226,7 @@ do iter=1,maxiter
 	do idx=1,nchgcons+1
 		Amateqv(:,neqvlist+idx)=Amat_tmp(:,nfitcen+idx)
 	end do
+	
 	!Evaluate and update charges
 	Amateqvinv=invmat(Amateqv,matdimeqv)
 	qveceqv=matmul(Amateqvinv,Bveceqv)
@@ -2094,10 +2235,12 @@ do iter=1,maxiter
 			qvec(eqvlist(idx,ieqv))=qveceqv(ieqv)
 		end do
 	end do
+	
 	if (hyper_a==0) exit
 	deltamax=maxval(abs(qvec(1:nfitcen)-qvec_old(1:nfitcen)))
 	write(*,"(' Iter:',i4,'   Maximum charge variation:',f16.10)") iter,deltamax
 	if (deltamax<convcrit) exit
+	
 end do
 if (iter==maxiter+1) then
 	write(*,*) "Error: Convergence failed!"
@@ -2107,8 +2250,11 @@ if (iter==maxiter+1) then
 else if (hyper_a/=0) then
 	write(*,*) "Successfully converged!"
 end if
+
 atmchg=qvec(1:nfitcen)
 end subroutine
+
+
 !!----- Show atom equivalence constraint in ESP fitting
 subroutine showeqvcons(neqvlist,nfitcen,eqvlistlen,eqvlist)
 use defvar
@@ -2137,6 +2283,9 @@ else
 	write(*,*) "No atom equivalence constraint is imposed in this fitting stage"
 end if
 end subroutine
+
+
+
 !!----------- Generate equivalence list according to point group of provided fragment geometry and write to eqvcons_PG.txt
 subroutine genPGeqvcons
 use defvar
@@ -2215,6 +2364,10 @@ end do
 close(10)
 write(*,*) "Finished writing of the eqvcons_PG.txt!"
 end subroutine
+
+
+
+
 !!------------ Calculate MK and CHELPG charges
 ! igridtype=1:MK   igridtype=2:CHELPG
 ! This module does not have wealth of features as RESP routine, but it is very clear and have these special points:
@@ -2243,6 +2396,7 @@ real*8,allocatable :: Bvec(:),Amat(:,:),Amatinv(:,:),qvec(:)
 real*8,allocatable :: fitcenvdwr(:)
 real*8,allocatable :: cenchg(:) !Final result
 real*8,allocatable :: ESPerr(:)
+
 iaddcen=0 !If give additional centers
 naddcen=0
 iuseextpt=0 !If use external points
@@ -2253,6 +2407,7 @@ nMKatoms=ncenter !The number of atoms used to construct MK fitting points
 nCHELPGatoms=ncenter !The number of atoms used to construct CHELPG fitting points
 forall(i=1:ncenter) MKatmlist(i)=i
 forall(i=1:ncenter) CHELPGatmlist(i)=i
+
 10 do while(.true.)
 	write(*,*)
 	if (igridtype==1) write(*,*) "            -------------- Calculation of MK charges --------------"
@@ -2295,6 +2450,7 @@ forall(i=1:ncenter) CHELPGatmlist(i)=i
 	if (iradiisel==2) write(*,*) "10 Choose the atomic radii used in fitting, current: Scaled UFF"
 	if (iradiisel==3) write(*,*) "10 Choose the atomic radii used in fitting, current: Customized"
 	read(*,*) isel
+	
 	if (isel==-3) then
 		if (iloadchg==1) then
 			iloadchg=0
@@ -2427,6 +2583,8 @@ forall(i=1:ncenter) CHELPGatmlist(i)=i
 		read(*,*) iradiisel
 	end if
 end do
+
+
 !Generate fitting centers, fitting points and calculate ESP value using internal code
 if (iloadgau==0) then
 	!Set and check sanity of vdW radii used in fitting
@@ -2438,6 +2596,7 @@ if (iloadgau==0) then
 	else if (iradiisel==3) then !Customize radii
 		call setESPfitvdwr(-1,espfitvdwr)
 	end if
+
 	!Set total number of fitting centers
 	naddcen=0
 	if (iaddcen==1) then !Load additional fitting centers
@@ -2467,6 +2626,7 @@ if (iloadgau==0) then
             write(*,"(i6,3f12.6)") icen,fitcen(:,ncenter+icen)*b2a
         end do
 	end if
+
 	!Generate position of fitting points
 	write(*,*)
 	if (iuseextpt==0) then !Count number and generate coordinates of fitting points
@@ -2497,14 +2657,17 @@ if (iloadgau==0) then
 		end do
 		close(10)
 	end if
+
 	!Generate ESP value of fitting points
 	if (iskipespcalc==0) call fitESP_calcESP(1,iESPtype,nESPpt,ESPpt,ESPptval,filename)
+
 else !Reading ESP and coordinates of fitting points from Gaussian Iop(6/33=2) output. File containing geometry must be loaded to provide atom coordinates
 	write(*,"(a)") " Loading ESP data from "//trim(gauoutfilepath)
 	call loadgauESP_num(gauoutfilepath,nfitcen,nESPpt)
 	allocate(fitcen(3,nfitcen),ESPptval(nESPpt),ESPpt(3,nESPpt))
 	call loadgauESP(gauoutfilepath,nfitcen,fitcen,nESPpt,ESPpt,ESPptval)
 end if
+
 allocate(cenchg(nfitcen))
 if (iloadchg==0) then
 	!Calculate ESP fitting charges. See original paper of MK for detail of algorithem
@@ -2552,6 +2715,7 @@ else if (iloadchg==1) then
 	end do
 	close(10)
 end if
+
 !Output summary
 write(*,*)
 write(*,*) "  Center       Charge"
@@ -2563,6 +2727,7 @@ do i=1,ncenter+naddcen
     end if
 end do
 write(*,"(' Sum of charges:',f15.10)") sum(cenchg(1:nfitcen))
+
 !Calculate RMSE and RRMSE
 if (allocated(ESPerr)) deallocate(ESPerr)
 allocate(ESPerr(nESPpt))
@@ -2579,12 +2744,14 @@ end do
 RRMSE=dsqrt(RMSE/sum(ESPptval(1:nESPpt)**2))
 RMSE=dsqrt(RMSE/nESPpt)
 write(*,"(' RMSE:',f12.6,'   RRMSE:',f12.6)") RMSE,RRMSE
+
 !Show fragment charge
 if (allocated(frag1)) then
-    write(*,"(/,' Fragment charge:',f12.6)") sum(cenchg(frag1))
-    write(*,"(' Fragment population:',f12.6)") sum(a(frag1)%charge) - sum(cenchg(frag1))
+    write(*,"(/,' Fragment charge:',f14.8)") sum(cenchg(frag1))
+    write(*,"(' Fragment population:',f14.8)") sum(a(frag1)%charge) - sum(cenchg(frag1))
 end if
 write(*,*)
+
 !Exporting fitting points with ESP values
 if (ioutfitptval==1) then
 	do while(.true.)
@@ -2628,17 +2795,22 @@ if (ioutfitptval==1) then
 		write(*,*)
 	end do
 end if
+
+
 !Export .chg file
 if (nfitcen==ncenter) then
     call outatmchg(10,cenchg(:))
 else
     call outallchg(10,cenchg(:),fitcen,nfitcen)    
 end if
+
 deallocate(ESPpt,ESPptval,fitcen)
 if (allocated(fitcenvdwr)) deallocate(fitcenvdwr)
 deallocate(cenchg)
 goto 10 !Return to ESP fitting interface
 end subroutine
+
+
 !!------- Set MK fitting points for present system
 !imode=1: Used to get upper limit of number of fitting points (nESPpt), the nESPpt and ESPpt that passed in could be any length
 !imode=2: Fill coordinate of ESP fitting points to ESPpt array, in this case the passed-in ESPpt must have enough size
@@ -2700,6 +2872,7 @@ else
 	write(*,"(' Number of MK fitting points used:',i10)") nESPpt
 end if
 end subroutine
+
 !!------- Set CHELPG fitting points for present system
 !imode=1: Used to get number of fitting piints (nESPpt), the nESPpt and ESPpt that passed in could be any length
 !imode=2: Fill coordinate of ESP fitting points to ESPpt array, in this case the passed-in ESPpt must have enough size
@@ -2779,6 +2952,8 @@ else
 	end do
 end if
 end subroutine
+
+
 !!---- Return index of (real) atom that closest to a point
 subroutine pointcloseatom(x,y,z,iclose)
 use defvar
@@ -2795,6 +2970,9 @@ do iatm=1,ncenter
     end if
 end do
 end subroutine
+
+
+
 !!------ Set vdW radius and check sanity and complete vdW radius table for all involved elements
 !iradtype=-1: Load radii from external file
 !iradtype=0: Use UFF radii scaled by 1/1.2
@@ -2808,6 +2986,7 @@ implicit real*8 (a-h,o-z)
 integer iradtype
 real*8 espfitvdwr(nelesupp)
 character c80*80,c200tmp*200
+
 if (iradtype>0) then
 	if (iradtype==1) then !For MK, copied from GetvdW routine (utilam)
 		espfitvdwr(1:17)=(/1.20d0,1.20d0,&
@@ -2841,6 +3020,7 @@ if (iradtype>0) then
 			end if
 		end if
 	end do
+	
 else if (iradtype==0) then !UFF radii
 	do iatm=1,ncenter
 		idxtmp=a(iatm)%index
@@ -2849,6 +3029,7 @@ else if (iradtype==0) then !UFF radii
 			write(*,"(' Radius of ',a,' has been set to',f8.4,' Angstrom')") ind2name(idxtmp),espfitvdwr(idxtmp)*b2a
 		end if
 	end do
+
 else if (iradtype==-1) then !From external file
 2737	write(*,*) "Input the path of the file containing element radii, e.g. C:\elerad.txt"
 	do while(.true.)
@@ -2876,6 +3057,8 @@ else if (iradtype==-1) then !From external file
 	close(10)
 end if
 end subroutine
+
+
 !!-------- Load the number of ESP fitting centers and fitting points from Gaussian pop=MK/CHELPG
 subroutine loadgauESP_num(gauoutfilepath,nfitcen,nESPpt)
 use util
@@ -2916,6 +3099,7 @@ do ipt=1,nESPpt
 end do
 close(10)
 end subroutine
+
 !!---------- Calculating ESP at fitting points during calculation of ESP fitting charges
 !iESPtype=1: Take nuclear charge into account  /=1: Ignore nuclear contribution
 !ishowprompt=1: Show prompts  =0: Do not show
@@ -2928,20 +3112,23 @@ integer ishowprompt,nESPpt,iESPtype
 real*8 ESPpt(3,nESPpt),ESPptval(nESPpt)
 character c400tmp*400,filename_tmp*200
 character(len=*) calcfilepath
+
 call walltime(iwalltime1)
 if (ishowprompt==1) write(*,*) "Calculating ESP at fitting points, please wait..."
 !If possible, use cubegen to calculate ESP to reduce computational time
 alive=.false.
 if (cubegenpath/=" ".and.ifiletype==1) then
 	inquire(file=cubegenpath,exist=alive)
-	if (.not.alive.and.ishowprompt==1) then
+	if (alive==.false..and.ishowprompt==1) then
 		write(*,"(a)") " Note: Albeit current file type is fch/fchk/chk and ""cubegenpath"" parameter in settings.ini has been defined, &
 		the cubegen cannot be found, therefore electrostatic potential will still be calculated using internal code of Multiwfn"
 	end if
 end if
+
 if (alive.and.ifiletype==1) then !Use cubegen to calculate ESP
 	if (ishowprompt==1) write(*,"(a)") " Since the input file type is fch/fchk/chk and ""cubegenpath"" parameter in settings.ini has been properly defined, &
 	now Multiwfn directly invokes cubegen to calculate electrostatic potential"
+	
 	!Generate cubegen input file
 	open(10,file="cubegenpt.txt",status="replace")
 	do ipt=1,nESPpt
@@ -2957,6 +3144,7 @@ if (alive.and.ifiletype==1) then !Use cubegen to calculate ESP
 	""""//trim(filename_tmp)//""""//" ESPresult.cub -5 h < cubegenpt.txt > nouseout"
     call runcommand(c400tmp)
 	if (index(filename,".chk")/=0) call delfile(filename_tmp)
+	
 	!Load ESP data from cubegen resulting file
 	open(10,file="ESPresult.cub",status="old")
 	do iskip=1,6+ncenter
@@ -2974,7 +3162,15 @@ if (alive.and.ifiletype==1) then !Use cubegen to calculate ESP
 		call system("rm cubegenpt.txt ESPresult.cub nouseout -f")
 	end if
 else !Use internal code to evaluate ESP
+    nESPthreads=nthreads
+    if (iESPcode==2) then
+        call doinitlibreta
+        if (isys==1.and.nESPthreads>10) nESPthreads=10
+    end if
+    write(*,*)
 	itmp=1
+    call showprog(0,nESPpt)
+	!$OMP PARALLEL DO SHARED(itmp,ESPptval) PRIVATE(ipt) schedule(dynamic) NUM_THREADS(nESPthreads)
 	do ipt=1,nESPpt
 		if (ipt>=itmp*300.or.ipt==nESPpt) then
 			call showprog(ipt,nESPpt)
@@ -2985,11 +3181,12 @@ else !Use internal code to evaluate ESP
 		else if (iESPtype==2.or.iESPtype==3) then !Do not take nuclear charge into account
 			ESPptval(ipt)=eleesp(ESPpt(1,ipt),ESPpt(2,ipt),ESPpt(3,ipt))
 		end if
-	end do
+	end do    !$OMP END PARALLEL DO
 end if
 call walltime(iwalltime2)
 if (ishowprompt==1) write(*,"(' Calculation of ESP took up wall clock time',i10,' s')") iwalltime2-iwalltime1
 end subroutine
+
 !!--------- Generate numpt points scattered evenly on an unit sphere, used by e.g. module of obtaining MK charge
 ! Input argument numpt is the expected number of points, while the return value is actual number
 ! ptcrd store coordinates of the points 
@@ -3023,6 +3220,17 @@ do ivert=0,numvert
 end do
 numpt=ipt
 end subroutine
+
+
+
+
+
+
+
+
+
+
+
 !!============================ Hirshfeld-I ============================!!
 !!============================ Hirshfeld-I ============================!!
 !!============================ Hirshfeld-I ============================!!
@@ -3048,6 +3256,7 @@ if (iautointgrid==1) then
 	sphpot=nsphpotold
 end if
 end subroutine
+
 !!--------- Calculate Hirshfeld-I charge and yield final atomic radial density
 !I've compared this module with hipart, this module is faster than hipart, and the accuracy under default setting is at least never lower than hipart
 subroutine Hirshfeld_I(itype)
@@ -3067,17 +3276,26 @@ real*8 :: crit=0.0002D0
 real*8,external :: fdens_rad
 !Used for mode 2. e.g. atmstatgrid(iatm,igrid,jatm,-1) means density of jatm with -1 charge state at igrid around iatm
 real*8,allocatable :: atmstatgrid(:,:,:,:)
+
 !Ignore jatm contribution to iatm centered grids if distance between iatm and jatm is larger than 1.5 times of sum of their vdwr
 !This can reduce lots of time for large system, the lose of accuracy can be ignored (error is ~0.0001 per atom)
 integer :: ignorefar=1
 real*8 :: vdwsumcut=2D0
+
 !Mode 1 use very low memory but expensive, because most data is computed every iteration
 !Mode 2 use large memory but fast, because most data is only computed once at initial stage
 !The result of the two modes differ with each other marginally, probably because in mode 1 radial density is related to max(npthigh,nptlow), which is not involved in mode 2
 !In principle, result of mode 2 is slightly better
 integer :: imode=2
+
 ntotpot=radpot*sphpot
 write(*,*)
+write(*,"(a,/)") " IMPORTANT HINT: If your system does not contain lanthanides and actinides and meantime you want to directly &
+perform Hirshfeld-I calculation without letting Multiwfn to automatically invoke Gaussian &
+to generate atomic .wfn files for various charged states, you can copy ""atmrad"" folder from ""examples"" directory &
+to current directory, then the atomic radial density files in the ""atmrad"" folder will be directly utilized. See Section &
+3.9.13 of Multiwfn manual for more detail about the underlying mechanism."
+
 do while(.true.)
     if (itype==1) write(*,*) "     =============== Iterative Hirshfeld (Hirshfeld-I) ==============="
     if (itype==2) write(*,*) "     ============== Generate Hirshfeld-I atomic weights =============="
@@ -3086,8 +3304,8 @@ do while(.true.)
 	if (imode==1) write(*,*) "-2 Switch algorithm, current: Slow & low memory requirement"
 	if (imode==2) write(*,*) "-2 Switch algorithm, current: Fast & large memory requirement"
 	if (itype==1) then
-		if (ioutmedchg==0) write(*,*) "-1 Switch if output intermediate results, current: No"
-		if (ioutmedchg==1) write(*,*) "-1 Switch if output intermediate results, current: Yes"
+		if (ioutmedchg==0) write(*,*) "-1 Switch if outputting intermediate results, current: No"
+		if (ioutmedchg==1) write(*,*) "-1 Switch if outputting intermediate results, current: Yes"
 		write(*,*) "0 Return"
 	end if
 	write(*,*) "1 Start calculation!"
@@ -3129,10 +3347,13 @@ do while(.true.)
 		read(*,*) crit
 	end if
 end do
+
 !Generate all needed .rad files
 call genatmradfile
+
 !====== Start calculation ======!
 call walltime(iwalltime1)
+
 !Currently all atoms share the same radial points
 nradpt=200
 itmp=0
@@ -3141,10 +3362,11 @@ do irad=nradpt,1,-1
 	itmp=itmp+1
 	atmradpos(itmp)=(1+radx)/(1-radx)
 end do
+
 !Generate single center integration grid
 call gen1cintgrid(gridatmorg,iradcut)
-write(*,*)
 write(*,"(' Radial grids:',i4,'  Angular grids:',i5,'  Total:',i7,'  After pruning:',i7)") radpot,sphpot,radpot*sphpot,radpot*sphpot-iradcut*sphpot
+
 !Calculate molecular density
 write(*,*) "Calculating actual density of molecule at all grids..."
 do iatm=1,ncenter
@@ -3158,22 +3380,28 @@ do iatm=1,ncenter
     !$OMP end parallel do
     call showprog(iatm,ncenter)
 end do
+
 if (allocated(atmradnpt)) deallocate(atmradnpt)
 if (allocated(atmradrho)) deallocate(atmradrho)
 allocate(atmradnpt(ncenter),atmradrho(ncenter,200))
 sep='/' !Separation symbol of directory
 if (isys==1) sep='\'
+
+ichgmin=-3 !Actually allowed charged range
+ichgmax=3
 !Calculate contribution of all atoms in every state to each atomic centered grids
 if (imode==2) then
-	allocate(atmstatgrid(ncenter,ntotpot,ncenter,-2:2))
+	allocate(atmstatgrid(ncenter,ntotpot,ncenter,ichgmin:ichgmax))
 	atmstatgrid=0
+    rmem=ncenter*ntotpot*ncenter*(ichgmax-ichgmin+1)*8/1024D0/1024D0
+    write(*,"(a,f10.1,a)") " Memory requirement for storing atomic densities on grids:",rmem," MB"
 	write(*,*) "Calculating atomic density contribution to grids..."
 	do iatm=1,ncenter !The center of grids
 		gridatm%value=gridatmorg%value !Weight in this grid point
 		gridatm%x=gridatmorg%x+a(iatm)%x !Move quadrature point to actual position in molecule
 		gridatm%y=gridatmorg%y+a(iatm)%y
 		gridatm%z=gridatmorg%z+a(iatm)%z
-		do istat=-2,2 !Charge state
+		do istat=ichgmin,ichgmax !Charge state
 			do jatm=1,ncenter
 				if (ignorefar==1) then
 					if (distmat(iatm,jatm)>(vdwr(a(iatm)%index)+vdwr(a(jatm)%index))*vdwsumcut) cycle
@@ -3181,14 +3409,14 @@ if (imode==2) then
 				if (a(jatm)%index==1.and.istat==1) cycle !H+ doesn't contains electron and cannot compute density
 				c80tmp="atmrad"//sep//trim(a(jatm)%name)//statname(istat)//".rad"
 				inquire(file=c80tmp,exist=alive)
-				if (.not.alive) cycle
+				if (alive==.false.) cycle
 				open(10,file=c80tmp,status="old")
 				read(10,*) atmradnpt(jatm)
 				do ipt=1,atmradnpt(jatm)
 					read(10,*) rnouse,atmradrho(jatm,ipt)
 				end do
 				close(10)
-                !I have made great effort to try to parallelize this part, however after doing this, the speed is even significantly lower
+                !I have made great effort to try to parallelize this part, however after doing this, the speed is even significantly lowered
                 !So I decided not to parallelize it
 				do ipt=1+iradcut*sphpot,ntotpot
 					atmstatgrid(iatm,ipt,jatm,istat)=fdens_rad(jatm,gridatm(ipt)%x,gridatm(ipt)%y,gridatm(ipt)%z)
@@ -3198,6 +3426,7 @@ if (imode==2) then
         call showprog(iatm,ncenter)
 	end do
 end if
+
 !Set atomic initial radial density as neutral state, which is loaded from corresponding .rad file
 atmradrho=0
 do iatm=1,ncenter
@@ -3208,6 +3437,7 @@ do iatm=1,ncenter
 	end do
 	close(10)
 end do
+
 write(*,*)
 write(*,*) "Performing Hirshfeld-I iteration to refine atomic spaces..."
 lastcharge=0
@@ -3219,13 +3449,16 @@ do icyc=1,maxcyc
 	else
 		write(*,"(' Cycle',i5,'   Maximum change:',f10.6)") icyc,varmax
 	end if
+	
 	do iatm=1,ncenter
 		gridatm%value=gridatmorg%value !Weight in this grid point
 		gridatm%x=gridatmorg%x+a(iatm)%x !Move quadrature point to actual position in molecule
 		gridatm%y=gridatmorg%y+a(iatm)%y
 		gridatm%z=gridatmorg%z+a(iatm)%z
+		
 		!Molecular density
 		molrho=molrhoall(iatm,:)
+		
 		!Calculate promolecular and proatomic density 
 		promol=0D0
 		do jatm=1,ncenter
@@ -3250,6 +3483,7 @@ do icyc=1,maxcyc
 			promol=promol+tmpdens
 			if (jatm==iatm) selfdens=tmpdens
 		end do
+		
 		!Calculate atomic charge
 		electmp=0D0
 		do ipt=1+iradcut*sphpot,ntotpot
@@ -3260,6 +3494,7 @@ do icyc=1,maxcyc
 		if (ioutmedchg==1) write(*,"(' Charge of atom',i5,'(',a2,')',': ',f12.6,'  Delta:',f12.6)") &
 		iatm,a(iatm)%name,charge(iatm),charge(iatm)-lastcharge(iatm)
 	end do
+	
 	!Check convergence
 	varmax=maxval(abs(charge-lastcharge))
 	if (varmax<crit) then
@@ -3279,6 +3514,7 @@ do icyc=1,maxcyc
 			exit
 		end if
 	end if
+	
 	!Update atomic radial density by means of interpolation of adjacent charge state
 	do iatm=1,ncenter
 		!Read radial density of lower limit state
@@ -3286,8 +3522,11 @@ do icyc=1,maxcyc
 		radrholow=0
 		c80tmp="atmrad"//sep//trim(a(iatm)%name)//statname(ichglow)//".rad"
 		inquire(file=c80tmp,exist=alive)
-		if (.not.alive) then
-			write(*,"(' Error: ',a,' was not prepared!')") trim(c80tmp)
+		if (alive==.false.) then
+			write(*,"(' Error: ',a,' is needed but was not prepared!')") trim(c80tmp)
+            write(*,"(' Current charge of atom',i5,'(',a,'):',f12.8)") iatm,a(iatm)%name,charge(iatm)
+            write(*,"(a)") " Note: This error implies that this atom has unusual charge. You should manually provide the corresponding .rad file &
+            in ""atmrad"" folder prior to the calculation. See Section 3.9.13 of Multiwfn manual for detail."
 			return
 		end if
 		open(10,file=c80tmp,status="old")
@@ -3301,8 +3540,11 @@ do icyc=1,maxcyc
 		radrhohigh=0
 		c80tmp="atmrad"//sep//trim(a(iatm)%name)//statname(ichghigh)//".rad"
 		inquire(file=c80tmp,exist=alive)
-		if (.not.alive) then
-			write(*,"(' Error: ',a,' was not prepared!')") trim(c80tmp)
+		if (alive==.false.) then
+			write(*,"(' Error: ',a,' is needed but was not prepared!')") trim(c80tmp)
+            write(*,"(' Current charge of atom',i5,'(',a,'):',f12.8)") iatm,a(iatm)%name,charge(iatm)
+            write(*,"(a)") " Note: This error implies that this atom has unusual charge. You should manually provide the corresponding .rad file &
+            in ""atmrad"" folder prior to the calculation. See Section 3.9.13 of Multiwfn manual for detail."
 			return
 		end if
 		open(10,file=c80tmp,status="old")
@@ -3315,18 +3557,24 @@ do icyc=1,maxcyc
 		atmradrho(iatm,:)=(charge(iatm)-ichglow)*radrhohigh(:) + (ichghigh-charge(iatm))*radrholow(:)
 		atmradnpt(iatm)=max(npthigh,nptlow)
 	end do
+	
 	lastcharge=charge
 end do
+
 if (allocated(frag1)) then
-    write(*,"(/,' Fragment charge:',f12.8)") sum(charge(frag1))
-    write(*,"(' Fragment population:',f12.8)") sum(a(frag1)%charge) - sum(charge(frag1))
+    write(*,"(/,' Fragment charge:',f14.8)") sum(charge(frag1))
+    write(*,"(' Fragment population:',f14.8)") sum(a(frag1)%charge) - sum(charge(frag1))
 end if
 call walltime(iwalltime2)
 write(*,*)
 write(*,"(' Calculation took up wall clock time',i10,' s')") iwalltime2-iwalltime1
+
 write(*,*)
 call outatmchg(10,charge(:))
 end subroutine
+
+
+
 !!------- Generate atomic radial density files at different states, used for such as Hirshfeld-I
 !"atmrad" in current folder is used as working directory
 !-2,-1,0,+1,+2 charge states of each element will be calculated to produce atomic .wfn file by Gaussian, predefined ground state multiplicity is used
@@ -3340,6 +3588,7 @@ implicit real*8 (a-h,o-z)
 character c80tmp*80,c200tmp*200,calclevel*80,radname*200,sep
 character*2 :: statname(-3:3)=(/ "-3","-2","-1","_0","+1","+2","+3" /)
 integer :: chgmulti(nelesupp,-3:3)=0 !Ground state multiplicity of each charge state of each element. If value=0, means undefined
+
 !Define chgmulti for elements for possible states
 !H,Li,Na,K,Rb,Cs
 chgmulti(1,0)=2
@@ -3418,7 +3667,7 @@ chgmulti(35,:)=chgmulti(9,:)
 chgmulti(53,:)=chgmulti(9,:)
 chgmulti(85,:)=chgmulti(9,:)
 !Spin multiplicity of transition metal for each state is determined by chemical intuition as well as a few single point energy data
-!For simplicity, I assume that later elements in each row has identical configuration, of course this is incorrect but not too bad
+!For simplicity, I assume that later elements in each row has identical configuration, of course this is not always correct but not too bad
 !Sc (3d1,4s2)
 chgmulti(21,0)=2
 chgmulti(21,1)=3
@@ -3457,7 +3706,7 @@ chgmulti(75,:)=chgmulti(25,:) !Re
 !Fe (3d6,4s2)
 chgmulti(26,0)=5
 chgmulti(26,1)=6
-chgmulti(26,2)=7
+chgmulti(26,2)=5
 chgmulti(26,-1)=4
 chgmulti(44,:)=chgmulti(26,:) !Ru
 chgmulti(76,:)=chgmulti(26,:) !Os
@@ -3489,17 +3738,23 @@ chgmulti(30,2)=1
 chgmulti(30,-1)=2
 chgmulti(48,:)=chgmulti(30,:) !Cd
 chgmulti(80,:)=chgmulti(30,:) !Hg
+
 sep='/' !Separation symbol of directory
 if (isys==1) sep='\'
 calclevel=" "
+
 !Cycle each charge state of each atom. Each element is only calculated once. If the file is existing, don't recalculate again
 do iatm=1,ncenter
 	iele=a(iatm)%index
 	do istat=-3,3
 		if (chgmulti(iele,istat)==0) cycle !Undefined state
+		radname="atmrad"//sep//trim(a(iatm)%name)//statname(istat)//".rad"
+		inquire(file=radname,exist=alive)
+		if (alive) cycle
 		radname="atmrad"//sep//trim(a(iatm)%name)//statname(istat)//".wfn"
 		inquire(file=radname,exist=alive)
 		if (alive) cycle
+		
 		!Check Gaussian path
 		inquire(file=gaupath,exist=alive)
 		if (.not.alive) then
@@ -3513,6 +3768,7 @@ do iatm=1,ncenter
 				write(*,*) "Could not find Gaussian executable file, input again"
 			end do
 		end if
+		
 		!Input calculation level
 		if (calclevel==" ") then
 			write(*,*) "Some atomic .wfn files are not found in ""atmrad"" folder in current directory"
@@ -3520,9 +3776,10 @@ do iatm=1,ncenter
 			write(*,"(a)") " You can also add other keywords at the same time, e.g. M062X/6-311G(2df,2p) scf=xqc int=ultrafine"
 			read(*,"(a)") calclevel
 		end if
+		
 		!Generate .gjf file 
-		inquire(file="atmrad",exist=alive)
-		if (.not.alive) call system("mkdir atmrad")
+		inquire(directory="atmrad",exist=alive)
+		if (alive==.false.) call system("mkdir atmrad")
 		c200tmp="atmrad"//sep//trim(a(iatm)%name)//statname(istat)//".gjf"
 		open(10,file=c200tmp,status="replace")
 		write(10,"(a)") "# "//trim(calclevel)//" out=wfn"
@@ -3537,9 +3794,11 @@ do iatm=1,ncenter
 		write(10,*)
 		write(10,*)
 		close(10)
+		
 		!Start calculation
 		c80tmp="atmrad"//sep//trim(a(iatm)%name)//statname(istat)
 		call runcommand('"'//trim(gaupath)//'" "'//trim(c80tmp)//'.gjf" "'//trim(c80tmp)//'"')
+		
 		!Check if Gaussian task was successfully finished
 		if (isys==1) then
 			inquire(file=trim(c80tmp)//".out",exist=alive)
@@ -3566,10 +3825,11 @@ do iatm=1,ncenter
 		end if
 	end do
 end do
+
 !All element wfn files have been generated, now calculate corresponding radial density file (.rad)
 !Existing .rad file will not be re-calculated
 write(*,*)
-write(*,*) "Generating atomic radial density from atomic wfn file..."
+!write(*,*) "Generating atomic radial density from atomic wfn file..."
 do iatm=1,ncenter
 	iele=a_org(iatm)%index
 	do istat=-3,3
@@ -3578,9 +3838,9 @@ do iatm=1,ncenter
 		inquire(file=trim(c80tmp)//".rad",exist=alive)
 		if (alive) cycle
 		inquire(file=trim(c80tmp)//".wfn",exist=alive)
-		if (.not.alive) then
+		if (alive==.false.) then
 			write(*,"(' Error: ',a,' was not found!')") trim(c80tmp)//".wfn"
-			write(*,*) "If you want to skip, press ENTER directly"
+			write(*,*) "If you want to skip, press ENTER button directly"
 			read(*,*)
 			cycle
 		end if
@@ -3588,10 +3848,14 @@ do iatm=1,ncenter
 		call atmwfn2atmrad(trim(c80tmp)//".wfn",trim(c80tmp)//".rad")
 	end do
 end do
+
 !Recover to the firstly loaded file
 call dealloall
 call readinfile(firstfilename,1)
 end subroutine
+
+
+
 !!----- Generate atomic radial density from atomic .wfn file
 !The code is adapted from sphatmraddens
 subroutine atmwfn2atmrad(infile,outfile)
@@ -3630,6 +3894,8 @@ do irad=nradpt,1,-1
 end do
 close(10)
 end subroutine
+
+
 !!---- Calculate density at a point for iatm based on loaded atomic radial density
 real*8 function fdens_rad(iatm,x,y,z)
 use defvar
@@ -3640,6 +3906,14 @@ npt=atmradnpt(iatm)
 r=dsqrt((a(iatm)%x-x)**2+(a(iatm)%y-y)**2+(a(iatm)%z-z)**2)
 call lagintpol(atmradpos(1:npt),atmradrho(iatm,1:npt),npt,r,fdens_rad,rnouse,rnouse,1)
 end function
+
+
+
+
+
+
+
+
 !!----------------------------------------
 !!--------- Calculate EEM charge ---------
 !!----------------------------------------
@@ -3651,15 +3925,18 @@ character c200tmp*200
 real*8 EEMmat(ncenter+1,ncenter+1),EEMarr(ncenter+1),qarr(ncenter+1)
 real*8 kappa,Aparm(nelesupp,maxBO),Bparm(nelesupp,maxBO) !If parameter is -1, means undefined parameter
 real*8 :: chgnet=0
+
 if (ifiletype/=11.and.ifiletype/=13) then
 	write(*,"(a)") " Error: MDL Molfile (.mol) or .mol2 file must be used as input file, since it contains atomic connectivity information!"
 	write(*,*) "Press Enter button to return"
 	read(*,*)
 	return
 end if
+
 iparmset=2
 call genEEMparm(iparmset,kappa,Aparm,Bparm)
 isel2=-10
+	
 EEMcyc: do while(.true.)
 	write(*,*)
 	write(*,*) "           ------ Electronegativity Equalization Method (EEM) ------"
@@ -3757,6 +4034,7 @@ EEMcyc: do while(.true.)
 				EEMarr(iatm)=-tmpval
 			end if
 		end do
+
 		!Construct EEM matrix
 		EEMmat=0
 		EEMmat(ncenter+1,1:ncenter)=1
@@ -3771,6 +4049,7 @@ EEMcyc: do while(.true.)
 				end if
 			end do
 		end do
+		
 		!Solve EEM equation
 		qarr=matmul(invmat(EEMmat,ncenter+1),EEMarr)
 		do iatm=1,ncenter
@@ -3780,8 +4059,10 @@ EEMcyc: do while(.true.)
         write(*,*)
         call outatmchg(10,qarr(:))
 	end if
+
 end do EEMcyc
 end subroutine
+
 !---- Generate EEM parameters
 subroutine genEEMparm(iset,kappa,Aparm,Bparm)
 use defvar
@@ -3899,6 +4180,11 @@ else if (iset==4) then !Parameters fitted to NPA charges at B3LYP/6-311G*, see J
 	Bparm(35,1)= 1.2131D0
 end if
 end subroutine
+
+
+
+
+
 !!----- A routine directly return Hirshfeld charge based on built-in density, adapted from "spacecharge" routine
 subroutine genHirshfeld(charge)
 use defvar
@@ -3908,9 +4194,12 @@ implicit real*8 (a-h,o-z)
 real*8 charge(ncenter)
 real*8 molrho(radpot*sphpot),promol(radpot*sphpot),tmpdens(radpot*sphpot),selfdens(radpot*sphpot)
 type(content) gridatm(radpot*sphpot),gridatmorg(radpot*sphpot)
+
 !write(*,"(' Radial grids:',i5,'    Angular grids:',i5,'   Total:',i10)") radpot,sphpot,radpot*sphpot
+
 !Generate quadrature point and weighs by combination of Gauss-Chebyshev and Lebedev grids
 call gen1cintgrid(gridatmorg,iradcut)
+
 do iatm=1,ncenter
 	gridatm%value=gridatmorg%value !Weight in this grid point
 	gridatm%x=gridatmorg%x+a(iatm)%x !Move quadrature point to actual position in molecule
@@ -3947,10 +4236,16 @@ do iatm=1,ncenter
     call showprog(iatm,ncenter)
 end do
 end subroutine
+
+
+
+
 !!--------------- Calculate Gasteiger charge
 !Parameter comes from its original paper: Tetrahedron, 36, 3219 (1980)
+!
 !Can compare: obabel 1.mol -osmi --partialcharge gasteiger --print (result is always identical to Avogadro)
 !But for conjugated systems, the result of present code is somewhat different to those.
+!
 !Can also compare: antechamber -i 1.mol2 -fi mol2 -o test.prepin -fo prepi -c gas
 !The charges produced by present code are identical and directly comparable to those in the intermediate file ANTECHAMBER_PREP.AC
 subroutine gasteiger
@@ -3963,27 +4258,39 @@ real*8 parma(nelesupp,maxbond),parmb(nelesupp,maxbond),parmc(nelesupp,maxbond),i
 real*8 atom_a(ncenter),atom_b(ncenter),atom_c(ncenter),delta_q(ncenter),eleneg(ncenter),elenegQ1(ncenter),charge(ncenter)
 integer nbond(ncenter) !Number of bonds of each atom
 integer bondlist(ncenter,maxbond) !(i,j) element is the index of the jth atom that connected to atom i
+
 !Parameters are extracted from original paper, while a few are supplemented by consulting GASPARM.dat in AmberTools
 !Despite nearly ionic atom type is available in GASPARM.dat, they are not taken into account, because they only occur in very rare cases such H2SO4, H3PO4...
 parma=0;parmb=0;parmc=0;initchg=0
+!H
 parma(1,1)=7.17D0; parmb(1,1)=6.24D0; parmc(1,1)=-0.56D0 !One bond
+!C
 parma(6,1:2)=10.39D0; parmb(6,1:2)=9.45D0; parmc(6,1:2)=0.73D0 !1 or 2 bonds
 parma(6,3)=8.79D0;  parmb(6,3)=9.32D0; parmc(6,3)=1.51D0 !3 bonds
 parma(6,4)=7.98D0;  parmb(6,4)=9.18D0; parmc(6,4)=1.88D0 !4 bonds
+!N
 parma(7,1)=15.68D0; parmb(7,1)=11.70D0; parmc(7,1)=-0.27D0 !One bond
 parma(7,2)=12.87D0; parmb(7,2)=11.15D0; parmc(7,2)=0.85D0 !Two bonds
 parma(7,3)=11.54D0; parmb(7,3)=10.82D0; parmc(7,3)=1.36D0 !Three bonds. The parameter of N in sp2 state will be assigned later
 parma(7,4)= 0.00D0; parmb(7,4)=11.86D0; parmc(7,4)=11.86D0 !Four bonds
+!P
 parma(15,:)=8.90D0; parmb(15,:)=8.24D0; parmc(15,:)=0.96D0
+!O
 parma(8,1)=17.07D0; parmb(8,1)=13.79D0; parmc(8,1)=0.47D0 !One bond
 parma(8,2)=14.18D0; parmb(8,2)=12.92D0; parmc(8,2)=1.39D0 !Two bonds
+!S
 parma(16,1)=10.88D0; parmb(16,1)=9.485D0; parmc(16,1)=1.325D0 !One bond
 parma(16,2:3)=10.14D0; parmb(16,2:3)=9.13D0; parmc(16,2:3)=1.38D0 !Two or three bonds
 parma(16,4)=12.00D0; parmb(16,4)=10.805D0; parmc(16,4)=1.195D0 !Four bonds
+!F
 parma(9,1)=14.66D0; parmb(9,1)=13.85D0; parmc(9,1)=2.31D0 !One bond
+!Cl
 parma(17,1)=11.00D0; parmb(17,1)=9.69D0; parmc(17,1)=1.35D0 !One bond
+!Br
 parma(35,1)=10.08D0; parmb(35,1)=8.47D0; parmc(35,1)=1.16D0 !One bond
+!I
 parma(53,1)=9.90D0; parmb(53,1)=7.96D0; parmc(53,1)=0.96D0 !One bond
+
 !Below are GASPARM.dat in AmberTools. The ones not explicitly taken into account in Multiwfn is labelled with *
 !Antechamber first determines Amber atom types, then convert to Gasgeiter types according to ATOMTYPE_GAS.DEF,&
 !then checks GASPARM.DAT to determine actual parameters, finally invokes "charge.c" to carry out Gasteiger calculation.&
@@ -4031,8 +4338,10 @@ parma(53,1)=9.90D0; parmb(53,1)=7.96D0; parmc(53,1)=0.96D0 !One bond
 !I tested H3PO4, H2CH3PO4, Antechamber identify all phosporous as p, &
 !hydroxyl oxygen is identified as o3, =O as o2, the result is identical to Antechamber. It seems that only when P connected to multiple =O &
 !the case will be come more complicated, but this situation is quite rare and thus not needed to consider
+
 call genconnmat
 write(*,*)
+
 nbond=0
 charge=0
 !Assign a,b,c parameters to each atom
@@ -4086,6 +4395,7 @@ do iatm=1,ncenter
         return
     end if
 end do
+
 !Special case: Assign initial charge for S according to the number of coordinates and connected =O atoms
 do iatm=1,ncenter
     if (a(iatm)%index/=16) cycle
@@ -4100,6 +4410,7 @@ do iatm=1,ncenter
         charge(iatm)=noxy
     end if
 end do
+
 !Calculate atom electronegativity at q=1 state
 do iatm=1,ncenter
     if (a(iatm)%index==1) then !X(q=1) of hydrogen is special, as mentioned in right side of page 3220 of Tetrahedron, 36, 3219 (1980)
@@ -4108,6 +4419,7 @@ do iatm=1,ncenter
         elenegQ1(iatm) = atom_a(iatm) + atom_b(iatm) + atom_c(iatm)
     end if
 end do
+
 fdamp=0.5D0
 convcrit=0.0001D0 !This criterion is more strict than OpenBabel and Avogadro. It seems that their criteria are about 0.002
 maxcyc=50
@@ -4144,7 +4456,7 @@ do icyc=1,maxcyc
     charge=charge+delta_q
     if (outmedinfo==1) then
         do iatm=1,ncenter
-	        write(*,"(i6,'(',a,')  q=',f10.6,'  X=',f10.3,' eV  q=',f12.6)") iatm,ind2name(a(iatm)%index),delta_q(iatm),eleneg(iatm),charge(iatm)
+	        write(*,"(i6,'(',a,')  ¦¤q=',f10.6,'  X=',f10.3,' eV  q=',f12.6)") iatm,ind2name(a(iatm)%index),delta_q(iatm),eleneg(iatm),charge(iatm)
         end do
     end if
     if (deltamax<convcrit) exit
@@ -4166,7 +4478,12 @@ else
     write(*,*)
     call outatmchg(10,charge(:))
 end if
+
 end subroutine
+
+
+
+
 !---- Print and return normalized atomic charges
 !This is mainly used for getting rid of integration inaccuracy of the atomic charges derived by real space integration
 subroutine normalizecharge(charge)
@@ -4184,12 +4501,15 @@ do iatm=1,ncenter
 	write(*,"(' Atom',i5,'(',a2,')',': ',f14.8)") iatm,a(iatm)%name,charge(iatm)
 end do
 end subroutine
+
+
+
 !---- Output atomic charges to a .chg file
 !ifileid is the file id that can be used in this routine
 subroutine outatmchg(ifileid,charge)
 use defvar
 use util
-integer ifileid
+integer ifileid,i
 real*8 charge(ncenter)
 character selectyn,chgfilename*200
 call path2filename(firstfilename,chgfilename)
@@ -4205,12 +4525,13 @@ if (selectyn=="y".or.selectyn=="Y") then
 	write(*,"(a)") " Columns 1 to 5 are name,X,Y,Z,charge respectively, unit is Angstrom"
 end if
 end subroutine
+
 !---- Output all calculated charges (including additional fitting centers) to a .chg file
 !ifileid is the file id that can be used in this routine
 subroutine outallchg(ifileid,charge,fitcen,nfitcen)
 use defvar
 use util
-integer ifileid,nfitcen
+integer ifileid,i,nfitcen
 real*8 charge(nfitcen),fitcen(3,nfitcen)
 character selectyn,chgfilename*200
 call path2filename(firstfilename,chgfilename)

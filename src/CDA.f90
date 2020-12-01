@@ -492,7 +492,7 @@ end if
 1 continue
 
 
-!============= Post-process interface, but in fact CDA and ECDA are calculated by option 0
+!============= Post-processing interface, but in fact CDA and ECDA are calculated by option 0
 write(*,*)
 do while(.true.)
 	if (iout==6) write(*,*) "-2 Switch output destination (for options 0, 1, 6), current: Screen"
@@ -1107,7 +1107,7 @@ do while(.true.)
 			end if
 		end do
 
-	end if !End post-process interface
+	end if !End post-processing interface
 end do
 end subroutine
 
@@ -1297,7 +1297,7 @@ do iorb=1,nmo1
 		ilastplotted=0
 		cycle
 	end if
-	if ((idrawMObar==2.or.idrawMObar==3).and..not.FO1involveconn(iorb)) cycle
+	if ((idrawMObar==2.or.idrawMObar==3).and.FO1involveconn(iorb)==.false.) cycle
 	call solid !Use solid line to plot occupied orbital bars, use dashed line to plot virtual orbital bars
 	if (occ1(iorb)==0) call dash
 	call rline(xlow1,eneval,xhigh1,eneval)
@@ -1325,7 +1325,7 @@ do iorb=1,nmo2
 		ilastplotted=0
 		cycle
 	end if
-	if ((idrawMObar==2.or.idrawMObar==3).and..not.FO2involveconn(iorb)) cycle
+	if ((idrawMObar==2.or.idrawMObar==3).and.FO2involveconn(iorb)==.false.) cycle
 	call solid
 	if (occ2(iorb)==0) call dash
 	call rline(xlow2,eneval,xhigh2,eneval)

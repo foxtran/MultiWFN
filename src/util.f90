@@ -1,5 +1,6 @@
 module util
 implicit real*8(a-h,o-z)
+
 interface sort
 	module procedure sortr8
 	module procedure sorti4
@@ -8,7 +9,7 @@ interface invarr
 	module procedure invarrr8
 	module procedure invarri4
 end interface
-!!------------------- Root and weight of hermite polynomial
+!!------------------- Root and weight of Hermite polynomial
 real*8 Rhm(10,10),Whm(10,10)
 data Rhm(1,1) /  0.0D0                      /
 data Rhm(2,1) / -0.70710678118654752440D+00 /
@@ -120,6 +121,7 @@ data Whm(10,7) /  2.40138611082314686417D-01 /
 data Whm(10,8) /  3.38743944554810631362D-02 /
 data Whm(10,9) /  1.34364574678123269220D-03 /
 data Whm(10,10) / 7.64043285523262062916D-06 /
+
 contains
 !Content sequences:
 !!Geometry operation
@@ -127,6 +129,7 @@ contains
 !!String process
 !!Matrix calculation
 !!Misc
+
 !===============================================================!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -134,6 +137,7 @@ contains
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !===============================================================!
+
 !!---------- Get angle (degree) between two vectors
 real*8 function vecang(vec1x,vec1y,vec1z,vec2x,vec2y,vec2z)
 real*8 vec1x,vec1y,vec1z,vec2x,vec2y,vec2z
@@ -144,12 +148,16 @@ costheta=(vec1x*vec2x+vec1y*vec2y+vec1z*vec2z)/rnorm1/rnorm2
 if (costheta>1D0) costheta=1
 vecang=acos(costheta)/pi*180
 end function
+
+
 !!---------- Get distance of point 0 to plane (defined by point 1,2,3) 
 real*8 function potpledis(x1,y1,z1,x2,y2,z2,x3,y3,z3,x0,y0,z0)
 real*8 x1,y1,z1,x2,y2,z2,x3,y3,z3,x0,y0,z0,prjx,prjy,prjz
 call pointprjple(x1,y1,z1,x2,y2,z2,x3,y3,z3,x0,y0,z0,prjx,prjy,prjz)
 potpledis=dsqrt((x0-prjx)**2+(y0-prjy)**2+(z0-prjz)**2)
 end function
+
+
 !!---------- Project a point (x0,y0,z0) to a plane defined by x/y/z-1/2/3, prjx/y/z are results
 subroutine pointprjple(x1,y1,z1,x2,y2,z2,x3,y3,z3,x0,y0,z0,prjx,prjy,prjz)
 real*8 x1,y1,z1,x2,y2,z2,x3,y3,z3,x0,y0,z0,prjx,prjy,prjz,A,B,C,D,t
@@ -160,6 +168,8 @@ prjx=x0-t*A
 prjy=y0-t*B
 prjz=z0-t*C
 end subroutine
+
+
 !!-------- Input three points, get ABCD of Ax+By+Cz+D=0
 subroutine pointABCD(x1,y1,z1,x2,y2,z2,x3,y3,z3,A,B,C,D)
 real*8 v1x,v1y,v1z,v2x,v2y,v2z,x1,y1,z1,x2,y2,z2,x3,y3,z3,A,B,C,D
@@ -178,6 +188,8 @@ B=-(v1x*v2z-v1z*v2x)
 C=v1x*v2y-v1y*v2x
 D=A*(-x1)+B*(-y1)+C*(-z1)
 end subroutine
+
+
 !!-------- Input three points 0,1,2, get the vertical projection point of 0 to the line linking 1-2
 subroutine pointprjline(x0,y0,z0,x1,y1,z1,x2,y2,z2,prjx,prjy,prjz)
 real*8 x0,y0,z0,x1,y1,z1,x2,y2,z2,prjx,prjy,prjz,v12x,v12y,v12z,t
@@ -192,17 +204,23 @@ prjx=x1+t*v12x
 prjy=y1+t*v12y
 prjz=z1+t*v12z
 end subroutine
+
+
 !!---------- Get distance of point 0 to the line 1-2
 real*8 function potlinedis(x0,y0,z0,x1,y1,z1,x2,y2,z2)
 real*8 x0,y0,z0,x1,y1,z1,x2,y2,z2,prjx,prjy,prjz
 call pointprjline(x0,y0,z0,x1,y1,z1,x2,y2,z2,prjx,prjy,prjz)
 potlinedis=dsqrt((x0-prjx)**2+(y0-prjy)**2+(z0-prjz)**2)
 end function
+
+
 !!--------- Input two points, return their distance in Bohr
 real*8 function xyz2dist(x1,y1,z1,x2,y2,z2)
 real*8 :: x1,y1,z1,x2,y2,z2
 xyz2dist=dsqrt((x1-x2)**2+(y1-y2)**2+(z1-z2)**2)
 end function
+
+
 !!--------- Input three points, return angle between 1-2 and 2-3 (in degree)
 real*8 function xyz2angle(x1,y1,z1,x2,y2,z2,x3,y3,z3)
 real*8 :: x1,y1,z1,x2,y2,z2,x3,y3,z3,pi=3.141592653589793D0
@@ -217,6 +235,8 @@ rnormv1=dsqrt( vec1x**2+vec1y**2+vec1z**2 )
 rnormv2=dsqrt( vec2x**2+vec2y**2+vec2z**2 )
 xyz2angle=acos(dotprod/(rnormv1*rnormv2))/pi*180
 end function
+
+
 !!--------- Input four points, return dihedral angle (in degree)
 !Note that the value is always positive and within [0,180]
 real*8 function xyz2dih(x1,y1,z1,x2,y2,z2,x3,y3,z3,x4,y4,z4)
@@ -235,21 +255,28 @@ call vecprod(v23x,v23y,v23z,v34x,v34y,v34z,p2x,p2y,p2z)
 phi=acos( (p1x*p2x+p1y*p2y+p1z*p2z)/(sqrt(p1x*p1x+p1y*p1y+p1z*p1z)*sqrt(p2x*p2x+p2y*p2y+p2z*p2z)) )
 xyz2dih=phi/pi*180
 end function
+
+
 !!--------------- Get area of a triangle, need input coordinates of three points
 function gettriangarea(pax,pay,paz,pbx,pby,pbz,pcx,pcy,pcz)
 implicit real*8 (a-h,o-z)
 real*8 gettriangarea,pax,pay,paz,pbx,pby,pbz,pcx,pcy,pcz
 ! a---b             va=pb-pa vb=pc-pa
+! |
+! V
+! c
 va1=pbx-pax
 va2=pby-pay
 va3=pbz-paz
 vb1=pcx-pax
 vb2=pcy-pay
 vb3=pcz-paz
-call vecprod(va1,va2,va3,vb1,vb2,vb3,vc1,vc2,vc3)  !vc=va..vb=|va||vb|sin..*i  where i is unit vector perpendicular to va and vb
+call vecprod(va1,va2,va3,vb1,vb2,vb3,vc1,vc2,vc3)  !vc=va¡Ávb=|va||vb|sin¦È*i  where i is unit vector perpendicular to va and vb
 absvc=dsqrt(vc1**2+vc2**2+vc3**2)
 gettriangarea=0.5D0*absvc
 end function
+
+
 !!--------------- Get volume of a tetrahedron, need input coordinates of four points
 function gettetravol(pax,pay,paz,pbx,pby,pbz,pcx,pcy,pcz,pdx,pdy,pdz)
 implicit real*8 (a-h,o-z)
@@ -261,7 +288,7 @@ real*8 pax,pay,paz,pbx,pby,pbz,pcx,pcy,pcz,pdx,pdy,pdz
 ! volmat(:,4)=1D0
 ! gettetravol=abs(detmat(volmat))/6D0
 ! call showmatgau(volmat)
-!vol=abs( (a-d)..((b-d)..(c-d)) )/6,  see http://en.wikipedia.org/wiki/Tetrahedron
+!vol=abs( (a-d)¡¤((b-d)¡Á(c-d)) )/6,  see http://en.wikipedia.org/wiki/Tetrahedron
 vec1x=pax-pdx
 vec1y=pay-pdy
 vec1z=paz-pdz
@@ -274,10 +301,13 @@ vec3z=pcz-pdz
 call vecprod(vec2x,vec2y,vec2z,vec3x,vec3y,vec3z,vec2x3x,vec2x3y,vec2x3z)
 gettetravol=abs(vec1x*vec2x3x+vec1y*vec2x3y+vec1z*vec2x3z)/6D0
 end function
+
+
+
 !!---------- Input a set of atoms to fit a best plane. Return A, B, C, D of plane equation A*x+B*y+C*z+D=0
 !"atmarr" with size of "natm" is the array containing atom indices in the ring. rmsfit measures RMS fitting error in Bohr
 !  Based on joriki's answer: https://math.stackexchange.com/questions/99299/best-fitting-plane-given-a-set-of-points
-!  "Subtract out the centroid, form a 3..N matrix X out of the resulting coordinates and calculate its singular value decomposition. &
+!  "Subtract out the centroid, form a 3¡ÁN matrix X out of the resulting coordinates and calculate its singular value decomposition. &
 !The normal vector of the best-fitting plane is the left singular vector corresponding to the least singular value"
 subroutine ptsfitplane(atmarr,natm,planeA,planeB,planeC,planeD,rmsfit)
 use defvar
@@ -285,18 +315,22 @@ implicit real*8 (a-h,o-z)
 integer atmarr(natm)
 real*8 planeA,planeB,planeC,planeD,rmsfit
 real*8 tmpmat(3,natm),singval(3),matU(3,3),matV(natm,natm)
+
 cenx=sum(a(atmarr(:))%x)/natm
 ceny=sum(a(atmarr(:))%y)/natm
 cenz=sum(a(atmarr(:))%z)/natm
 tmpmat(1,:)=a(atmarr(:))%x-cenx
 tmpmat(2,:)=a(atmarr(:))%y-ceny
 tmpmat(3,:)=a(atmarr(:))%z-cenz
+
 call SVDmat(1,tmpmat,matU,matV,singval,info)
 ileast=minloc(singval,1)
+
 planeA=matU(1,ileast)
 planeB=matU(2,ileast)
 planeC=matU(3,ileast)
 planeD=-(planeA*cenx+planeB*ceny+planeC*cenz)
+
 !write(*,"(4f12.6)") planeA,planeB,planeC,planeD
 !Check fitting quality using A*x+B*y+C*z+D=0
 accum=0
@@ -307,6 +341,10 @@ do iatm=1,natm
 end do
 rmsfit=dsqrt(accum/natm)
 end subroutine
+
+
+
+
 !===============================================================!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -314,6 +352,7 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !===============================================================!
+
 !!--------- Invert array, from istart to iend
 !If "list" is presented, also exchange the index during invert. list should have same size as array
 !Real*8 version
@@ -368,6 +407,8 @@ do i=1,int(len/2D0)
 	end if
 end do
 end subroutine
+
+
 !-------- Sort value from small to big by Bubble method
 !inmode =abs: sort by absolute value, =val: sort by value. Default is by value
 !If "list" is presented, also exchange the index in the list during sorting. list should have same size as array
@@ -484,12 +525,16 @@ else if (mode==2) then
 	end do
 end if
 end subroutine
+
+
 !!--------- Evaluate standard deviation of array elements
 real*8 function stddevarray(array)
 real*8 array(:),avg
 avg=sum(array)/size(array)
 stddevarray=dsqrt(sum((array-avg)**2)/size(array))
 end function
+
+
 !!--------- Evaluate covariant of two array elements
 real*8 function covarray(array1,array2)
 real*8 array1(:),array2(:),avg1,avg2
@@ -497,6 +542,8 @@ avg1=sum(array1)/size(array1)
 avg2=sum(array2)/size(array2)
 covarray=sum((array1-avg1)*(array2-avg2))/size(array1)
 end function
+
+
 !--- Vector/cross product, input two vectors, return a new vector (x,y,z)
 subroutine vecprod(x1,y1,z1,x2,y2,z2,x,y,z)
 real*8 x1,y1,z1,x2,y2,z2,x,y,z
@@ -507,6 +554,8 @@ x=  y1*z2-z1*y2
 y=-(x1*z2-z1*x2)
 z=  x1*y2-y1*x2
 end subroutine
+
+
 !--- Generate full arrangement (all permutation) array
 !ncol is the number of elements, nrow should have size of (ncol)!
 !Example: nrow=3!=6, ncol=3, the returned arr will be:
@@ -534,6 +583,13 @@ do icyc=2,nrow
 	arr(icyc,:)=seq
 end do
 end subroutine
+
+
+
+
+
+
+
 !===============================================================!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -541,6 +597,7 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !===============================================================!
+
 !-------- Parse inputted integer string (e.g. 3,4,5,6,7-25,32-35,55,88) to array
 !nelement will be return, which is the number of indices in the string
 !if "array" is present, the terms will be written into it, else if "array" is not present, only count the number of terms as "nelement"
@@ -580,6 +637,8 @@ do ipos=1,len_trim(inpstr)
 	end if
 end do
 end subroutine
+
+
 !---------Input path name, e.g. C:\ltwd\MIO.wfn , output file name, e.g. MIO
 subroutine path2filename(pathnamein,filenameout)
 character(len=*) pathnamein,filenameout
@@ -599,6 +658,18 @@ end do
 filenameout=' '
 filenameout(1:iend-istart+1)=pathnamein(istart:iend)
 end subroutine
+
+
+!-------- Add name of input file as prefix of given string
+subroutine addprefix(inname)
+use defvar
+character c200tmp*200
+character(len=*) inname
+call path2filename(filename,c200tmp)
+inname=trim(c200tmp)//'_'//trim(inname)
+end subroutine
+
+
 !!--------- Convert a character to lower case
 subroutine uc2lc(inc)
 character*1 inc
@@ -606,6 +677,8 @@ itmp=ichar(inc)
 if (itmp>=65.and.itmp<=90) itmp=itmp+32
 inc=char(itmp)
 end subroutine
+
+
 !!--------- Convert a character to upper case
 subroutine lc2uc(inc)
 character*1 inc
@@ -613,6 +686,8 @@ itmp=ichar(inc)
 if (itmp>=97.and.itmp<=122) itmp=itmp-32
 inc=char(itmp)
 end subroutine
+
+
 !!--------- Convert a string to lower case
 subroutine struc2lc(str)
 character(len=*) str
@@ -620,6 +695,8 @@ do i=1,len_trim(str)
 	call uc2lc(str(i:i))
 end do
 end subroutine
+
+
 !!--------- Convert a string to upper case
 subroutine strlc2uc(str)
 character(len=*) str
@@ -627,6 +704,8 @@ do i=1,len_trim(str)
 	call lc2uc(str(i:i))
 end do
 end subroutine
+
+
 !!--------- Return the position of a given character in a string, itime is the number of times that it occurs
 !e.g. strcharpos(sfisi1123,'i',1) returns 3, strcharpos(sfisi1123,'i',2) returns 5. If not found, return 0
 function strcharpos(str,char,itime)
@@ -643,6 +722,42 @@ do i=1,len_trim(str)
     end if
 end do
 end function
+
+
+!!--------- Return the number of a character in a string
+!e.g. strcharnum(sfisi1123,'i') returns 2
+function strcharnum(str,char)
+character(len=*) str
+character char
+integer itime
+strcharnum=0
+do i=1,len_trim(str)
+    if (str(i:i)==char) strcharnum=strcharnum+1
+end do
+end function
+
+
+!!-------- Read float data after the last specific sign (can be multiple characters) from inputted string
+subroutine readaftersign(ifileid,sign,val)
+character str*200
+character(len=*) sign
+real*8 val
+read(10,"(a)") str
+itmp=index(trim(str),sign,back=.true.)
+read(str(itmp+len(sign):),*) val
+end subroutine
+!!-------- Read integer data after the last specific sign from inputted string
+subroutine readaftersign_int(ifileid,sign,val)
+character str*200
+character(len=*) sign
+integer val
+read(10,"(a)") str
+itmp=index(trim(str),sign,back=.true.)
+read(str(itmp+len(sign):),*) val
+end subroutine
+
+
+
 !===============================================================!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -650,6 +765,7 @@ end function
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !===============================================================!
+
 !!----- Make the matrix to upper trigonal matrix
 subroutine ratio_upper(mat)
 real*8 :: mat(:,:),m,st
@@ -678,6 +794,8 @@ do i=1,a-1
 end do
 deallocate(temp,s,divided)
 end subroutine
+
+
 !!----- Get value of determinant of a matrix
 real*8 function detmat(mat)
 real*8 mat(:,:)
@@ -702,6 +820,7 @@ outter2: do i=1,isizemat !Check if already is upper-trigonal matrix
 		end if
 	end do
 end do outter2
+
 if (NOTlowertri==0.or.NOTuppertri==0) then !Is lower or upper trigonal matrix, don't need to convert to trigonal matrix
 	do i=1,isizemat
 		detmat=detmat*mat(i,i)
@@ -716,6 +835,9 @@ else !Not upper or lower trigonal matrix
 	end do
 end if
 end function
+
+
+
 !!-------- Get trace of a matrix
 real*8 function mattrace(mat)
 real*8 mat(:,:)
@@ -724,6 +846,8 @@ do i=1,size(mat,1)
 	mattrace=mattrace+mat(i,i)
 end do
 end function
+
+
 !!--- Use Jacobi method to diagonalize matrix, simple, but much slower than diagsymat and diaggemat if the matrix is large
 subroutine diagmat(mat,S,eigval,inmaxcyc,inthres)
 ! mat: input and will be diagonalized matrix, S:eigenvector matrix(columns correspond to vectors), eigval:eigenvalue vector
@@ -739,6 +863,7 @@ maxcyc=200
 thres=1D-9
 if (present(inmaxcyc)) maxcyc=inmaxcyc
 if (present(inthres)) thres=inthres
+S=0
 do i=1,n
 	S(i,i)=1.0D0
 end do
@@ -771,6 +896,8 @@ do i=1,n
 	eigval(i)=mat(i,i)
 end do
 end subroutine
+
+
 !!------------ Diagonalize a symmetry matrix 
 !Repack the extremely complex "DSYEV" routine in lapack to terse form
 !if istat/=0, means error occurs
@@ -785,6 +912,8 @@ eigvecmat=mat
 mat=0D0
 forall (i=1:isize) mat(i,i)=eigvalarr(i)
 end subroutine
+
+
 !!------------ Diagonalize a general matrix 
 !Repack the extremal complex "DGEEV" routine in lapack to terse form
 !eigvecmat is right eigenvector matrix
@@ -801,6 +930,8 @@ call DGEEV('N','V',isize,mat,isize,eigvalarr,eigvalimgarr,tmpmat,1,eigvecmat,isi
 mat=0D0
 forall (i=1:isize) mat(i,i)=eigvalarr(i)
 end subroutine
+
+
 !!------------ Singular value decomposition (SVD) for general matrix: A = U * SIGMA * transpose(V)
 !Repack the extremal complex "DGESVD" and "DGESDD" routine in lapack to terse form
 !imethod=1: Standard algorithm (DGESVD) =2: Divide-and-conquer algorithm (DGESDD), faster but need more workspace and not as stable as DGESVD
@@ -836,13 +967,16 @@ end if
 matA=matAbk
 matV=transpose(matV)
 end subroutine
+
+
 !!-------Return matrix multiplication of two double float matrices. This is a wrapper of DGEMM routine in BLAS so that invoking could be easier
-!In fact, I found at -O2 level with /Qopt-matmul option, the matmul() is even much faster than this, therefore this function is useless 
-!nArow is the number of rows of matrix A, namely size(matA,1)
-!nBcol is the number of columns of matrix B, namely size(matB,2)
-!The returned matrix is (nArow,nBcol) dimension
-!If tranAin (tranBin) is optional, if it is 1 rather than 0, then matA (matB) will be transposed before doing the multiplication. &
-!(If the inputted matrix is not square, the transpose should be done using transpose() prior to input
+!In fact, I found at -O2 level with /Qopt-matmul option, the matmul() is even much faster than this, therefore this function may be useless ,
+!However, when MKL is linked, due to parallellization, this routine is much faster than matmul() with /Qopt-matmul
+! nArow is the number of rows of matrix A, namely size(matA,1). If tranBin=1, it should be size(matA,2)
+! nBcol is the number of columns of matrix B, namely size(matB,2). If tranBin=1, it should be size(matB,1)
+! The returned matrix is (nArow,nBcol) dimension
+! tranAin (tranBin) is optional, if it is 1 rather than 0, then matA (matB) will be transposed before doing the multiplication
+!This statement is wrong: If the inputted matrix is not square, the transpose should be done using transpose() prior to input
 function matmul_blas(matA,matB,nArow,nBcol,tranAin,tranBin)
 real*8 matA(:,:),matB(:,:),matmul_blas(nArow,nBcol)
 integer nArow,nBcol
@@ -867,6 +1001,8 @@ if (present(tranBin)) then
 end if
 call dgemm(tranA,tranB,nArow,nBcol,nAcol,1D0,matA,lda,matB,ldb,0D0,matmul_blas,nArow)
 end function
+
+
 !!--------------- A function to output inverted matrix, inputted matrix will not be affected. Essentially is a warpper of KROUT
 function invmat(mat,N)
 integer N,ierr
@@ -887,12 +1023,15 @@ end subroutine
 !  A IS A MATRIX OF ORDER N WHERE N IS GREATER THAN OR EQUAL TO 1.
 !  IF MO = 0 THEN THE INVERSE OF A IS COMPUTED AND STORED IN A.
 !  IF MO IS NOT 0 THEN THE INVERSE IS NOT COMPUTED.
+
 !  IF M IS GREATER THAN 0 THEN B IS A MATRIX HAVING N ROWS AND M COLUMNS.
 !  IN THIS CASE AX = B IS SOLVED AND THE SOLUTION X IS STORED IN B.
 !  IF M=0 THEN THERE ARE NO EQUATIONS TO BE SOLVED.
 !  N.B. B is passed as a VECTOR not as a matrix.
+
 !  KA = THE LENGTH OF THE COLUMNS OF THE ARRAY A
 !  KB = THE LENGTH OF THE COLUMNS OF THE ARRAY B (IF M > 0)
+
 !  IERR IS A VARIABLE THAT REPORTS THE STATUS OF THE RESULTS. WHEN
 !  THE ROUTINE TERMINATES IERR HAS ONE OF THE FOLLOWING VALUES ...
 !     IERR =  0   THE REQUESTED TASK WAS PERFORMED.
@@ -1066,8 +1205,10 @@ do NMJ = 1,NM1
 end do
 if (MO == 0) deallocate( INDX, TEMP )
 end subroutine
+
+
 !------- Calculate how much is a matrix deviates from identity matrix
-!error=[i,j]abs( abs(mat(i,j))-(i,j) )
+!error=¡Æ[i,j]abs( abs(mat(i,j))-¦Ä(i,j) )
 real*8 function identmaterr(mat)
 implicit real*8 (a-h,o-z)
 real*8 mat(:,:)
@@ -1083,6 +1224,8 @@ do i=1,nsize
 	end do
 end do
 end function
+
+
 !----- Convert a square matrix to an array. imode=1/2/3: Full matrix; Lower half matrix; Upper half matrix
 !For mode=1,2, "arr" should be nsize*(nsize+1)/2
 subroutine mat2arr(mat,arr,imode)
@@ -1113,6 +1256,63 @@ else !Upper half matrix
 	end do
 end if
 end subroutine
+
+
+
+!----- Calculate outer product of two arrays "arr1" and "arr2" with size n1 and n2 to yield a new matrix "mat"(n1,n2)
+!The inputted two arrays are considered as column arrays, the "arr2" will be transposed
+subroutine vecextprod(mat,arr1,arr2,n1,n2)
+implicit real*8 (a-h,o-z)
+integer n1,n2
+real*8 mat(n1,n2)
+!$OMP PARALLEL DO SHARED(mat) PRIVATE(i,j) schedule(auto) NUM_THREADS(nthreads)
+do i=1,n1
+    do j=1,n2
+        mat(i,j)=arr1(i)*arr2(j)
+    end do
+end do
+!$OMP END PARALLEL DO
+end subroutine
+
+
+!----- Calculate matrix product of "mat1"(na*np) and "mat2"(np,nb) to yield "mat"(na,nb), using OpenMP
+!imode=1: Normal product
+!imode=2: matmul(mat1,transpose(mat2))
+subroutine matprod(imode,mat,mat1,mat2)
+real*8 mat(:,:),mat1(:,:),mat2(:,:)
+integer imode
+na=size(mat,1)
+nb=size(mat,2)
+np=size(mat1,2)
+mat=0
+if (imode==1) then
+    !$OMP PARALLEL DO SHARED(mat) PRIVATE(ia,ib,ip) schedule(dynamic) NUM_THREADS(nthreads)
+    do ia=1,na
+        do ib=1,nb
+            do ip=1,np
+                mat(ia,ib)=mat(ia,ib)+mat1(ia,ip)*mat2(ip,ib)
+            end do
+        end do
+    end do
+    !$OMP END PARALLEL DO
+else if (imode==2) then
+    !$OMP PARALLEL DO SHARED(mat) PRIVATE(ia,ib,ip) schedule(dynamic) NUM_THREADS(nthreads)
+    do ia=1,na
+        do ib=1,nb
+            do ip=1,np
+                mat(ia,ib)=mat(ia,ib)+mat1(ia,ip)*mat2(ib,ip)
+            end do
+        end do
+    end do
+    !$OMP END PARALLEL DO
+end if
+end subroutine
+
+
+
+
+
+
 !===============================================================!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
@@ -1120,6 +1320,7 @@ end subroutine
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
 !===============================================================!
+
 !!---------- Get current time in second, the difference between two times of invoking this routine is consumed wall clock time
 subroutine walltime(inow)
 character nowdate*20,nowtime*20
@@ -1130,6 +1331,8 @@ read(nowtime(3:4),*) inowminute
 read(nowtime(5:6),*) inowsecond
 inow=inowhour*3600+inowminute*60+inowsecond
 end subroutine
+
+
 !!----- Find the position of specific value in cube
 subroutine findvalincub(cubfile,value,i,j,k)
 real*8 cubfile(:,:,:),value
@@ -1146,12 +1349,15 @@ do ii=1,size(cubfile,1)
 	end do
 end do
 end subroutine
+
+
+
 !!------ Print matrix in a format similar to Gaussian. The number of columns is 5 (unadjustable)
 !mat: The matrix to be printed
 !  Below are optional
 !Label: The title information. If the content is empty, title will not be printed
 !insemi: If 1, print as lower trigonal matrix. Default is 0 (full matrix)
-!form: Format to print, total width must be 14 characters. Default is D14.6
+!form: Format to print, total width must be 14 characters. Default is 1PE14.6
 !fildid: Output destination, 6 corresponds to outputting to screen
 !usern1 and usern2: Dimensions of the matrix, default or -1 means determining automatically
 !inncol: seems controls spacing between number labels of each frame
@@ -1211,13 +1417,16 @@ do i=1,nf !How many frame
 			if (present(form)) then
 				write(ides,'('//form//')',advance='no') mat(k,j)			
 			else
-				write(ides,"(D14.6)",advance='no') mat(k,j)
+				write(ides,"(1PE14.6)",advance='no') mat(k,j)
 			end if
 		end do
 		write(ides,*) !Change to next line
 	end do
 end do
 end subroutine
+
+
+
 !!------- Read matrix in Gaussian output file, such as that printed by IOp(3/33=1) (or may be matrix printed by e.g. NBO)
 subroutine readmatgau(fileid,mat,insemi,inform,inskipcol,inncol,innspace,iostat)
 !e.g. Lower trigonal matrix: readmatgau(10,tmpmat,1,"D14.6",7,5)   full matrix: readmatgau(10,tmpmat,0,"?",7,5)
@@ -1229,7 +1438,8 @@ subroutine readmatgau(fileid,mat,insemi,inform,inskipcol,inncol,innspace,iostat)
 !inncol: Number of columns in each line, default is 5
 !innspace: Number of useless lines in between each frame, default is 1
 !iostat: Returned reading status. /=0 means error occurs
-!Before use, loclabel should be used to move reading position to title line of the matrix namely move to "*** Overlap ***"
+
+!Before use, loclabel should be used to move reading position to title line of the matrix£¬namely move to "*** Overlap ***"
 ! *** Overlap ***
 !                 1             2             3             4             5
 !       1  0.100000D+01
@@ -1308,12 +1518,15 @@ if (semi==1) then !For lower trigonal matrix, it is assumed to be symmetric. Now
 	end do
 end if
 end subroutine
+
+
 !!--------------------- Determine how many lines in the fileid
 !If imode==1, space line will be regarded as the sign of end of file. If imode==2, will count actual number of lines in the file
 integer function totlinenum(fileid,imode)
 integer fileid,ierror,imode
 character*80 c80
 totlinenum=0
+rewind(fileid)
 do while(.true.)
 	read(fileid,"(a)",iostat=ierror) c80
 	if (imode==1) then
@@ -1325,6 +1538,8 @@ do while(.true.)
 end do
 rewind(fileid)
 end function
+
+
 !!-------- Locate the line where the label first appears in fileid
 !Return ifound=1 if found the label, else return 0
 !Default is rewind, if irewind=0 then will not rewind
@@ -1359,6 +1574,29 @@ else
 end if
 if (present(ifound)) ifound=0
 end subroutine
+
+
+!-------- Locate to the final label, and meantime returns the number of matches. Based on "loclabel"
+subroutine loclabelfinal(fileid,label,nfound)
+integer fileid,nfound,ifound
+character(len=*) label
+nfound=0
+do while(.true.)
+    call loclabel(fileid,label,ifound,0)
+    if (ifound==0) then
+        exit
+    else
+        nfound=nfound+1
+        read(fileid,*)
+    end if
+end do
+do ifound=1,nfound
+    call loclabel(fileid,label)
+    read(fileid,*)
+end do
+end subroutine
+
+
 !!----------- Skip specific number of lines in specific fileid
 subroutine skiplines(id,nskip)
 integer id,nskip
@@ -1366,6 +1604,8 @@ do i=1,nskip
 	read(id,*)
 end do
 end subroutine
+
+
 !!---------------- Calculate factorial
 integer function ft(i)
 integer i
@@ -1375,12 +1615,16 @@ do j=i-1,1,-1
 	ft=ft*j
 end do
 end function
+
+
 !!---- Calculate gamma(Lval+1/2), see http://en.wikipedia.org/wiki/Gamma_function
 real*8 function gamma_ps(n)
 use defvar
 integer n
 gamma_ps=ft(2*n)*dsqrt(pi)/4**n/ft(n)
 end function
+
+
 !!-------- Get all combinations of any ncomb elements of array, which length is ntot
 !outarray(A,B) is output array, A is the length and must be ntot!/ncomb!/(ntot-ncomb)!, B is generated array, should be equal to ncomb
 subroutine combarray(array,ntot,ncomb,outarray)
@@ -1408,6 +1652,8 @@ do while(ipos>0)
 	if (ipos==ncomb) ioutput=1
 end do
 end subroutine
+
+
 !!--------- Convert XY scatter data to density distribution
 !xarr and yarr records the points. nlen is array length
 !mat is the outputted matrix, matnx and matny are its number of element in X and Y
@@ -1438,6 +1684,9 @@ do ix=1,nvalx
 end do
 ! !$OMP END PARALLEL DO
 end subroutine
+
+
+
 !--------- Determine the present file is output of file of which code
 !1=Outputted by Gaussian, 2=Outputted by ORCA, 3=Outputted by GAMESS-US, 4=Outputted by Firefly, 0=Undetermined
 subroutine outputprog(ifileid,iprog)
@@ -1465,8 +1714,34 @@ if (ifound==1) then
 end if
 iprog=0
 end subroutine
+
+
+!Determine if the real space function currently to be studied (ifuncsel) involve ESP, and thus should call doinitlibreta first
+!If should do, ifdoESP=.true., else ifdoESP=.false.
+logical function ifdoESP(ifuncsel)
+use defvar
+integer ifuncsel
+ifdoESP=.false.
+if (ifuncsel==12) then
+    ifdoESP=.true.
+else if (ifuncsel==100) then
+    if (iuserfunc==8) ifdoESP=.true.
+    if (iuserfunc==14) ifdoESP=.true.
+    if (iuserfunc==39) ifdoESP=.true.
+    if (iuserfunc>=60.and.iuserfunc<=68) ifdoESP=.true.
+    if (iuserfunc==101) ifdoESP=.true.
+    if (iuserfunc==102) ifdoESP=.true.
+end if
+end function
+
 end module
+
+
+
 !================= OUTSIDE MODULE =================
+
+
+
 !!--------- Lagrange interpolation in 1D, produce interpolated value, 1st and 2nd derivatives
 !NOTE: 4 adjacent data points will be used to interpolate
 !ptpos and ptval are the position and value of the input array, npt is the number of its element. ptpos must vary from small to large
@@ -1550,6 +1825,9 @@ do m=istart,iend
 	der2=der2+ptval(m)*suml
 end do
 end subroutine
+
+
+
 !--------- Show progress bar
 subroutine showprog(inow,nall)
 integer inow,nall
@@ -1574,9 +1852,11 @@ if (itmp==4) then
 	c80tmp(79:79)='/'
 	itmp=0
 end if
-write(*,"(2a$)") trim(c80tmp),char(13)
+write(*,"(2a\)") trim(c80tmp),char(13)
 if (inow>=nall) write(*,*)
 end subroutine
+
+
 !--------- Run system command by inputting command string
 subroutine runcommand(cmd)
 use defvar
@@ -1584,8 +1864,75 @@ character(len=*) cmd
 !Windows removes double quotation at the two sides of inputted string, therefore I add additional double quotation to protect those in the string
 write(*,"(a)") " Running: "//trim(cmd)
 if (isys==1) then
-    call system('""'//cmd//'""')
+    call system(""""//cmd//"""")
 else
     call system(cmd)
 end if
+end subroutine
+
+
+
+!!-------- Get an integer argument from command line. e.g. call getarg_int("-nt",nthreads,ifound)
+!argname: The label for which the value after it should be extracted
+!argval: Returned value
+!ifound=1/0: Not found the argument
+subroutine getarg_int(argname,argval,ifound)
+implicit real*8 (a-h,o-z)
+character c80tmp,c200tmp*200
+character(len=*) argname
+integer ifound,argval
+narg=command_argument_count()
+iarg=1
+ifound=0
+do while(iarg<=narg)
+    call get_command_argument(iarg,c200tmp)
+    if (c200tmp==argname) then
+        iarg=iarg+1
+        call get_command_argument(iarg,c80tmp)
+        read(c80tmp,*) argval
+        ifound=1
+        exit
+    end if
+    iarg=iarg+1
+end do
+end subroutine
+
+!!--------- Same as above, but return string
+subroutine getarg_str(argname,argstr,ifound)
+implicit real*8 (a-h,o-z)
+character c80tmp,c200tmp*200
+character(len=*) argname,argstr
+integer ifound
+narg=command_argument_count()
+iarg=1 !The input file name must be the first argument
+ifound=0
+do while(iarg<=narg)
+    call get_command_argument(iarg,c200tmp)
+    if (c200tmp==argname) then
+        iarg=iarg+1
+        call get_command_argument(iarg,argstr)
+        ifound=1
+        exit
+    end if
+    iarg=iarg+1
+end do
+end subroutine
+
+!!--------- Test if an argument is existed
+subroutine testarg(argname,ifound)
+implicit real*8 (a-h,o-z)
+character c80tmp,c200tmp*200
+character(len=*) argname
+integer ifound
+narg=command_argument_count()
+iarg=1 !The input file name must be the first argument
+ifound=0
+do while(iarg<=narg)
+    call get_command_argument(iarg,c200tmp)
+    if (c200tmp==argname) then
+        ifound=1
+        exit
+    end if
+    iarg=iarg+1
+end do
 end subroutine
