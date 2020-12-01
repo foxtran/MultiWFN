@@ -571,7 +571,7 @@ write(*,*) "Generating isosurface by Marching Tetrahedra algorithm, please wait.
 do ix=1,numcubx
 	do iy=1,numcuby
 		do iz=1,numcubz
-			if (ifbndcub(ix,iy,iz)==.true.) then !Numbering of cube corner is identical to figure 3 of WFA original paper
+			if (ifbndcub(ix,iy,iz)) then !Numbering of cube corner is identical to figure 3 of WFA original paper
 				call marchtetra(ix,iy,iz)
 ! 				call marchcube(ix,iy,iz)
 			end if
@@ -824,7 +824,7 @@ if (ireadextmapval==0) then !Directly calculate
 	alive=.false.
 	if (cubegenpath/=" ".and.ifiletype==1.and.imapfunc==1) then
 		inquire(file=cubegenpath,exist=alive)
-		if (alive==.false.) then
+		if (.not.alive) then
 			write(*,"(a)") " Note: Albeit current file type is fch/fchk/chk and ""cubegenpath"" parameter in settings.ini has been defined, &
 			the cubegen cannot be found, therefore electrostatic potential will still be calculated using internal code of Multiwfn"
 		end if

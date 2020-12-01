@@ -19,6 +19,7 @@ end module
 !============ Store globally shared information
 module defvar
 use deftype
+private i
 real*8,parameter :: pi=3.141592653589793D0,b2a=0.529177249D0 !1 Bohr = 0.529177249 Angstrom
 real*8,parameter :: au2kcal=627.51D0,au2KJ=2625.5D0,au2eV=27.2113838D0,cal2J=4.184D0
 real*8,parameter :: masse=9.10938215D-31,chge=1.602176487D0,lightc=2.99792458D8,au2debye=2.5417462D0 !masse/chge: Mass/charge of an electron
@@ -52,7 +53,7 @@ integer :: iorbvis=0 !The index of the orbital selected in main function 0
 integer :: if_initlibreta=0 !If LIBRETA has been initialized for present wavefunction by running "call initlibreta"
 
 integer,parameter :: ncolormax=16,ngoodcolor=15
-character*10 :: colorname(ncolormax)=(/"Red","Green","Blue","White","Black","Gray","Cyan","Yellow","Orange","Magenta","Crimson","Dark green","Purple","Brown","Dark blue","Pink"/) !Color name involved setcolor/selcolor routine
+character*10 :: colorname(ncolormax)=(/"Red       ","Green     ","Blue      ","White     ","Black     ","Gray      ","Cyan      ","Yellow    ","Orange    ","Magenta   ","Crimson   ","Dark green","Purple    ","Brown     ","Dark blue ","Pink      "/) !Color name involved setcolor/selcolor routine
 integer :: goodcolor(ngoodcolor)=(/5,1,3,12,9,10,14,13,11,15,16,2,7,8,6/) !Color list suitable for plotting lines, good colors appear prior to bad ones. Black,Red,Blue,Dark green,Orange,Magenta,Brown,Purple,Crimson,Dark blue,Pink,Green,Cyan,Yellow,Gray
 !The name for superheavy atoms are consistent with Stuttgart PP website: http://www.tc.uni-koeln.de/PP/clickpse.en.html
 character*2 :: ind2name(0:nelesupp)=(/ "Bq","H ","He", &   !Bq(number 0) is ghost atom. Bq is recorded in .fch, but X is not recorded
@@ -244,7 +245,7 @@ type(atomtype),allocatable :: a(:),a_org(:),a_tmp(:)
 type(primtype),allocatable :: b(:),b_org(:),b_tmp(:)
 real*8,allocatable :: MOocc(:),MOocc_org(:),MOene(:),MOene_org(:) !Occupation number & energy of orbital
 integer,allocatable :: MOtype(:) !The type of orbitals, (alpha&beta)=0/alpha=1/beta=2, not read from .wfn directly
-character*10 :: orbtypename(0:2)=(/ "Alpha&Beta","Alpha","Beta" /)
+character*10 :: orbtypename(0:2)=(/ "Alpha&Beta","Alpha     ","Beta      " /)
 character*4,allocatable :: MOsym(:) !The symmetry of orbitals, meaningful when .mwfn/molden/gms is used
 real*8,allocatable :: CO(:,:),CO_org(:,:),CO_tmp(:,:) !Coefficient matrix of primitive basis functions, including both normalization and contraction coefficients
 !Note: Row/column of CO denote MO/GTF respectively, in contrary to convention
@@ -325,7 +326,7 @@ integer idisboxsizeX,idisboxsizeY,idisboxsizeZ,idisboxposX,idisboxposY,idisboxpo
 integer GUI_mode 
 
 !Plotting external parameter, can be set in settings.ini
-character :: graphformat*4="png ",graphformatname(9)=(/"png","gif","tiff","bmp","ps","eps","pdf","wmf","svg"/)
+character :: graphformat*4="png ",graphformatname(9)=(/"png ","gif ","tiff","bmp ","ps  ","eps ","pdf ","wmf ","svg "/)
 integer :: graph1Dwidth=1280,graph1Dheight=800,graph2Dwidth=1280,graph2Dheight=1200,graph3Dwidth=1400,graph3Dheight=1400
 integer :: itickreverse=0,iticks=2,symbolsize=8,ilenunit1D=1,ilenunit2D=1,iatmlabtype=1,iatmlabtype3D=3,iplaneextdata=0,itransparent=0
 integer :: numdigx=2,numdigy=2,numdigz=3,numdiglinex=3,numdigliney=3,numdigctr=3
@@ -350,8 +351,25 @@ integer :: isavepic=0,icurve_vertlinex=0,iclrindatmlab=1,imarkrefpos=0,ilog10y=0
 integer :: inucespplot=0,idrawmol=1,idrawisosur=0,isosursec=0,idrawtype=1,idrawcontour=1
 integer :: iinvgradvec=0,icolorvecfield=0,vecclrind=30,idrawplanevdwctr=0,iplaneoutall=0,icurvethick=5,iclrtrans=0
 integer,allocatable :: highlightatomlist(:)
-character :: stream_intmethod*5="RK2",clrtransname(0:18)*50=(/ "Rainbow & white/black for out-of-limit data","Rainbow","Reversed rainbow","Rainbow starting from white","Spectrum","Reversed Spectrum","Grey","Reversed Grey","Blue-White-Red",&
-"Red-White-Blue","Blue-Green-Red","Red-Green-Blue","White-Dark red","Black-Orange-Yellow","White-Dark green","Black-Green","White-Dark blue","Black-Blue-Cyan","Viridis" /)
+character :: stream_intmethod*5="RK2",clrtransname(0:18)*50=(/ "Rainbow & white/black for out-of-limit data",&
+                                                               "Rainbow                                    ",&
+                                                               "Reversed rainbow                           ",&
+                                                               "Rainbow starting from white                ",&
+                                                               "Spectrum                                   ",&
+                                                               "Reversed Spectrum                          ",&
+                                                               "Grey                                       ",&
+                                                               "Reversed Grey                              ",&
+                                                               "Blue-White-Red                             ",&
+                                                               "Red-White-Blue                             ",&
+                                                               "Blue-Green-Red                             ",&
+                                                               "Red-Green-Blue                             ",&
+                                                               "White-Dark red                             ",&
+                                                               "Black-Orange-Yellow                        ",&
+                                                               "White-Dark green                           ",&
+                                                               "Black-Green                                ",&
+                                                               "White-Dark blue                            ",&
+                                                               "Black-Blue-Cyan                            ",&
+                                                               "Viridis                                    " /)
 real*8 :: surcolorzmin,surcolorzmax !fillctr is the contour value will be draw on fillcolor map
 real*8 :: curve_vertlinex=0D0,curvexyratio=0.618D0 !Gold partition
 real*8 :: gradplotstep=0.002D0,gradplotdis=0.01D0,gradplottest=0.2D0,cutgradvec=0.3D0

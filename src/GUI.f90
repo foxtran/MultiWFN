@@ -1037,7 +1037,7 @@ end subroutine
 !Show all orbitals
 subroutine showorbinfo(id)
 integer,intent (in) :: id
-character*3 :: orbtype(0:2)=(/ "A+B"," A"," B" /)
+character*3 :: orbtype(0:2)=(/ "A+B"," A "," B " /)
 character*6 :: symstr
 symstr=" "
 naorb=count(MOtype==1)
@@ -1066,7 +1066,7 @@ end subroutine
 !Show orbitals up to LUMO+10, works for wfntype==0,1,2
 subroutine showorbinfo2(id)
 integer,intent (in) :: id
-character*3 :: orbtype(0:2)=(/ "A+B"," A"," B" /)
+character*3 :: orbtype(0:2)=(/ "A+B"," A "," B " /)
 character*6 :: symstr
 symstr=" "
 naorb=count(MOtype==1)
@@ -1117,7 +1117,7 @@ end subroutine
 !Show all occupied orbitals
 subroutine showorbinfo3(id)
 integer,intent (in) :: id
-character*3 :: orbtype(0:2)=(/ "A+B"," A"," B" /)
+character*3 :: orbtype(0:2)=(/ "A+B"," A "," B " /)
 character*6 :: symstr
 symstr=" "
 naorb=count(MOtype==1)
@@ -1461,7 +1461,7 @@ subroutine showorbsel(id,iorb)
 use function
 integer id,iorb
 real*8 molxlen,molylen,molzlen
-character*3 :: orbtype(0:2)=(/ "A+B"," A"," B" /)
+character*3 :: orbtype(0:2)=(/ "A+B"," A "," B " /)
 character*6 :: symstr
 ! Set grid for calculating cube data
 molxlen=(maxval(a%x)-minval(a%x))+2*aug3D

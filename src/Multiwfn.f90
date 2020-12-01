@@ -7,7 +7,7 @@ character nowdate*20,nowtime*20,c200tmp*200,c2000tmp*2000,lovername*80,settingpa
 real*8,allocatable :: tmparr(:),tmparr2(:),tmpmat(:,:),tmpmat2(:,:) !For debug purpose
 integer,allocatable :: tmparri(:),tmparr2i(:),tmpmati(:,:),tmpmat2i(:,:)
 
-call kmp_set_warnings_off() !In rare case, "Cannot open message catalog "1041\libiomp5ui.dll"" may occurs, this calling avoid this problem, or user should set KMP_WARNINGS environment variable to 0
+!call kmp_set_warnings_off() !In rare case, "Cannot open message catalog "1041\libiomp5ui.dll"" may occurs, this calling avoid this problem, or user should set KMP_WARNINGS environment variable to 0
 
 !Try to get input file name from argument, which should be the first argument
 filename=" "
@@ -40,13 +40,13 @@ nthreads,nowdate(1:4),nowdate(5:6),nowdate(7:8),nowtime(1:2),nowtime(3:4),nowtim
 
 !For Linux/MacOS version, it seems the only way to set stacksize of each thread is to define KMP_STACKSIZE environment variable
 if (isys==1) then !Set via ompstacksize in settings.ini
-    call KMP_SET_STACKSIZE_S(ompstacksize)
+    !call KMP_SET_STACKSIZE_S(ompstacksize)
 else if (isys==2) then !The size should have been defined by KMP_STACKSIZE
     CALL getenv('KMP_STACKSIZE',c200tmp)
     if (c200tmp==" ") write(*,"(/,a)") " Warning: You should set ""KMP_STACKSIZE"" environment variable as mentioned in Section 2.1.2 of Multiwfn manual!"
 end if
 !write(*,"(' OpenMP stacksize for each thread: ',f10.2,' MB')") dfloat(KMP_GET_STACKSIZE_S())/1024/1024
-call mkl_set_num_threads(nthreads) !Use this to set number of cores used in MKL library (e.g. function matmul_blas)
+!call mkl_set_num_threads(nthreads) !Use this to set number of cores used in MKL library (e.g. function matmul_blas)
 
 write(*,*)
 
@@ -87,9 +87,9 @@ if (trim(filename)==" ") then !Haven't defined filename variable
 	end do
 	!Write current opened file to "lastfile" in settings.ini
 	inquire(file="settings.ini",exist=alive)
-	if (alive==.true.) then
+	if (alive) then
 		settingpath="settings.ini"
-	else if (alive==.false.) then
+	else if (.not.alive) then
 		call getenv("Multiwfnpath",c200tmp)
 		if (isys==1) then
 			settingpath=trim(c200tmp)//"\settings.ini"
@@ -543,7 +543,7 @@ do while(.true.) !Main loop
 		    else if (i==13) then
                 allocate(tmpmat(ncenter,ncenter))
                 inquire(file="bndmat.txt",exist=alive)
-	            if (alive==.false.) then
+	            if (.not.alive) then
 	                write(*,*) "Cannot find the bndmat.txt in current folder!"
                     cycle
                 end if

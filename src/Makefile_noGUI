@@ -1,9 +1,8 @@
-SIMD = -msse3
-OPT = -O2 -qopenmp -qopenmp-link=static -threads -qopt-matmul $(SIMD) -diag-disable 8290,8291,6371,10316 -fpp -mkl -static-intel
+OPT = -O2 -fopenmp -ffree-line-length-none -cpp
 
-LIB =
-FC = ifort
-EXE = Multiwfn
+LIB = -lblas -llapack
+FC = gfortran
+EXE = gMultiwfn
 LIBRETAPATH = ./libreta_slow
 
 objects = define.o util.o Bspline.o sym.o libreta.o function.o sub.o integral.o Lebedev-Laikov.o \
@@ -157,7 +156,7 @@ ean.o: ${LIBRETAPATH}/ean.f90 hrr_012345.o eanvrr_012345.o boysfunc.o ${LIBRETAP
 	$(FC) $(OPT) -c ${LIBRETAPATH}/ean.f90
 
 hrr_012345.o: ${LIBRETAPATH}/hrr_012345.f90
-	$(FC) -O2 -diag-disable 6843 $(SIMD) -c ${LIBRETAPATH}/hrr_012345.f90
+	$(FC) $(OPT) -c ${LIBRETAPATH}/hrr_012345.f90
 
 eanvrr_012345.o: ${LIBRETAPATH}/eanvrr_012345.f90 boysfunc.o
 	$(FC) $(OPT) -c ${LIBRETAPATH}/eanvrr_012345.f90

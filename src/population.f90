@@ -715,6 +715,7 @@ real*8 molrho(radpot*sphpot),promol(radpot*sphpot),tmpdens(radpot*sphpot),beckew
 type(content) gridatm(radpot*sphpot),gridatmorg(radpot*sphpot)
 real*8 atmdipx(ncenter),atmdipy(ncenter),atmdipz(ncenter),charge(ncenter)
 real*8 :: covr_becke(0:nelesupp) !covalent radii used for Becke population
+character(200) :: radfilename
 integer :: nbeckeiter=3
 
 if (chgtype==5) then !Select atomic radii for Becke population
@@ -1634,7 +1635,7 @@ do while(.true.) !Interface loop
             write(*,*) "The current additional fitting centers have been cleaned"
         else
             inquire(file=addcenfilepath,exist=alive)
-            if (alive==.false.) then
+            if (.not.alive) then
                 write(*,*) "Error: Cannot find the file! Press ENTER button to cancel"
                 read(*,*)
                 cycle
@@ -3119,7 +3120,7 @@ if (ishowprompt==1) write(*,*) "Calculating ESP at fitting points, please wait..
 alive=.false.
 if (cubegenpath/=" ".and.ifiletype==1) then
 	inquire(file=cubegenpath,exist=alive)
-	if (alive==.false..and.ishowprompt==1) then
+	if (.not.alive.and.ishowprompt==1) then
 		write(*,"(a)") " Note: Albeit current file type is fch/fchk/chk and ""cubegenpath"" parameter in settings.ini has been defined, &
 		the cubegen cannot be found, therefore electrostatic potential will still be calculated using internal code of Multiwfn"
 	end if
@@ -3409,7 +3410,7 @@ if (imode==2) then
 				if (a(jatm)%index==1.and.istat==1) cycle !H+ doesn't contains electron and cannot compute density
 				c80tmp="atmrad"//sep//trim(a(jatm)%name)//statname(istat)//".rad"
 				inquire(file=c80tmp,exist=alive)
-				if (alive==.false.) cycle
+				if (.not.alive) cycle
 				open(10,file=c80tmp,status="old")
 				read(10,*) atmradnpt(jatm)
 				do ipt=1,atmradnpt(jatm)
@@ -3522,7 +3523,7 @@ do icyc=1,maxcyc
 		radrholow=0
 		c80tmp="atmrad"//sep//trim(a(iatm)%name)//statname(ichglow)//".rad"
 		inquire(file=c80tmp,exist=alive)
-		if (alive==.false.) then
+		if (.not.alive) then
 			write(*,"(' Error: ',a,' is needed but was not prepared!')") trim(c80tmp)
             write(*,"(' Current charge of atom',i5,'(',a,'):',f12.8)") iatm,a(iatm)%name,charge(iatm)
             write(*,"(a)") " Note: This error implies that this atom has unusual charge. You should manually provide the corresponding .rad file &
@@ -3540,7 +3541,7 @@ do icyc=1,maxcyc
 		radrhohigh=0
 		c80tmp="atmrad"//sep//trim(a(iatm)%name)//statname(ichghigh)//".rad"
 		inquire(file=c80tmp,exist=alive)
-		if (alive==.false.) then
+		if (.not.alive) then
 			write(*,"(' Error: ',a,' is needed but was not prepared!')") trim(c80tmp)
             write(*,"(' Current charge of atom',i5,'(',a,'):',f12.8)") iatm,a(iatm)%name,charge(iatm)
             write(*,"(a)") " Note: This error implies that this atom has unusual charge. You should manually provide the corresponding .rad file &
@@ -3778,8 +3779,8 @@ do iatm=1,ncenter
 		end if
 		
 		!Generate .gjf file 
-		inquire(directory="atmrad",exist=alive)
-		if (alive==.false.) call system("mkdir atmrad")
+		inquire(file="atmrad",exist=alive)
+		if (.not.alive) call system("mkdir atmrad")
 		c200tmp="atmrad"//sep//trim(a(iatm)%name)//statname(istat)//".gjf"
 		open(10,file=c200tmp,status="replace")
 		write(10,"(a)") "# "//trim(calclevel)//" out=wfn"
@@ -3838,7 +3839,7 @@ do iatm=1,ncenter
 		inquire(file=trim(c80tmp)//".rad",exist=alive)
 		if (alive) cycle
 		inquire(file=trim(c80tmp)//".wfn",exist=alive)
-		if (alive==.false.) then
+		if (.not.alive) then
 			write(*,"(' Error: ',a,' was not found!')") trim(c80tmp)//".wfn"
 			write(*,*) "If you want to skip, press ENTER button directly"
 			read(*,*)

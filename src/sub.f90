@@ -7,7 +7,7 @@ character seltmpc*10,selectyn,c1000tmp*1000,c2000tmp*2000
 real*8 eigval(nbasis),eigvec(nbasis,nbasis),tmpmat(nbasis,nbasis)
 integer orbarr(nmo)
 integer,allocatable :: exclfragatm(:),tmparrint(:)
-character*3 :: orbtype(0:2)=(/ "A+B"," A"," B" /)
+character*3 :: orbtype(0:2)=(/ "A+B"," A "," B " /)
 character*6 :: symstr
 
 do while(.true.)
@@ -1193,7 +1193,7 @@ character c80tmp*80,c200tmp*200,c400tmp*400,filename_tmp*200
 alive=.false.
 if (cubegenpath/=" ".and.ifiletype==1.and.functype==12) then
 	inquire(file=cubegenpath,exist=alive)
-	if (alive==.false.) then
+	if (.not.alive) then
 		write(*,"(a)") " Note: Albeit current file type is fch/fchk/chk and ""cubegenpath"" parameter in settings.ini has been defined, &
 		the cubegen cannot be found, therefore electrostatic potential will still be calculated using internal code of Multiwfn"
 	end if
@@ -1419,30 +1419,30 @@ if (iwfntmptype==1) then
 	if (isys==1) tmpdir="wfntmp\"
 	if (isys==2) tmpdir="wfntmp/"
 	c80tmp="wfntmp"
-	inquire(directory="wfntmp",exist=alivewfntmp)
-	if (isys==1.and.alivewfntmp==.true.) then !delete old wfntmp folder
+	inquire(file="wfntmp",exist=alivewfntmp)
+	if (isys==1.and.alivewfntmp) then !delete old wfntmp folder
 		write(*,*) "Running: rmdir /S /Q wfntmp"
 		call system("rmdir /S /Q wfntmp")
-	else if (isys==2.and.alivewfntmp==.true.) then
+	else if (isys==2.and.alivewfntmp) then
 		write(*,*) "Running: rm -rf wfntmp"
 		call system("rm -rf wfntmp")
 	end if
 else if (iwfntmptype==2) then
 	do i=1,9999 !Find a proper name of temporary folder
 		write(c80tmp,"('wfntmp',i4.4)") i
-		inquire(directory=c80tmp,exist=alivewfntmp)
-		if (alivewfntmp==.false.) exit
+		inquire(file=c80tmp,exist=alivewfntmp)
+		if (.not.alivewfntmp) exit
 	end do
 	if (isys==1) write(tmpdir,"('wfntmp',i4.4,'\')") i
 	if (isys==2) write(tmpdir,"('wfntmp',i4.4,'/')") i
 end if
 write(*,*) "Running: mkdir "//trim(c80tmp) !Build new temporary folder
 call system("mkdir "//trim(c80tmp))
-inquire(directory="atomwfn",exist=aliveatomwfn)
-if (isys==1.and.aliveatomwfn==.true.) then
+inquire(file="atomwfn",exist=aliveatomwfn)
+if (isys==1.and.aliveatomwfn) then
 	write(*,*) "Running: copy atomwfn\*.wfn "//trim(tmpdir)
 	call system("copy atomwfn\*.wfn "//trim(tmpdir))
-else if (isys==2.and.aliveatomwfn==.true.) then
+else if (isys==2.and.aliveatomwfn) then
 	write(*,*) "Running: cp atomwfn/*.wfn "//trim(tmpdir)
 	call system("cp atomwfn/*.wfn "//trim(tmpdir))
 end if
@@ -3180,7 +3180,7 @@ do while(.true.)
 	write(*,*) "Note: If the suffix is .47, the Fock matrix will be directly loaded from it"
 	read(*,"(a)") c200tmp
 	inquire(file=c200tmp,exist=alive)
-	if (alive==.false.) then
+	if (.not.alive) then
 		write(*,*) "Error: Unable to find this file! Input again"
 		cycle
 	end if

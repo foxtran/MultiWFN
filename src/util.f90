@@ -1852,7 +1852,7 @@ if (itmp==4) then
 	c80tmp(79:79)='/'
 	itmp=0
 end if
-write(*,"(2a\)") trim(c80tmp),char(13)
+write(*,"(2a$)") trim(c80tmp),char(13)
 if (inow>=nall) write(*,*)
 end subroutine
 

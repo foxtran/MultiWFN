@@ -254,13 +254,13 @@ if (numatt>0.and.ishowatt==1) then
 				        tmpy=orgy+(iy-1)*dy
 			            tmpz=orgz+(iz-1)*dz
                         if (ishowbasinmethod==1) then !Entire basin
-						    if (interbasgrid(ix,iy,iz)==.true.) CALL SPHE3D(tmpx,tmpy,tmpz,basinsphsize,4,4) !Show sphere of interbasin grids
+						    if (interbasgrid(ix,iy,iz).eqv..true.) CALL SPHE3D(tmpx,tmpy,tmpz,basinsphsize,4,4) !Show sphere of interbasin grids
 						    if (idrawinternalbasin==1) then !Draw quad at box boundary to shield internal region of basin
 							    if (ix==2.or.ix==nx-1.or.iy==2.or.iy==ny-1.or.iz==2.or.iz==nz-1) CALL QUAD3D(tmpx,tmpy,tmpz,dx,dy,dz)
 						    end if
                         else if (ishowbasinmethod==2) then !Basin within vdW surface
                             if (rhocub(ix,iy,iz)<0.001D0) cycle
-                            if (interbasgrid(ix,iy,iz)==.true.) then !Interbasin grid
+                            if (interbasgrid(ix,iy,iz).eqv..true.) then !Interbasin grid
                                 CALL SPHE3D(tmpx,tmpy,tmpz,basinsphsize,4,4)
                             else !Internal grid in the basin
                                 if (idrawinternalbasin==1) CALL SPHE3D(tmpx,tmpy,tmpz,basinsphsize,4,4)

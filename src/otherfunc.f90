@@ -4218,7 +4218,7 @@ do while(.true.)
         inquire(file="N+1.wfn",exist=alivewfn(2))
         inquire(file="N-1.wfn",exist=alivewfn(3))
         if (iwcubic==1) inquire(file="N-2.wfn",exist=alivewfn(4))
-        if (any(alivewfn==.false.)) then
+        if (any(.not.alivewfn)) then
             if (iwcubic==0) write(*,"(a)") " Error: To use this function, N.wfn, N+1.wfn and N-1.wfn must all be presented in current folder!"
             if (iwcubic==1) write(*,"(a)") " Error: To use this function, N.wfn, N+1.wfn, N-1.wfn and N-2.wfn must all be presented in current folder!"
             write(*,*) "Press ENTER button to cancel current analysis"
