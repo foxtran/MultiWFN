@@ -1,10 +1,12 @@
 #!/bin/bash
-rm -rf noGUI
-mkdir noGUI
+#This script only provides non-libreta files to noGUI folder and thus 
+#avoid recompiling libreta if you have compiled noGUI version before
+#rm -rf noGUI
+#mkdir noGUI
 cp ./Makefile_noGUI noGUI/Makefile
 cp *.a noGUI
 cp *.F noGUI
-cp -r libreta_hybrid noGUI
+#cp -r libreta_hybrid noGUI
 for f90 in *.f90
 do
 grep -a -v -E "use dislin_d|use plot|use GUI|call gifmod|call pngmod|call angle|\

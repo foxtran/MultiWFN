@@ -1047,7 +1047,7 @@ use dislin_d
 implicit real*8 (a-h,o-z)
 real*8,dimension(1000) :: DE,RMSDP,MaxDP,grad,stepnum(1000)=(/ (i,i=1,1000) /),constant
 real*8 aimDE,aimRMSDP,aimMaxDP
-character*3 DEconv,RMSDPconv,MaxDPconv
+character DEconv*3,RMSDPconv*3,MaxDPconv*3
 itime=0
 iscfqc=0
 do while(.true.)
@@ -1801,7 +1801,7 @@ implicit real*8 (a-h,o-z)
 real*8 intval,intvalold,funcval1(radpot*sphpot),funcval2(radpot*sphpot),beckeweigrid(radpot*sphpot)
 real*8 funcval1all(radpot*sphpot,ncenter) !For reuse data
 type(content) gridatm(radpot*sphpot),gridatmorg(radpot*sphpot)
-character*200 filename2,reusename*200
+character filename2*200,reusename*200
 
 if (itype==1) write(*,*) "Note: The integrand is (f_wfn1 - f_wfn2)**2"
 if (itype==2) write(*,*) "Note: The integrand is |f_wfn1 - f_wfn2|"
@@ -2033,7 +2033,7 @@ real*8 :: intradi=1.94D0,grdspc=0.08D0,LOLiso=0.55D0,disaway=0.5D0,vdwmulti=0.8D
 real*8 :: MOocc_old(nmo)
 integer :: piorb(nmo),npiorb=0,ivisisosur=0
 integer :: ringidx(100),nringidx=0
-character*3000 c3000tmp
+character c3000tmp*3000
 integer :: ioutpt=0,iside=0
 logical,allocatable :: gridconsider(:,:,:)
 
@@ -2200,7 +2200,7 @@ do while(.true.)
 			end do
 		end do
         
-        write(*,"(' Number of points actually considered in the LOLIPOP integration:',i10)") count(gridconsider==.true.)
+        write(*,"(' Number of points actually considered in the LOLIPOP integration:',i10)") count(gridconsider.eqv..true.)
         !Output points to pt.xyz for visual examination
         if (ioutpt==1) then
             open(10,file="pt.xyz",status="replace")
@@ -2212,7 +2212,7 @@ do while(.true.)
 					    xtmp=orgx+(ix-1)*dx
 					    ytmp=orgy+(iy-1)*dy
 					    ztmp=orgz+(iz-1)*dz
-					    if (gridconsider(ix,iy,iz)==.true.) write(10,"(a,3f12.6)") "C ",xtmp*b2a,ytmp*b2a,ztmp*b2a
+					    if (gridconsider(ix,iy,iz)) write(10,"(a,3f12.6)") "C ",xtmp*b2a,ytmp*b2a,ztmp*b2a
 				    end do
 			    end do
 		    end do
@@ -2837,8 +2837,8 @@ if (npiorb/=0) then
             tmpidx(nidx)=imo
         end if
     end do
-    call arr2str(tmpidx(1:nidx),c2000tmp)
-    write(*,*) "Indices of occupied orbitals:"
+    call arr2str_2(tmpidx(1:nidx),c2000tmp)
+    write(*,*) "Indices of occupied pi orbitals:"
     write(*,"(1x,a)") trim(c2000tmp)
     deallocate(tmpidx)
 end if
@@ -2908,7 +2908,7 @@ else if (isel==-1) then !Calculate pi composition for orbitals in another file
     end do
     call readinfile(c200tmp,1)
     write(*,*) "Input threshold for printing (%), e.g. 85"
-    write(*,*) "If press ENTER directly, 50% will be employed as the threshold"
+    write(*,*) "If pressing ENTER button directly, 50% will be employed as the threshold"
     read(*,"(a)") c200tmp
     if (c200tmp==" ") then
         thres=0.5D0
@@ -2968,7 +2968,7 @@ use util
 use defvar
 use function
 implicit real*8 (a-h,o-z)
-character*200 addcenfile,extptfile
+character addcenfile*200,extptfile*200
 character selectyn,c80tmp
 integer :: nlayer=4 !Number of fitting layers
 real*8 :: funcfitvdwr(0:nelesupp)=-1D0,sclvdwlayer(100)=(/1.4D0,1.6D0,1.8D0,2.0D0,(2.2D0,i=5,100)/)
@@ -4297,7 +4297,7 @@ end subroutine
 subroutine genFock
 use defvar
 implicit real*8 (a-h,o-z)
-character*200 outname
+character outname*200
 call MOene2Fmat(istatus)
 if (istatus==0) then !Successfully generated
     write(*,*)

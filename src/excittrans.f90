@@ -10,6 +10,7 @@ module excitinfo
 character :: excitfilename*200=" " !"D:\CM\my_program\Multiwfn\x\excittrans\4-Nitroaniline\4-Nitroaniline.out". If nstates=0, then Multiwfn asks user to input
 integer :: ifiletypeexc !1=Gaussian output; 2=ORCA output; 3=Plain text file; 4=Firefly output file
 integer :: iORCAsTD=0 !1=ORCA with sTDA/sTDDFT, 0: Common ORCA TDA/TDDFT
+integer :: iwarnORCA_TD=1 !If need to show warn when loading TDDFT coefficiens of ORCA, =1: Warn. Once warn once
 integer :: nstates=0 !The total number of excited states (for ORCA, if triplet keyword is used, only one set of spin multiplicity states is loaded)
 integer numexctime !The number of times of excited state printing of Gaussian/ORCA (1 corresponds to only once). >1 may due to geometry optimization or using state specific model
 real*8,allocatable :: allexcene(:) !Excitation energies in eV
@@ -61,14 +62,14 @@ do while(.true.)
 	write(*,*) "          ============ Electronic excitation analyses ============ "
 	write(*,*) "-1 Check, modify and export configuration coefficients of an excitation"
 	write(*,*) "0 Return"
-	write(*,"(a)") " 1 Analyze and visualize hole-electron distribution, transition density, and transition electric/magnetic dipole moment density"
+	write(*,"(a)") " 1 Analyze and visualize hole&electron distribution, transition density, and transition electric/magnetic dipole moment density"
 	write(*,*) "2 Plot atom/fragment transition matrix of various kinds as heat map"
 	write(*,*) "3 Analyze charge-transfer based on density difference grid data (JCTC,7,2498)"
 	write(*,*) "4 Calculate delta_r index to measure charge-transfer length (JCTC,9,3118)"
 	write(*,"(a)") " 5 Calculate transition electric dipole moments between all states and electric dipole moment of each state"
 	write(*,*) "6 Generate natural transition orbitals (NTOs)"
 	write(*,*) "7 Calculate ghost-hunter index (JCC,38,2151)"
-	write(*,*) "8 Calculate interfragment charge transfer amount via IFCT method"
+	write(*,*) "8 Calculate interfragment charge transfer via IFCT method"
 	write(*,*) "9 Generate and export transition density matrix"
 	write(*,*) "10 Decompose transition dipole moment as molecular orbital pair contributions"
 	write(*,*) "11 Decompose transition dipole moment as basis function and atom contributions"
@@ -76,7 +77,7 @@ do while(.true.)
 	write(*,*) "13 Generate natural orbitals of specific excited states"
 	write(*,*) "14 Calculate lambda index to characterize electron excitation (JCP,128,044118)"
 	write(*,*) "15 Print major MO transitions in all excited states"
-	write(*,"(a)") " 16 Calculate charge-transfer spectrum (Carbon, 187, 78) and characters of all excited states"
+	write(*,*) "16 Charge-transfer spectrum (CTS) analysis (Carbon,187,78)"
 
 	read(*,*) isel
 	if (isel==-1) then
@@ -144,6 +145,7 @@ character c80tmp*80,transmodestr*200,selectyn,c200tmp*200
 !ifiletypeexc=3: plain text file
 !ifiletypeexc=4: Firefly TDDFT output file
 !ifiletypeexc=5: GAMESS-US TDDFT output file
+!ifiletypeexc=6: CP2K TDDFT output file
 if (nstates>0) then
 	write(*,"(' Note: Basic information of all excited states have been previously loaded from ',a)") trim(excitfilename)
 else !The [excitfilename/=" ".and.nstates=0] case is involved in TDMplot
@@ -183,31 +185,21 @@ else !The [excitfilename/=" ".and.nstates=0] case is involved in TDMplot
 	end if
 
 	open(10,file=excitfilename,status="old")
-	call loclabel(10,"Gaussian, Inc",igauout,maxline=300)
-	if (igauout==0) call loclabel(10,"Entering Gaussian System",igauout,maxline=200)
-	if (igauout==1) then
+    
+	call outputprog(10,iprog,1) !Determine type of output file and show information
+    if (iprog==1) then !Gaussian output
 		ifiletypeexc=1
-		write(*,*) "This file is recognized as a Gaussian output file"
-	else if (ifiletype==10) then
-		call loclabel(10,"Firefly Project",ifirefly,maxline=100)
-		if (ifirefly==1) then
-			write(*,*) "Note: This file will be recognized as Firefly output file"
-			ifiletypeexc=4
-		else
-			write(*,*) "Note: This file will be recognized as GAMESS-US output file"
-			ifiletypeexc=5
-		end if
-		write(*,"(a)") " Your input file is assumed to contain electron excitation information, they will be loaded now"
-	else
-		call loclabel(10,"O   R   C   A",iORCAout,maxline=50)
-		if (iORCAout==1) then
-			ifiletypeexc=2
-			write(*,*) "This file is recognized as an ORCA output file"
-		else
-			ifiletypeexc=3
-			write(*,*) "This file is recognized as a plain text file"
-		end if
-	end if
+    else if (iprog==2) then !ORCA output
+		ifiletypeexc=2
+    else if (iprog==3) then !GAMESS-US output
+		ifiletypeexc=5
+    else if (iprog==4) then !Firefly output
+		ifiletypeexc=4
+    else if (iprog==5) then !CP2K output
+		ifiletypeexc=6
+    else if (iprog==0) then !Plain text file
+		ifiletypeexc=3
+    end if
 
 	!Determine the number of excited states, so that proper size of arrays can be allocated
 	nstates=0
@@ -288,6 +280,22 @@ else !The [excitfilename/=" ".and.nstates=0] case is involved in TDMplot
 			return
 		end if
 		read(10,"(14x,i22)") nstates
+	else if (ifiletypeexc==6) then !CP2K output file
+		call loclabelfinal(10,"number   energy (eV)",ifound)
+        if (ifound==0) then
+			write(*,*) "Error: Unable to find electronic excitation information!"
+            write(*,*) "Press ENTER button to return"
+            read(*,*)
+            return
+        end if
+        read(10,*)
+        read(10,*)
+		nstates=0
+		do while(.true.)
+			read(10,"(a)") c80tmp
+            if (c80tmp==" ") exit
+			nstates=nstates+1
+		end do
 	end if
 	if (nstates>1) then
         if (maxloadexc==0) then
@@ -458,6 +466,27 @@ else !The [excitfilename/=" ".and.nstates=0] case is involved in TDMplot
 			end do
 		end do
         
+	else if (ifiletypeexc==6) then !CP2K output file
+        call loclabelfinal(10,"TDDFPT states of multiplicity",ifound)
+        read(10,"(a)") c80tmp
+        allexcmulti=1
+        if (index(c80tmp,'3')/=0) allexcmulti=3
+        if (index(c80tmp,"U-TDDFPT")/=0) allexcmulti=0 !Excited states are not spin pure states
+        call loclabel(10,"number             orbital",ifound,0)
+        read(10,*);read(10,*)
+		do iexc=1,nstates
+			read(10,*) c80tmp,allexcene(iexc)
+			do while(.true.)
+				read(10,"(a)") c80tmp
+                if (c80tmp(2:6)=="-----") exit
+				if (index(c80tmp,"eV")/=0) then
+					backspace(10)
+					exit
+                end if
+                allexcnorb(iexc)=allexcnorb(iexc)+1
+			end do
+		end do
+        
 	else if (ifiletypeexc==3) then !Plain text file
 		rewind(10)
 		do iexc=1,nstates
@@ -525,7 +554,7 @@ else
 	write(*,*) "Loading configuration coefficients..."
 
 	!Notice that for unrestricted case, A and B are combined as single index, namely if orbital index is larger than nbasis, then it is B, else A
-	if (ifiletypeexc==1.or.ifiletypeexc==3) then
+	if (ifiletypeexc==1.or.ifiletypeexc==3) then !Gaussian output file or plain text file
 		if (ifiletypeexc==1) then !Gaussian output file
             do igeom=1,numexctime
 		        call loclabel(10,"Excitation energies and oscillator strengths:",ifound,0)
@@ -763,7 +792,26 @@ else
 			end if
 			read(10,*)
 		end do
-		!Although for closed-shell reference state, GAMESS-US still outputs coefficients as normalization to 1.0, &
+		!Even for closed-shell reference state, GAMESS-US still outputs coefficients as normalization to 1.0, &
+		!However, in order to follow the Gaussian convention, we change the coefficient as normalization to 0.5
+		if (wfntype==0.or.wfntype==3) allexccoeff=allexccoeff/dsqrt(2D0)
+        
+	else if (ifiletypeexc==6) then !CP2K output file
+		allexcdir(:,:)=1 !CP2K is fully based on TDA
+		call loclabelfinal(10,"number             orbital",ifound)
+		read(10,*);read(10,*)
+		do iexc=1,nstates
+			read(10,*)
+			do ipair=1,allexcnorb(iexc)
+				read(10,"(a)") c80tmp
+				read(c80tmp(27:34),*) allorbleft(ipair,iexc)
+				read(c80tmp(49:55),*) allorbright(ipair,iexc)
+				read(c80tmp(69:78),*) allexccoeff(ipair,iexc)
+                if (c80tmp(37:39)=="bet") allorbleft(ipair,iexc)=allorbleft(ipair,iexc)+nbasis
+                if (c80tmp(58:60)=="bet") allorbright(ipair,iexc)=allorbright(ipair,iexc)+nbasis
+			end do
+		end do
+		!Even for closed-shell reference state, CP2K still outputs coefficients as normalization to 1.0, &
 		!However, in order to follow the Gaussian convention, we change the coefficient as normalization to 0.5
 		if (wfntype==0.or.wfntype==3) allexccoeff=allexccoeff/dsqrt(2D0)
 	end if
@@ -824,7 +872,7 @@ open(10,file=excitfilename,status="old")
 if (ioutinfo==1) write(*,"(' Loading configuration coefficients of excited state',i4,'...')") istate
 
 !Notice that for unrestricted case, A and B are combined as single index, namely if orbital index is larger than nbasis, then it is B, else A
-if (ifiletypeexc==1.or.ifiletypeexc==3) then
+if (ifiletypeexc==1.or.ifiletypeexc==3) then !Gaussian output file or plain text file
 	if (ifiletypeexc==1) then
         do igeom=1,numexctime
 		    call loclabel(10,"Excitation energies and oscillator strengths:",ifound,0)
@@ -911,12 +959,13 @@ else if (ifiletypeexc==2) then !ORCA output file
 				    if (iTDA/=0) then !CIS, TDA task, configuration coefficients are presented
 					    read(c80tmp(iTDA+2:iTDA+13),*) exccoeff(itmp)
 				    else !TD task, configuration coefficients are not presented. Contribution of i->a and i<-a are summed up and outputted as i->a
-					    if (iexc==1.and.itmp==1) then
+					    if (iwarnORCA_TD==1.and.itmp==1) then
 						    write(*,"(a)") " Warning: For TD task, ORCA does not print configuration coefficients but only print corresponding contributions of each orbital pair, &
 						    in this case Multiwfn determines configuration coefficients simply as square root of contribution values. However, this treatment is &
 						    evidently inappropriate and the result is nonsense when de-excitation is significant (In this situation you have to use TDA-DFT instead)"
 						    write(*,*) "If you really want to proceed, press ENTER button to continue"
 						    read(*,*)
+                            iwarnORCA_TD=0
 					    end if
 					    read(c80tmp(23:32),*) tmpval
 					    if (tmpval<0) excdir(itmp)=2 !Negative contribution is assumed to be de-excitation (of course this is not strict since -> and <- have been combined together)
@@ -1035,7 +1084,7 @@ else if (ifiletypeexc==5) then !GAMESS-US output file
 			excdir(itmp)=2
 			exccoeff(itmp)=coeff2
 		end do
-		!Although for closed-shell reference state, GAMESS-US still outputs coefficients as normalization to 1.0, &
+		!Even for closed-shell reference state, GAMESS-US still outputs coefficients as normalization to 1.0, &
 		!However, in order to follow the Gaussian convention, we change the coefficient as normalization to 0.5
 		if (wfntype==0.or.wfntype==3) exccoeff=exccoeff/dsqrt(2D0)
 	else !Unrestricted reference state
@@ -1063,7 +1112,25 @@ else if (ifiletypeexc==5) then !GAMESS-US output file
 			end if
 		end do
 	end if
-	
+    
+else if (ifiletypeexc==6) then !ORCA output file
+	excdir(:)=1 !CP2K is fully based on TDA
+	call loclabelfinal(10,"number             orbital",ifound)
+	do iexc=1,istate
+        call loclabel(10,"eV",ifound,0)
+		read(10,*)
+	end do
+	do ipair=1,excnorb
+		read(10,"(a)") c80tmp
+		read(c80tmp(27:34),*) orbleft(ipair)
+		read(c80tmp(49:55),*) orbright(ipair)
+		read(c80tmp(69:78),*) exccoeff(ipair)
+        if (c80tmp(37:39)=="bet") orbleft(ipair)=orbleft(ipair)+nbasis
+        if (c80tmp(58:60)=="bet") orbright(ipair)=orbright(ipair)+nbasis
+	end do
+	!Even for closed-shell reference state, CP2K still outputs coefficients as normalization to 1.0, &
+	!However, in order to follow the Gaussian convention, we change the coefficient as normalization to 0.5
+	if (wfntype==0.or.wfntype==3) exccoeff=exccoeff/dsqrt(2D0)
 end if
 close(10)
 
@@ -1133,7 +1200,7 @@ use function
 implicit real*8 (a-h,o-z)
 integer :: idomag=0
 real*8 orbval(nmo),wfnderv(3,nmo)
-integer,allocatable :: skippair(:) !Record which orbital pairs will be ignored due to negligible coefficient
+logical,allocatable :: skippair(:) !Record which orbital pairs will be ignored due to negligible coefficient
 real*8,allocatable :: holegrid(:,:,:),elegrid(:,:,:),Sm(:,:,:),Sr(:,:,:),transdens(:,:,:),holecross(:,:,:),elecross(:,:,:),Cele(:,:,:),Chole(:,:,:),magtrdens(:,:,:,:)
 real*8,allocatable :: cubx(:),cuby(:),cubz(:) !Used to calculate Coulomb attractive energy
 character cubsuff*12
@@ -1259,14 +1326,14 @@ do k=1,nz
 				! Currently only take below cases into account:
 				! Cross term of hole (do <i|j>):     i->l,j->l substract i<-l,j<-l
 				! Cross term of electron (do <l|m>): i->l,i->m substract i<-l,i<-m
-				if (skippair(iexcitorb)==.true.) cycle
+				if (skippair(iexcitorb)) cycle
 				ileft=orbleft(iexcitorb)
 				iright=orbright(iexcitorb)
 				tmpleft=exccoeff(iexcitorb)*orbval(ileft) !Use temporary variable to save the time for locating element
 				tmpright=exccoeff(iexcitorb)*orbval(iright)
 				idir=excdir(iexcitorb)
 				do jexcitorb=1,excnorb
-					if (skippair(jexcitorb)==.true.) cycle
+					if (skippair(jexcitorb)) cycle
 					jleft=orbleft(jexcitorb)
 					jright=orbright(jexcitorb)
 					jdir=excdir(jexcitorb)
@@ -1486,6 +1553,8 @@ do i=1,nx
 end do
 Cele=Cele*rnormele/(sum(Cele)*dvol)
 Chole=Chole*rnormhole/(sum(Chole)*dvol)
+
+if (ifPBC>0) write(*,"(/,a)") " Note: RMSD, t, H and ghost-hunter indices, as well as Cele and Chole, may be meaningless if your system is periodic!"
 
 do while(.true.)
 	write(*,*)
@@ -1960,7 +2029,7 @@ do while(.true.)
 			read(c200tmp,*) nfrag
 			if (nfrag==0) then
 				write(*,*) "Input the file containing fragment definition, e.g. C:\fragdef.txt"
-				write(*,*) "Note: If press ENTER directly, fragdef.txt in current folder will be used"
+				write(*,"(a)") " Note: If pressing ENTER button directly, fragdef.txt in current folder will be used"
 				do while(.true.)
 					read(*,"(a)") c200tmp
 					if (c200tmp==" ") c200tmp="fragdef.txt"
@@ -3028,10 +3097,8 @@ call selexcit(istate)
 call loadexccoeff(istate,1)
 
 NTOvalcoeff=2
-if (allocated(CObasb)) then
-	NTOvalcoeff=1
-	write(*,*) "Result of Alpha part:"
-end if
+if (allocated(CObasb)) NTOvalcoeff=1
+
 !*** Alpha part or restricted case
 nocc=nint(naelec)
 nvir=nbasis-nocc
@@ -3051,13 +3118,6 @@ call diagsymat(TT,NTOvec,NTOval,ierror)
 NTOval=NTOval*NTOvalcoeff
 MOene(1:nocc)=NTOval !By default, the diagsymat gives result from low to high
 CObasa(:,1:nocc)=matmul(CObasa(:,1:nocc),NTOvec)
-if (nocc>10) then
-	write(*,*) "The highest 10 eigenvalues of occupied NTOs:"
-	write(*,"(5f12.6)") MOene(nocc-9:nocc)
-else
-	write(*,*) "Eigenvalues of occupied NTOs:"
-	write(*,"(5f12.6)") MOene(1:nocc)
-end if
 deallocate(TT,NTOvec,NTOval)
 !Virtual part
 allocate(TT(nvir,nvir),NTOvec(nvir,nvir),NTOval(nvir))
@@ -3076,20 +3136,34 @@ do itmp=1,int(nvir/2D0) !Exchange array, so that the sequence will be high->low 
 	CObasa(:,i)=CObasa(:,j)
 	CObasa(:,j)=tmparr
 end do
+
 write(*,*)
 if (nvir>10) then
-	write(*,*) "The highest 10 eigenvalues of virtual NTOs:"
+	if (allocated(CObasb)) then !Open-shell case
+		write(*,*) "The highest 10 eigenvalues of alpha NTO pairs:"
+    else !Closed-shell case
+		write(*,*) "The highest 10 eigenvalues of NTO pairs:"
+    end if
 	write(*,"(5f12.6)") MOene(nocc+1:nocc+10)
+    sum1=sum(MOene(nocc+1:nocc+10))
 else
-	write(*,*) "Eigenvalues of virtual NTOs:"
+	if (allocated(CObasb)) then !Open-shell case
+		write(*,*) "Eigenvalues of alpha NTO pairs:"
+    else !Closed-shell case
+		write(*,*) "Eigenvalues of NTO pairs:"
+    end if
 	write(*,"(5f12.6)") MOene(nocc+1:nbasis)
+    sum1=sum(MOene(nocc+1:nbasis))
+end if
+if (allocated(CObasb)) then
+	write(*,"(' Sum of all alpha eigenvalues:',f10.6)") sum1
+else
+	write(*,"(' Sum of all eigenvalues:',f10.6)") sum1
 end if
 deallocate(TT,NTOvec,NTOval,T_MO)
 
 !*** Beta part
 if (allocated(CObasb)) then
-	write(*,*)
-	write(*,*) "Result of Beta part:"
 	nocc=nint(nbelec)
 	nvir=nbasis-nocc
 	allocate(T_MO(nocc,nvir))
@@ -3110,13 +3184,6 @@ if (allocated(CObasb)) then
 	NTOval=NTOval*NTOvalcoeff
 	MOene(nbasis+1:nbasis+nocc)=NTOval !By default, the diagsymat gives result from low to high
 	CObasb(:,1:nocc)=matmul(CObasb(:,1:nocc),NTOvec)
-	if (nocc>10) then
-		write(*,*) "The highest 10 eigenvalues of occupied NTOs:"
-		write(*,"(5f12.6)") MOene(nbasis+nocc-9:nbasis+nocc)
-	else
-		write(*,*) "Eigenvalues of occupied NTOs:"
-		write(*,"(5f12.6)") MOene(nbasis+1:nbasis+nocc)
-	end if
 	deallocate(TT,NTOvec,NTOval)
 	!Virtual part
 	allocate(TT(nvir,nvir),NTOvec(nvir,nvir),NTOval(nvir))
@@ -3137,12 +3204,17 @@ if (allocated(CObasb)) then
 	end do
 	write(*,*)
 	if (nvir>10) then
-		write(*,*) "The highest 10 eigenvalues of virtual NTOs:"
+		write(*,*) "The highest 10 eigenvalues of beta NTO pairs:"
 		write(*,"(5f12.6)") MOene(nbasis+nocc+1:nbasis+nocc+10)
+        sum2=sum(MOene(nbasis+nocc+1:nbasis+nocc+10))
 	else
-		write(*,*) "Eigenvalues of virtual NTOs:"
+		write(*,*) "Eigenvalues of beta NTO pairs:"
 		write(*,"(5f12.6)") MOene(nbasis+nocc+1:nbasis+nbasis)
+        sum2=sum(MOene(nbasis+nocc+1:nbasis+nbasis))
 	end if
+	write(*,"(' Sum of all beta eigenvalues:',f10.6)") sum2
+    write(*,*)
+	write(*,"(' Sum of all alpha and beta NTO eigenvalues:',f10.6)") sum1+sum2
 	deallocate(TT,NTOvec,NTOval,T_MO)
 end if
 write(*,*)
@@ -3700,6 +3772,7 @@ character tdmatfilename*200,c200tmp*200,c2000tmp*2000
 real*8 tdmatbas(nbasis,nbasis),tmatatmtmp(ncenter,ncenter),tmatatm(ncenter,ncenter)
 real*8,allocatable :: tmatatmnoh(:,:),tmatfrag(:,:)
 integer,allocatable :: frag(:,:),fragnatm(:)
+
 !Load density transition matrix in basis representation
 if (excitfilename==" ") then
 	write(*,*) "Below kinds of files are acceptable"
@@ -3855,6 +3928,13 @@ ninterpo=10
 nstepsize=nint(dfloat(ncennoh)/10D0)
 ifnormsum=0
 facnorm=1D0 !Normalization factor, default is 1, namely do not do normalization
+stepsizez=(clrlimhigh/facnorm-clrlimlow/facnorm)/10
+nlabdigz=4
+labsize=55
+if (allocated(frag)) then
+	labsize=65
+    nlabdigz=3
+end if
 
 do while(.true.)
 	write(*,*)
@@ -3875,11 +3955,13 @@ do while(.true.)
 	write(*,"(a,f10.4,a,f10.4)") " 5 Change lower and upper limit of color scale, current:",clrlimlow/facnorm," to",clrlimhigh/facnorm
 	if (.not.allocated(frag)) then
 		write(*,"(a,i3)") " 6 Set the number of interpolation steps between grids, current:",ninterpo
-		write(*,"(a,i3)") " 7 Set stepsize between labels, current:",nstepsize
+		write(*,"(a,i3,a,f9.5)") " 7 Set stepsize between labels, current:  X/Y is ",nstepsize,", Z is",stepsizez
 		if (ifnormsum==0) write(*,*) "8 Switch if normalizing the sum of all elements to unity, current: No"
 		if (ifnormsum==1) write(*,*) "8 Switch if normalizing the sum of all elements to unity, current: Yes"
 	end if
     write(*,"(a,a)") " 9 Set color transition, current: ",trim(clrtransname(iclrtrans))
+    write(*,"(a,i4)") " 10 Set label size, current:",labsize
+    write(*,"(a,i2)") " 11 Set number of decimal places in labels of Z-axis, current:",nlabdigz
 	read(*,*) isel
 
 	if (isel==0) then
@@ -3900,7 +3982,7 @@ do while(.true.)
 			read(*,*) nfrag
 			if (nfrag==0) then
 				write(*,*) "Input the file containing fragment definition, e.g. C:\myfrag.txt"
-				write(*,*) "If press ENTER directly, fragdef.txt in current folder will be loaded"
+				write(*,"(a)") " If pressing ENTER button directly, fragdef.txt in current folder will be loaded"
 				read(*,"(a)") c200tmp
 				if (c200tmp==" ") c200tmp="fragdef.txt"
 				inquire(file=c200tmp,exist=alive)
@@ -3962,12 +4044,15 @@ do while(.true.)
 	else if (isel==1.or.isel==2) then
 		if (isel==2) isavepic=1
 		if (allocated(frag)) then !Fragment transition matrix
-			call drawmatcolor(tmatfrag/facnorm,nfrag,nfrag,1D0,dfloat(nfrag),1D0,dfloat(nfrag),clrlimlow/facnorm,clrlimhigh/facnorm,1D0,1D0,ninterpo,-1,65,3)
+			call drawmatcolor(tmatfrag/facnorm,nfrag,nfrag,1D0,dfloat(nfrag),1D0,dfloat(nfrag),&
+            clrlimlow/facnorm,clrlimhigh/facnorm,1D0,1D0,ninterpo,-1,labsize,nlabdigz,stepsizez)
 		else !Atom transition matrix
 			if (ifhydrogen==1) then
-				call drawmatcolor(tmatatm/facnorm,ncenter,ncenter,1D0,dfloat(ncenter),1D0,dfloat(ncenter),clrlimlow/facnorm,clrlimhigh/facnorm,dfloat(nstepsize),dfloat(nstepsize),ninterpo,-1)
+				call drawmatcolor(tmatatm/facnorm,ncenter,ncenter,1D0,dfloat(ncenter),1D0,dfloat(ncenter),&
+                clrlimlow/facnorm,clrlimhigh/facnorm,dfloat(nstepsize),dfloat(nstepsize),ninterpo,-1,labsize,nlabdigz,stepsizez)
 			else if (ifhydrogen==0) then
-				call drawmatcolor(tmatatmnoh/facnorm,ncennoh,ncennoh,1D0,dfloat(ncennoh),1D0,dfloat(ncennoh),clrlimlow/facnorm,clrlimhigh/facnorm,dfloat(nstepsize),dfloat(nstepsize),ninterpo,-1)
+				call drawmatcolor(tmatatmnoh/facnorm,ncennoh,ncennoh,1D0,dfloat(ncennoh),1D0,dfloat(ncennoh),&
+                clrlimlow/facnorm,clrlimhigh/facnorm,dfloat(nstepsize),dfloat(nstepsize),ninterpo,-1,labsize,nlabdigz,stepsizez)
 			end if
 		end if
 		if (isel==2) then
@@ -4014,15 +4099,17 @@ do while(.true.)
 		read(*,*) clrlimlow,clrlimhigh
 		clrlimlow=clrlimlow*facnorm
 		clrlimhigh=clrlimhigh*facnorm
-		
+        stepsizez=(clrlimhigh/facnorm-clrlimlow/facnorm)/10
 	else if (isel==6) then
-		write(*,*) "Please input a number, e.g. 2"
+		write(*,*) "Please input interpolation steps between grids, e.g. 2"
 		write(*,"(a)") " Note: Larger value gives rise to more smooth graph, &
 		1 means do not do interpolation, in this case each grid in the map corresponds to a matrix element"
 		read(*,*) ninterpo
 	else if (isel==7) then
-		write(*,*) "Please input a number, e.g. 5"
+		write(*,*) "Please input stepsize for X and Y axes, e.g. 4"
 		read(*,*) nstepsize
+		write(*,*) "Please input stepsize for Z axis, e.g. 0.05"
+		read(*,*) stepsizez
 	else if (isel==8) then
 		if (ifnormsum==0) then
 			ifnormsum=1
@@ -4034,6 +4121,12 @@ do while(.true.)
 		end if
 	else if (isel==9) then
         call selcolortable
+	else if (isel==10) then
+		write(*,*) "Input text size, e.g. 55"
+        read(*,*) labsize
+    else if (isel==11) then
+		write(*,*) "Input number of decimal places in labels of Z-axis, e.g. 3"
+        read(*,*) nlabdigz
 	end if
 end do
 end subroutine
@@ -4091,7 +4184,7 @@ do while (.true.)
 	read(*,*) nfrag
 	if (nfrag==0) then
 		write(*,*) "Input the file containing fragment definition, e.g. C:\fragdef.txt"
-		write(*,*) "Note: If press ENTER directly, fragdef.txt in current folder will be used"
+		write(*,"(a)") " Note: If pressing ENTER button directly, fragdef.txt in current folder will be used"
 		do while(.true.)
 			read(*,"(a)") c200tmp
 			if (c200tmp==" ") c200tmp="fragdef.txt"
@@ -4355,7 +4448,7 @@ do while(.true.)
 			imo=orbleft(iexcitorb)
 			jmo=orbright(iexcitorb)
 			strdir=" ->"
-			if (excdir(iexcitorb)==2) strtmp1=" <-"
+			if (excdir(iexcitorb)==2) strdir=" <-"
 			if (wfntype==0.or.wfntype==3) then
 				write(10,"(i8,i7,a,i7,f12.6,3x,3f11.6)") iexcitorb,imo,strdir,jmo,exccoeff(iexcitorb),dipcontri(:,iexcitorb)
 			else
@@ -4384,7 +4477,7 @@ end subroutine
 !---------- Generate transition density matrix between ground state and an excited state ----------
 !--------------------------------------------------------------------------------------------------
 !There are two ways to construct TDM for TD method, see eqs. 22~24 in &
-!JCP,66,3460 (Abinitio calculations of oscillator and rotatory strengths in the random©\phase approximatio-Twisted mono©\olefins) for detail
+!JCP,66,3460 (Abinitio calculations of oscillator and rotatory strengths in the randomâ€phase approximatio-Twisted monoâ€olefins) for detail
 !iTDMtype=1: Correct for transition electric dipole moment, excitation and de-excitation are not distinguished
 !iTDMtype=2: Correct for transition velocity/magnetic dipole moment, excitation and de-excitation are considered individually
 !isym=1: Ask user if symmetrizing the TDM.  =3: Skip symmetrizing
@@ -4964,6 +5057,14 @@ if (.not.allocated(CObasa)) then
 	stop
 end if
 
+!CObasa and CObasb will be modified during gennatorb, so back up
+if (.not.allocated(CObasa_org)) allocate(CObasa_org(nbasis,nbasis))
+CObasa_org=CObasa
+if ((wfntype==1.or.wfntype==4).and.(.not.allocated(CObasb_org))) then
+	allocate(CObasb_org(nbasis,nbasis))
+	CObasb_org=CObasb
+end if
+
 call loadallexcinfo(1)
 write(*,"(a)") " Input indices of the excited states, for which the natural orbitals will be generated and exported to .mwfn file, e.g. 1,4,6-8"
 read(*,"(a)") c2000tmp
@@ -5026,11 +5127,15 @@ do iexc=1,nexcsel
 	call outmwfn(c200tmp,10,0)
 	write(*,"(a,i4,a)") " The natural orbitals of excited state",istate," have been exported to "//trim(c200tmp)//" in current folder"
 	
-	call dealloall
-	write(*,*)
-	write(*,"(' Reloading: ',a)") trim(firstfilename)
-	call readinfile(firstfilename,1)
+    !Restore to original status
+	MOocc=MOocc_org
+    MOene=MOene_org
+    CObasa=CObasa_org
+    if (allocated(CObasb)) CObasb=CObasb_org
+	call genP
 end do
+deallocate(CObasa_org)
+if (allocated(CObasb_org)) deallocate(CObasb_org)
 write(*,"(/,a)") " Done! .mwfn files containing natural orbitals of all selected excited states have been successfully generated!"
 end subroutine
 
@@ -5302,9 +5407,8 @@ real*8 atmhole(ncenter),atmele(ncenter)
 real*8,allocatable :: fraghole(:,:),fragele(:,:)
 integer sphpot_bk,radpot_bk
 
-write(*,"(/,2a,/)") " NOTE: The charge-transfer spectrum was first proposed in &
+write(*,"(/,a,/)") " NOTE: The charge-transfer spectrum was first proposed in &
 Carbon, 187, 78 (2022) DOI: 10.1016/j.carbon.2021.11.005, please cite this paper in your work"
-
 write(*,*) "How many fragments to define? At least 2 fragments should be defined"
 write(*,*) "Note: Input 0 can exit"
 read(*,*) nfrag

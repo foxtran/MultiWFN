@@ -304,12 +304,12 @@ if (present(grad)) grad=0D0
 if (present(hess)) hess=0D0
 if (present(tens3)) tens3=0D0
 wfnval=0D0
-lastcen=-1 !Arbitrary value
 
 call getpointcell(x,y,z,ic,jc,kc)
 do icell=ic-PBCnx,ic+PBCnx
     do jcell=jc-PBCny,jc+PBCny
         do kcell=kc-PBCnz,kc+PBCnz
+			lastcen=-1 !Arbitrary value
             call tvec_PBC(icell,jcell,kcell,tvec)
             xmove=tvec(1)
             ymove=tvec(2)
@@ -320,18 +320,18 @@ do icell=ic-PBCnx,ic+PBCnx
 		            sftx=x-(a(jcen)%x+xmove)
 		            sfty=y-(a(jcen)%y+ymove)
 		            sftz=z-(a(jcen)%z+zmove)
-	            	sftx2=sftx*sftx
-	            	sfty2=sfty*sfty
-	            	sftz2=sftz*sftz
-	            	rr=sftx2+sfty2+sftz2
+	            		sftx2=sftx*sftx
+	            		sfty2=sfty*sfty
+	            		sftz2=sftz*sftz
+	            		rr=sftx2+sfty2+sftz2
 	            end if
                 ep=b(j)%exp
                 tmpval=-ep*rr
 	            lastcen=jcen
 	            if (tmpval>expcutoff_PBC.or.expcutoff_PBC>0) then
-	            	expterm=exp(tmpval)
+	            		expterm=exp(tmpval)
 	            else
-	            	cycle
+                    cycle
 	            end if
 	
 	            !Calculate value for current GTF
@@ -516,7 +516,7 @@ end subroutine
 
 
 
-!! The same as subroutine orbderv, but calculate for promolecular wavefunction (CO_promol ...), up to Hessian
+!!--------- The same as subroutine orbderv, but calculate for promolecular wavefunction (CO_promol ...), up to Hessian
 !! istart and iend is the range of the orbitals will be calculated, to calculate all orbitals, use 1,nmo_pmol
 !! runtype=1: value  =2: value+dx/y/z  =3: value+dxx/yy/zz(diagonal of hess)  =4: value+dx/y/z+Hessian
 subroutine orbderv_pmol(runtype,istart,iend,x,y,z,wfnval,grad,hess)
@@ -618,26 +618,13 @@ end subroutine
 
 
 
-
-!!!----------- Calculate wavefunction value of all basis functions at a point. Adapted from subroutine "orbdev"
-!The global COtr matrix must have been allocated and filled by using COtr=transpose(CO)
-!Before using this, one should make CO correspond to basis function expressions, namely:
-!  CObasa_org=CObasa
-!  CObasa=0
-!  do ibas=1,nbasis
-!      CObasa(ibas,ibas)=1
-!  end do
-!  call CObas2CO(1)
-!    Then after using this routine, recover to original coefficients:
-!  CObasa=CObasa_org
-!  CO=CO_org
-!In fact, using below code can realize identical purpose, but slower because not optimized for present purpose
-!  call orbderv(1,1,nbasis,gridatm(ipt)%x,gridatm(ipt)%y,gridatm(ipt)%z,basval), where basval has length of nmo
-subroutine calcbasval(x,y,z,basval)
+!!!----------- Calculate value of all GTFs at a point. Adapted from subroutine "orbdev"
+subroutine calcGTFval(x,y,z,GTFvalarr)
 use defvar
 implicit real*8 (a-h,o-z)
-real*8 x,y,z,basval(nbasis),GTFvalarr(nprims)
+real*8 x,y,z,GTFvalarr(nprims)
 
+lastcen=-1 !Arbitrary value
 GTFvalarr=0D0
 do j=1,nprims
 	ix=type2ix(b(j)%type)
@@ -681,6 +668,18 @@ do j=1,nprims
 	end if
     GTFvalarr(j)=GTFval
 end do
+end subroutine
+
+
+
+!!!----------- Calculate value of all basis functions at a point
+!The global COtr matrix must have been allocated and filled by using COtr=transpose(CO)
+subroutine calcbasval(x,y,z,basval)
+use defvar
+implicit real*8 (a-h,o-z)
+real*8 x,y,z,basval(nbasis),GTFvalarr(nprims)
+
+call calcGTFval(x,y,z,GTFvalarr)
 
 if (isphergau==1) then !For each basis function, only loops GTFs in the same shell for reducing cost
     ibas=0
@@ -692,7 +691,6 @@ if (isphergau==1) then !For each basis function, only loops GTFs in the same she
         is=iGTF+1
         ie=iGTF+nshGTF
         do jbas=ibas+1,ibas+nshbas
-            !basval(jbas)=sum( GTFvalarr(is:ie)*CO(jbas,is:ie) )
             basval(jbas)=sum( GTFvalarr(is:ie)*COtr(is:ie,jbas) )
         end do
         ibas=ibas+nshbas
@@ -705,9 +703,7 @@ else !All basis functions are Cartesian, below code is faster than the above gen
         basval(ibas)=sum( GTFvalarr(is:ie)*COtr(is:ie,ibas) )
     end do
 end if
-
 end subroutine
-
 
 
 
@@ -1294,7 +1290,7 @@ case (88) !Local dynamic electron correlation function
     userfunc=localcorr(x,y,z,2)
 case (89) !Local nondynamic electron correlation function
     userfunc=localcorr(x,y,z,3)
-case (91) !delta_g_inter_Hirsh defined in IGMH model
+case (91) !Delta-g_inter(Hirsh) defined in IGMH model
     userfunc=delta_g_inter_Hirsh(x,y,z)
 case (92) !vdW potential
     userfunc=vdwpotfunc(x,y,z,1)
@@ -1323,7 +1319,6 @@ case (102) !Negative part of ESP
 case (103) !Magnitude of electric field
 	call gencalchessmat(1,12,x,y,z,value,vec,mat) !Get gradient of ESP
 	userfunc=dsqrt(sum(vec**2))
-    
 case (110) !Total energy density of the energy components defined by SBL (steric + electrostatic + quantum)
     !That is, userfunc(40) + userfunc(68) + userfunc(69)
     !userfunc = weizsacker(x,y,z) - fdens(x,y,z)*totesp(x,y,z) + (Hamkin(x,y,z,0)-weizsacker(x,y,z)+DFTxcfunc(x,y,z)) !Original expression
@@ -1337,7 +1332,8 @@ case (112) !Magnitude of total force of the energy components defined by SBL (st
 case (113) !Total charge of the energy components defined by SBL (steric + electrostatic + quantum)
     !That is, userfunc(42) + userfunc(67) + userfunc(65)
     userfunc = stericcharge(x,y,z) + elestatcharge(x,y,z) + quantumcharge(x,y,z)
-    
+case (114) !Pauli kinetic energy density
+    userfunc = KED(x,y,z,iKEDsel) - weizsacker(x,y,z)
 case (802:807)
     userfunc=funcvalLSB(x,y,z,iuserfunc-800)
 case (812:817)
@@ -1353,6 +1349,8 @@ case (901) !Y coordinate
     userfunc=y
 case (902) !Z coordinate
     userfunc=z
+case (999) !Local Hartree-Fock exchange energy
+	userfunc=locHFexc(x,y,z)
 case (1000) !Various kinds of DFT exchange-correlation functions
     userfunc=DFTxcfunc(x,y,z)
 case (1100) !Various kinds of DFT exchange-correlation potentials
@@ -1920,7 +1918,7 @@ real*8 x,y,z,wfnval(nmo),wfnderv(3,nmo)
 real*8 D,Dh,gradrho(3),gradrhoa(3),gradrhob(3),rho,rhoa,rhob,rhospin,MOoccnow
 real*8 :: Fc=2.871234000D0 ! Thomas-Fermi constant = (3/10)*(3*Pi^2)**(2/3) = 2.871234, 1/2.871234=0.34828
 real*8 :: Fc_pol=4.557799872D0 ! Fermi constant for spin polarized = (3/10)*(6*Pi^2)**(2/3) = 4.5578, 1/4.5578=0.2194
-character*3 label
+character label*3
 
 !Calculate Tsirelson version of ELF and LOL, which are only dependent on electron density
 !Since rho, nebla-rho, nebla^2-rho support EDF, these functions also support EDF
@@ -2701,7 +2699,7 @@ end function
 
 
 
-!!------ Calculate delta_g function based on promolecular approximation
+!!------ Calculate delta-g function based on promolecular approximation
 real*8 function delta_g_promol(x,y,z)
 real*8 x,y,z,grad(3),IGM_gradnorm
 call IGMgrad_promol(x,y,z,fragatm,grad,IGM_gradnorm)
@@ -2761,7 +2759,7 @@ end subroutine
 
 
 
-!!!------ Calculate delta_g function defined in IGM based on Hirshfeld partition (IGMH)
+!!!------ Calculate delta-g function defined in IGM based on Hirshfeld partition (IGMH)
 !Note that by default fragatm contains the whole system
 real*8 function delta_g_Hirsh(x,y,z)
 real*8 x,y,z,grad(3),IGM_gradnorm
@@ -2769,7 +2767,7 @@ call IGMgrad_Hirsh(x,y,z,fragatm,grad,IGM_gradnorm)
 delta_g_Hirsh=IGM_gradnorm-dsqrt(sum(grad**2))
 end function
 
-!!!------ Calculate delta_g_inter function defined in IGM based on Hirshfeld partition (IGMH)
+!!!------ Calculate delta-g_inter function defined in IGM based on Hirshfeld partition (IGMH)
 real*8 function delta_g_inter_Hirsh(x,y,z)
 real*8 x,y,z,grad1(3),IGM_gradnorm1,grad2(3),IGM_gradnorm2,grad(3),IGM_gradnorm
 call IGMgrad_Hirsh(x,y,z,frag1,grad1,IGM_gradnorm1)
@@ -2919,7 +2917,11 @@ real*8 Cx,Cy,Cz
 if (iESPcode==1.or.if_initlibreta==0) then
     eleesp=eleesp1(Cx,Cy,Cz)
 else
-    eleesp=eleesp2(Cx,Cy,Cz)
+	if (iESPcode==2) then
+	    eleesp=eleesp2(Cx,Cy,Cz)
+    else if (iESPcode==3) then
+		eleesp=eleesp2_slow(Cx,Cy,Cz)
+    end if
 end if
 end function
 
@@ -3073,7 +3075,7 @@ character c200tmp*200,c400tmp*400,filename_tmp*200
 alive=.false.
 if (cubegenpath/=" ".and.ifiletype==1) then
 	inquire(file=cubegenpath,exist=alive)
-	if (alive==.false.) then
+	if (.not.alive) then
 		write(*,"(a)") " Note: Albeit current file type is fch/fchk/chk and ""cubegenpath"" parameter in settings.ini has been defined, &
 		the cubegen cannot be found, therefore electrostatic potential will still be calculated using internal code of Multiwfn"
 	end if
@@ -3125,9 +3127,9 @@ else
 	!Calculate ESP of electron contribution
     if (iESPcode==1) then !Old slow code, but opitimized specifically for plane grid
         call planeeleesp
-    else if (iESPcode==2) then !Use fast code
+    else if (iESPcode==2.or.iESPcode==3) then !Based on libreta
         nESPthreads=nthreads
-        call doinitlibreta
+        call doinitlibreta(1)
         if (isys==1.and.nESPthreads>10) nESPthreads=10
         write(*,*)
 	    ifinish=0
@@ -3839,8 +3841,8 @@ call calchessmat_dens(1,x,y,z,rho,grad,hess)
 gradnorm=dsqrt(sum(grad**2))
 tmp=uservar
 if (uservar==0) tmp=1.1D0
-if (gradnorm==0D0.or.rho==0D0) then
-	IRIfunc=100
+if (gradnorm==0D0.or.rho<=IRI_rhocut) then
+	IRIfunc=5
 else
     IRIfunc=gradnorm/rho**tmp
 end if
@@ -3857,8 +3859,8 @@ gradnorm=dsqrt(sum(grad**2))
 tmp=uservar
 if (uservar==0) tmp=1.1D0
 
-if (gradnorm==0D0.or.rho==0D0) then
-	IRIval=100
+if (gradnorm==0D0.or.rho<=IRI_rhocut) then
+	IRIval=5
 else
     IRIval=gradnorm/rho**tmp
 end if
@@ -4367,7 +4369,7 @@ end function
 real*8 function linintp3d(x,y,z,itype)
 real*8 x,y,z
 integer itype
-character*80 c80tmp
+character c80tmp*80
 do ix=1,nx
 	x1=orgx+(ix-1)*dx
 	x2=orgx+ix*dx
@@ -4841,7 +4843,7 @@ end subroutine
 
 
 
-!!---- The distance from a point (x,y,z) to the nearest atom in the array
+!!---- The distance in Angstrom from a point (x,y,z) to the nearest atom in the array
 real*8 function surfana_di(x,y,z,nlen,atmlist)
 real*8 x,y,z
 integer nlen,atmlist(nlen)
@@ -4852,10 +4854,10 @@ do iatm=1,ncenter
 		if (dist2<dist2min) dist2min=dist2
 	end if
 end do
-surfana_di=dsqrt(dist2min)
+surfana_di=dsqrt(dist2min)*b2a
 end function
 
-!!---- The distance from a point (x,y,z) to the nearest atom not in the array
+!!---- The distance in Angstrom from a point (x,y,z) to the nearest atom not in the array
 real*8 function surfana_de(x,y,z,nlen,atmlist)
 real*8 x,y,z
 integer nlen,atmlist(nlen)
@@ -4866,10 +4868,10 @@ do iatm=1,ncenter
 		if (dist2<dist2min) dist2min=dist2
 	end if
 end do
-surfana_de=dsqrt(dist2min)
+surfana_de=dsqrt(dist2min)*b2a
 end function
 
-!!---- Normalized contact distance, defined in terms of de, di and the vdW radii of the atoms
+!!---- Normalized contact distance (d_norm) in Angstrom. defined in terms of de, di and the vdW radii of the atoms
 real*8 function surfana_norm(x,y,z,nlen,atmlist)
 real*8 x,y,z
 integer nlen,atmlist(nlen)
@@ -4893,7 +4895,7 @@ di=dsqrt(dist2minin)
 de=dsqrt(dist2minext)
 rvdwin=vdwr(a(iminin)%index)
 rvdwext=vdwr(a(iminext)%index)
-surfana_norm=(di-rvdwin)/rvdwin+(de-rvdwext)/rvdwext
+surfana_norm=( (di-rvdwin)/rvdwin+(de-rvdwext)/rvdwext )*b2a
 end function
 
 
@@ -5314,8 +5316,56 @@ if(rho.gt.1D-10) then
 		call EXIT()
 	end if
 end if  
-end subroutine 
+end subroutine
 
+
+
+!----------- Local Hartree-Fock exchange energy
+!genPprim must have been called so that density matrix is available
+real*8 function locHFexc(x,y,z)
+use defvar
+implicit real*8 (a-h,o-z)
+real*8 x,y,z,Vprim(nprims,nprims),GTFarr(nprims),Earr(nprims)
+
+call calcGTFval(x,y,z,GTFarr)
+call getVmatprim(x,y,z,Vprim)
+
+if (wfntype==0.or.wfntype==3) then !Closed-shell
+	do i=1,nprims
+		Earr(i)=sum(Ptot_prim(:,i)*GTFarr(:))
+	end do
+	locHFexc=0
+	do ib=1,nprims
+		do id=1,nprims
+			locHFexc=locHFexc+Earr(ib)*Earr(id)*Vprim(ib,id)
+		end do
+	end do
+	locHFexc=-locHFexc/4D0
+else !Open-shell
+	locHFexc=0
+    !call showmatgau(Vprim)
+    !write(*,*) maxval(abs(Vprim))
+    !Alpha part
+	do i=1,nprims
+		Earr(i)=sum(Palpha_prim(:,i)*GTFarr(:))
+	end do
+	do ib=1,nprims
+		do id=1,nprims
+			locHFexc=locHFexc+Earr(ib)*Earr(id)*Vprim(ib,id)
+		end do
+	end do
+    !Beta part
+	do i=1,nprims
+		Earr(i)=sum(Pbeta_prim(:,i)*GTFarr(:))
+	end do
+	do ib=1,nprims
+		do id=1,nprims
+			locHFexc=locHFexc+Earr(ib)*Earr(id)*Vprim(ib,id)
+		end do
+	end do
+	locHFexc=-locHFexc/2D0
+end if
+end function
 
 
 
@@ -5730,7 +5780,7 @@ if (allocated(b)) then
 	write(*,"(a,i2,a,3f10.5)") " 19 Source function, mode:",srcfuncmode,", ref. point:",refx,refy,refz
 	write(*,*) "20 Electron delocalization range function EDR(r;d)"
 	write(*,*) "21 Orbital overlap distance function D(r)"
-	write(*,*) "22 Delta_g (promol. approx.)     23 Delta_g (Hirshfeld partition)"
+	write(*,*) "22 Delta-g (promol. approx.)     23 Delta-g (Hirshfeld partition)"
 	write(*,"(a,i5)") " 100 User-defined real space function, iuserfunc=",iuserfunc
 else !No wavefunction information is available
 	write(*,*) "1 Promolecular electron density "
@@ -5741,7 +5791,7 @@ else !No wavefunction information is available
 	end if
 	write(*,*) "14 Reduced density gradient (RDG) with promolecular approximation"
 	write(*,*) "16 Sign(lambda2)*rho with promolecular approximation"
-	write(*,*) "22 Delta_g (promol. approx.)"
+	write(*,*) "22 Delta-g (promol. approx.)"
 	write(*,"(a,i3)") " 100 User-defined real space function, iuserfunc=",iuserfunc
 end if
 end subroutine

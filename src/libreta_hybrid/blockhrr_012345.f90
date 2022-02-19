@@ -1,7 +1,7 @@
-module hrr
+module blockhrr
 implicit none
 contains
-    subroutine hrr_0_0(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_0_0(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -11,7 +11,7 @@ contains
         ! (0,0,0|0,0,0): 1
         theta(2) = dot_product(vrrbuffer(:,1), D(:,1)) ! ((0,0,0)|(0,0,0))
     end subroutine
-    subroutine hrr_1_0(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_1_0(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -25,7 +25,7 @@ contains
         ! (0,0,1|0,0,0): 1
         theta(8) = dot_product(vrrbuffer(:,3), D(:,3)) ! ((0,0,1)|(0,0,0))
     end subroutine
-    subroutine hrr_1_1(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_1_1(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -69,7 +69,7 @@ contains
         theta(24) = dot_product(vrrbuffer(:,9), D(:,9)) ! ((0,0,2)|(0,0,0))
         theta(33) = theta(24)+theta(18)*AB(3) ! ((0,0,1)|(0,0,1)) = ((0,0,2)|(0,0,0))+((0,0,1)|(0,0,0))*AB(3)
     end subroutine
-    subroutine hrr_2_0(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_2_0(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -89,7 +89,7 @@ contains
         ! (0,0,2|0,0,0): 1
         theta(21) = dot_product(vrrbuffer(:,6), D(:,6)) ! ((0,0,2)|(0,0,0))
     end subroutine
-    subroutine hrr_2_1(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_2_1(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -169,7 +169,7 @@ contains
         theta(51) = dot_product(vrrbuffer(:,16), D(:,18)) ! ((0,0,3)|(0,0,0))
         theta(69) = theta(51)+theta(41)*AB(3) ! ((0,0,2)|(0,0,1)) = ((0,0,3)|(0,0,0))+((0,0,2)|(0,0,0))*AB(3)
     end subroutine
-    subroutine hrr_2_2(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_2_2(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -447,7 +447,7 @@ contains
         theta(149) = theta(101)+theta(86)*AB(3) ! ((0,0,3)|(0,0,1)) = ((0,0,4)|(0,0,0))+((0,0,3)|(0,0,0))*AB(3)
         theta(185) = theta(149)+theta(119)*AB(3) ! ((0,0,2)|(0,0,2)) = ((0,0,3)|(0,0,1))+((0,0,2)|(0,0,1))*AB(3)
     end subroutine
-    subroutine hrr_3_0(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_3_0(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -475,7 +475,7 @@ contains
         ! (0,0,3|0,0,0): 1
         theta(45) = dot_product(vrrbuffer(:,10), D(:,10)) ! ((0,0,3)|(0,0,0))
     end subroutine
-    subroutine hrr_3_1(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_3_1(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -603,7 +603,7 @@ contains
         theta(95) = dot_product(vrrbuffer(:,25), D(:,30)) ! ((0,0,4)|(0,0,0))
         theta(125) = theta(95)+theta(80)*AB(3) ! ((0,0,3)|(0,0,1)) = ((0,0,4)|(0,0,0))+((0,0,3)|(0,0,0))*AB(3)
     end subroutine
-    subroutine hrr_3_2(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_3_2(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -1061,7 +1061,7 @@ contains
         theta(247) = theta(172)+theta(151)*AB(3) ! ((0,0,4)|(0,0,1)) = ((0,0,5)|(0,0,0))+((0,0,4)|(0,0,0))*AB(3)
         theta(307) = theta(247)+theta(202)*AB(3) ! ((0,0,3)|(0,0,2)) = ((0,0,4)|(0,0,1))+((0,0,3)|(0,0,1))*AB(3)
     end subroutine
-    subroutine hrr_3_3(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_3_3(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -2393,7 +2393,7 @@ contains
         theta(572) = theta(422)+theta(359)*AB(3) ! ((0,0,4)|(0,0,2)) = ((0,0,5)|(0,0,1))+((0,0,4)|(0,0,1))*AB(3)
         theta(672) = theta(572)+theta(482)*AB(3) ! ((0,0,3)|(0,0,3)) = ((0,0,4)|(0,0,2))+((0,0,3)|(0,0,2))*AB(3)
     end subroutine
-    subroutine hrr_4_0(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_4_0(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -2431,7 +2431,7 @@ contains
         ! (0,0,4|0,0,0): 1
         theta(85) = dot_product(vrrbuffer(:,15), D(:,15)) ! ((0,0,4)|(0,0,0))
     end subroutine
-    subroutine hrr_4_1(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_4_1(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -2619,7 +2619,7 @@ contains
         theta(162) = dot_product(vrrbuffer(:,36), D(:,45)) ! ((0,0,5)|(0,0,0))
         theta(207) = theta(162)+theta(141)*AB(3) ! ((0,0,4)|(0,0,1)) = ((0,0,5)|(0,0,0))+((0,0,4)|(0,0,0))*AB(3)
     end subroutine
-    subroutine hrr_4_2(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_4_2(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -3302,7 +3302,7 @@ contains
         theta(382) = theta(274)+theta(246)*AB(3) ! ((0,0,5)|(0,0,1)) = ((0,0,6)|(0,0,0))+((0,0,5)|(0,0,0))*AB(3)
         theta(472) = theta(382)+theta(319)*AB(3) ! ((0,0,4)|(0,0,2)) = ((0,0,5)|(0,0,1))+((0,0,4)|(0,0,1))*AB(3)
     end subroutine
-    subroutine hrr_4_3(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_4_3(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -5295,7 +5295,7 @@ contains
         theta(838) = theta(622)+theta(538)*AB(3) ! ((0,0,5)|(0,0,2)) = ((0,0,6)|(0,0,1))+((0,0,5)|(0,0,1))*AB(3)
         theta(988) = theta(838)+theta(712)*AB(3) ! ((0,0,4)|(0,0,3)) = ((0,0,5)|(0,0,2))+((0,0,4)|(0,0,2))*AB(3)
     end subroutine
-    subroutine hrr_4_4(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_4_4(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -10193,7 +10193,7 @@ contains
         theta(1684) = theta(1324)+theta(1156)*AB(3) ! ((0,0,5)|(0,0,3)) = ((0,0,6)|(0,0,2))+((0,0,5)|(0,0,2))*AB(3)
         theta(1909) = theta(1684)+theta(1474)*AB(3) ! ((0,0,4)|(0,0,4)) = ((0,0,5)|(0,0,3))+((0,0,4)|(0,0,3))*AB(3)
     end subroutine
-    subroutine hrr_5_0(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_5_0(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -10243,7 +10243,7 @@ contains
         ! (0,0,5|0,0,0): 1
         theta(147) = dot_product(vrrbuffer(:,21), D(:,21)) ! ((0,0,5)|(0,0,0))
     end subroutine
-    subroutine hrr_5_1(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_5_1(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -10503,7 +10503,7 @@ contains
         theta(259) = dot_product(vrrbuffer(:,49), D(:,63)) ! ((0,0,6)|(0,0,0))
         theta(322) = theta(259)+theta(231)*AB(3) ! ((0,0,5)|(0,0,1)) = ((0,0,6)|(0,0,0))+((0,0,5)|(0,0,0))*AB(3)
     end subroutine
-    subroutine hrr_5_2(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_5_2(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -11456,7 +11456,7 @@ contains
         theta(562) = theta(415)+theta(379)*AB(3) ! ((0,0,6)|(0,0,1)) = ((0,0,7)|(0,0,0))+((0,0,6)|(0,0,0))*AB(3)
         theta(688) = theta(562)+theta(478)*AB(3) ! ((0,0,5)|(0,0,2)) = ((0,0,6)|(0,0,1))+((0,0,5)|(0,0,1))*AB(3)
     end subroutine
-    subroutine hrr_5_3(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_5_3(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -14242,7 +14242,7 @@ contains
         theta(1174) = theta(880)+theta(772)*AB(3) ! ((0,0,6)|(0,0,2)) = ((0,0,7)|(0,0,1))+((0,0,6)|(0,0,1))*AB(3)
         theta(1384) = theta(1174)+theta(1006)*AB(3) ! ((0,0,5)|(0,0,3)) = ((0,0,6)|(0,0,2))+((0,0,5)|(0,0,2))*AB(3)
     end subroutine
-    subroutine hrr_5_4(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_5_4(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)
@@ -21090,7 +21090,7 @@ contains
         theta(2290) = theta(1800)+theta(1584)*AB(3) ! ((0,0,6)|(0,0,3)) = ((0,0,7)|(0,0,2))+((0,0,6)|(0,0,2))*AB(3)
         theta(2605) = theta(2290)+theta(2010)*AB(3) ! ((0,0,5)|(0,0,4)) = ((0,0,6)|(0,0,3))+((0,0,5)|(0,0,3))*AB(3)
     end subroutine
-    subroutine hrr_5_5(AB, vrrbuffer, D, theta)
+    subroutine blockhrr_5_5(AB, vrrbuffer, D, theta)
         real*8,intent(in) :: AB(3)
         real*8,intent(in) :: vrrbuffer(:,:)
         real*8,intent(in) :: D(:,:)

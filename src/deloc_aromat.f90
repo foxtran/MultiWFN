@@ -627,7 +627,7 @@ do while(.true.)
     if (index(c2000tmp,'q')/=0) then
         exit
     else if (index(c2000tmp,'d')/=0) then
-        if (.not.allocated(connmat)) call genconnmat(1) !Generate connectivity matrix
+        if (.not.allocated(connmat)) call genconnmat(1,0) !Generate connectivity matrix
         write(*,*)
         write(*,*) "Input index of the atoms, the order is arbitrary"
         write(*,*) "For example: 1,3-4,6-8,10-14"

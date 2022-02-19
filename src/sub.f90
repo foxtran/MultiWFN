@@ -8,8 +8,8 @@ real*8 eigval(nbasis),eigvec(nbasis,nbasis),tmpmat(nbasis,nbasis)
 real*8,allocatable :: tmparr(:)
 integer orbarr(nmo)
 integer,allocatable :: exclfragatm(:),tmparrint(:),idxsel(:)
-character*3 :: orbtype(0:2)=(/ "A+B"," A"," B" /)
-character*6 :: symstr
+character(len=3) :: orbtype(0:2)=(/ "A+B"," A "," B " /)
+character symstr*6
 write(*,*) "Note: ""GTF"" in this function refers to Gaussian type primitive function"
 call updatenelec !Sometimes the naelec/nbelec/nelec recorded in the input file is not in line with sum of occupation numbers, so update
 do while(.true.)
@@ -1305,7 +1305,7 @@ forall(i=1:nbasis) Sbas(i,i)=1D0 !Reconstruct overlap matrix in orthonormal basi
 end subroutine
 
 !!--- Input overlap matrix and return Lowdin orthogonalization transformation matrix Xmat=S^0.5 and Xmatinv=S^-0.5
-! Smatin is input overlap matrix, which will not be modified
+! Smatin is inputted overlap matrix, which will not be modified
 subroutine symmorthomat(Smatin,Xmat,Xmatinv)
 use defvar
 use util
@@ -1376,7 +1376,7 @@ end subroutine
 subroutine swapGTF(i,j,swaptype)
 use defvar
 integer n,i,j
-character*3 swaptype
+character swaptype*3
 type(primtype) tempb !For exchanging basis functions' order
 if (swaptype=="all") then
 	tempb=b(i)
@@ -1459,7 +1459,7 @@ end subroutine
 subroutine showformula
 use defvar
 implicit real*8 (a-h,o-z)
-character*6 tmp
+character tmp*6
 write(*,"(' Formula: ')",advance="no")
 do i=0,nelesupp
 	n=0
@@ -1513,9 +1513,8 @@ use defvar
 use util
 implicit real*8 (a-h,o-z)
 integer :: itype=0
-character*2 typename(100),nametmp
-character*80 basisset,tmpdir,c80tmp
-character*80 outwfnname
+character(len=2) typename(100),nametmp
+character basisset*80,tmpdir*80,c80tmp*80,outwfnname*80
 logical alivegauout,alivewfntmp,aliveatomwfn
 if (isys==1) call delfile("gxx.* fort.6 Gau*.inp") !Clean Gaussian scratch files in current folder
 
@@ -1525,10 +1524,10 @@ if (iwfntmptype==1) then
 	if (isys==2) tmpdir="wfntmp/"
 	c80tmp="wfntmp"
 	inquire(directory="wfntmp",exist=alivewfntmp)
-	if (isys==1.and.alivewfntmp==.true.) then !Delete old wfntmp folder
+	if (isys==1.and.alivewfntmp) then !Delete old wfntmp folder
 		write(*,*) "Running: rmdir /S /Q wfntmp"
 		call system("rmdir /S /Q wfntmp")
-	else if (isys==2.and.alivewfntmp==.true.) then
+	else if (isys==2.and.alivewfntmp) then
 		write(*,*) "Running: rm -rf wfntmp"
 		call system("rm -rf wfntmp")
 	end if
@@ -1536,7 +1535,7 @@ else if (iwfntmptype==2) then
 	do i=1,9999 !Find a proper name of temporary folder
 		write(c80tmp,"('wfntmp',i4.4)") i
 		inquire(directory=c80tmp,exist=alivewfntmp)
-		if (alivewfntmp==.false.) exit
+		if (.not.alivewfntmp) exit
 	end do
 	if (isys==1) write(tmpdir,"('wfntmp',i4.4,'\')") i
 	if (isys==2) write(tmpdir,"('wfntmp',i4.4,'/')") i
@@ -1544,10 +1543,10 @@ end if
 write(*,*) "Running: mkdir "//trim(c80tmp) !Build new temporary folder
 call system("mkdir "//trim(c80tmp))
 inquire(directory="atomwfn",exist=aliveatomwfn)
-if (isys==1.and.aliveatomwfn==.true.) then
+if (isys==1.and.aliveatomwfn) then
 	write(*,*) "Running: copy atomwfn\*.wfn "//trim(tmpdir)
 	call system("copy atomwfn\*.wfn "//trim(tmpdir))
-else if (isys==2.and.aliveatomwfn==.true.) then
+else if (isys==2.and.aliveatomwfn) then
 	write(*,*) "Running: cp atomwfn/*.wfn "//trim(tmpdir)
 	call system("cp atomwfn/*.wfn "//trim(tmpdir))
 end if
@@ -1860,6 +1859,7 @@ end subroutine
 
 
 !!!------------------ Generate density matrix, can be used when basis function information is available
+!PS: density matrics can also be directly loaded from .fch via subroutine readfchdensmat
 subroutine genP
 use defvar
 use util
@@ -1917,7 +1917,7 @@ end subroutine
 
 
 
-!!!------ Generate density matrix based on GTFs, only total density matrix is considered currently
+!!!------ Generate density matrix based on GTF
 subroutine genPprim
 use defvar
 use util
@@ -2073,8 +2073,8 @@ if (allocated(b)) then !If loaded file contains wavefuntion information
 	else if (iALIEdecomp==1) then
 		call avglociondecomp(ifileid,inx,iny,inz)
 	end if
-	write(ifileid,"(' Delta_g (under promolecular approximation):',E18.10)") delta_g_promol(inx,iny,inz)
-	write(ifileid,"(' Delta_g (under Hirshfeld partition):',E18.10)") delta_g_Hirsh(inx,iny,inz)
+	write(ifileid,"(' Delta-g (under promolecular approximation):',E18.10)") delta_g_promol(inx,iny,inz)
+	write(ifileid,"(' Delta-g (under Hirshfeld partition):',E18.10)") delta_g_Hirsh(inx,iny,inz)
 	write(ifileid,"(' User-defined real space function:',E18.10)") userfunc(inx,iny,inz)
     if (ifPBC==0) then
 	    fesptmp=nucesp(inx,iny,inz)
@@ -2415,6 +2415,8 @@ nmo=0
 nprims=0
 ncenter=0
 iresinfo=0
+nbasis=0
+nindbasis=0
 
 ifPBC=0
 cellv1=0;cellv2=0;cellv3=0
@@ -2441,9 +2443,8 @@ if (allocated(b_org)) deallocate(b_org,CO_org,MOocc_org,MOene_org)
 if (allocated(Sbas_org)) deallocate(Sbas_org)
 if (allocated(CObasa_org)) deallocate(CObasa_org)
 if (allocated(CObasb_org)) deallocate(CObasb_org)
-if (allocated(Palpha_org)) deallocate(Palpha_org)
-if (allocated(Pbeta_org)) deallocate(Pbeta_org)
 if (allocated(fragatm_org)) deallocate(fragatm_org)
+ifPBC_org=0
 cellv1_org=0
 cellv2_org=0
 cellv3_org=0
@@ -2895,27 +2896,27 @@ matd(4,5)=1D0
 ! To 10F:  1   2   3   4   5   6   7   8   9  10      
 !         XXX,YYY,ZZZ,XYY,XXY,XXZ,XZZ,YZZ,YYZ,XYZ (Gaussian sequence, not identical to Multiwfn)
 !
-! F 0=-3/(2*¡Ì5)*(XXZ+YYZ)+ZZZ
+! F 0=-3/(2*âˆš5)*(XXZ+YYZ)+ZZZ
 matf(3,1)=1D0
 matf(6,1)=-1.5D0/sqrt(5D0)
 matf(9,1)=-1.5D0/sqrt(5D0)
-! F+1=-¡Ì(3/8)*XXX-¡Ì(3/40)*XYY+¡Ì(6/5)*XZZ
+! F+1=-âˆš(3/8)*XXX-âˆš(3/40)*XYY+âˆš(6/5)*XZZ
 matf(1,2)=-sqrt(3D0/8D0)
 matf(4,2)=-sqrt(3D0/40D0)
 matf(7,2)=sqrt(6D0/5D0)
-! F-1=-¡Ì(3/40)*XXY-¡Ì(3/8)*YYY+¡Ì(6/5)*YZZ
+! F-1=-âˆš(3/40)*XXY-âˆš(3/8)*YYY+âˆš(6/5)*YZZ
 matf(2,3)=-sqrt(3D0/8D0)
 matf(5,3)=-sqrt(3D0/40D0)
 matf(8,3)=sqrt(6D0/5D0)
-! F+2=¡Ì3/2*(XXZ-YYZ)
+! F+2=âˆš3/2*(XXZ-YYZ)
 matf(6,4)=sqrt(3D0)/2D0
 matf(9,4)=-sqrt(3D0)/2D0
 ! F-2=XYZ
 matf(10,5)=1D0
-! F+3=¡Ì(5/8)*XXX-3/¡Ì8*XYY
+! F+3=âˆš(5/8)*XXX-3/âˆš8*XYY
 matf(1,6)=sqrt(5D0/8D0)
 matf(4,6)=-3D0/sqrt(8D0)
-! F-3=3/¡Ì8*XXY-¡Ì(5/8)*YYY
+! F-3=3/âˆš8*XXY-âˆš(5/8)*YYY
 matf(2,7)=-sqrt(5D0/8D0)
 matf(5,7)=3D0/sqrt(8D0)
 
@@ -2926,41 +2927,41 @@ if (iprog==1) then !for .fch
 	!           9   10   11   12   13   14   15
 	!         XYYY,XXZZ,XXYZ,XXYY,XXXZ,XXXY,XXXX
 	!
-	!G 0=ZZZZ+3/8*(XXXX+YYYY)-3*¡Ì(3/35)*(XXZZ+YYZZ-1/4*XXYY)
+	!G 0=ZZZZ+3/8*(XXXX+YYYY)-3*âˆš(3/35)*(XXZZ+YYZZ-1/4*XXYY)
 	 matg(1,1)=1D0
 	 matg(3,1)=-3D0*sqrt(3D0/35D0)
 	 matg(5,1)=3D0/8D0
 	 matg(10,1)=-3D0*sqrt(3D0/35D0)
 	 matg(12,1)=3D0/4D0*sqrt(3D0/35D0)
 	 matg(15,1)=3D0/8D0
-	 !G+1=2*¡Ì(5/14)*XZZZ-3/2*¡Ì(5/14)*XXXZ-3/2/¡Ì14*XYYZ
+	 !G+1=2*âˆš(5/14)*XZZZ-3/2*âˆš(5/14)*XXXZ-3/2/âˆš14*XYYZ
 	 matg(6,2)=2D0*sqrt(5D0/14D0)
 	 matg(8,2)=-1.5D0/sqrt(14D0)
 	 matg(13,2)=-1.5D0*sqrt(5D0/14D0)
-	 !G-1=2*¡Ì(5/14)*YZZZ-3/2*¡Ì(5/14)*YYYZ-3/2/¡Ì14*XXYZ
+	 !G-1=2*âˆš(5/14)*YZZZ-3/2*âˆš(5/14)*YYYZ-3/2/âˆš14*XXYZ
 	 matg(2,3)=2D0*sqrt(5D0/14D0)
 	 matg(4,3)=-1.5D0*sqrt(5D0/14D0)
 	 matg(11,3)=-1.5D0/sqrt(14D0)
-	 !G+2=3*¡Ì(3/28)*(XXZZ-YYZZ)-¡Ì5/4*(XXXX-YYYY)
+	 !G+2=3*âˆš(3/28)*(XXZZ-YYZZ)-âˆš5/4*(XXXX-YYYY)
 	 matg(3,4)=-3D0*sqrt(3D0/28D0)
 	 matg(5,4)=sqrt(5D0)/4D0
 	 matg(10,4)=3D0*sqrt(3D0/28D0)
 	 matg(15,4)=-sqrt(5D0)/4D0
-	 !G-2=3/¡Ì7*XYZZ-¡Ì(5/28)*(XXXY+XYYY)
+	 !G-2=3/âˆš7*XYZZ-âˆš(5/28)*(XXXY+XYYY)
 	 matg(7,5)=3D0/sqrt(7D0)
 	 matg(9,5)=-sqrt(5D0/28D0)
 	 matg(14,5)=-sqrt(5D0/28D0)
-	 !G+3=¡Ì(5/8)*XXXZ-3/¡Ì8*XYYZ
+	 !G+3=âˆš(5/8)*XXXZ-3/âˆš8*XYYZ
 	 matg(8,6)=-3D0/sqrt(8D0)
 	 matg(13,6)=sqrt(5D0/8D0)
-	 !G-3=-¡Ì(5/8)*YYYZ+3/¡Ì8*XXYZ
+	 !G-3=-âˆš(5/8)*YYYZ+3/âˆš8*XXYZ
 	 matg(4,7)=-sqrt(5D0/8D0)
 	 matg(11,7)=3D0/sqrt(8D0)
-	 !G+4=¡Ì35/8*(XXXX+YYYY)-3/4*¡Ì3*XXYY
+	 !G+4=âˆš35/8*(XXXX+YYYY)-3/4*âˆš3*XXYY
 	 matg(5,8)=sqrt(35D0)/8D0
 	 matg(12,8)=-3D0/4D0*sqrt(3D0)
 	 matg(15,8)=sqrt(35D0)/8D0
-	 !G-4=¡Ì5/2*(XXXY-XYYY)
+	 !G-4=âˆš5/2*(XXXY-XYYY)
 	 matg(9,9)=-sqrt(5D0)/2D0
 	 matg(14,9)=sqrt(5D0)/2D0
 else if (iprog==2) then !For .molden
@@ -2970,41 +2971,41 @@ else if (iprog==2) then !For .molden
 	!           9   10   11   12   13   14   15
 	!         zzzy,xxyy,xxzz,yyzz,xxyz,yyxz,zzxy
 	!
-	!G 0=ZZZZ+3/8*(XXXX+YYYY)-3*¡Ì(3/35)*(XXZZ+YYZZ-1/4*XXYY)
+	!G 0=ZZZZ+3/8*(XXXX+YYYY)-3*âˆš(3/35)*(XXZZ+YYZZ-1/4*XXYY)
 	matg(3,1)=1D0
 	matg(1,1)=3D0/8D0
 	matg(2,1)=3D0/8D0
 	matg(11,1)=-3D0*sqrt(3D0/35D0)
 	matg(12,1)=-3D0*sqrt(3D0/35D0)
 	matg(10,1)=3D0/4D0*sqrt(3D0/35D0)
-	!G+1=2*¡Ì(5/14)*XZZZ-3/2*¡Ì(5/14)*XXXZ-3/2/¡Ì14*XYYZ
+	!G+1=2*âˆš(5/14)*XZZZ-3/2*âˆš(5/14)*XXXZ-3/2/âˆš14*XYYZ
 	matg(8,2)=2D0*sqrt(5D0/14D0)
 	matg(5,2)=-1.5D0*sqrt(5D0/14D0)
 	matg(14,2)=-1.5D0/sqrt(14D0)
-	!G-1=2*¡Ì(5/14)*YZZZ-3/2*¡Ì(5/14)*YYYZ-3/2/¡Ì14*XXYZ
+	!G-1=2*âˆš(5/14)*YZZZ-3/2*âˆš(5/14)*YYYZ-3/2/âˆš14*XXYZ
 	matg(9,3)=2D0*sqrt(5D0/14D0)
 	matg(7,3)=-1.5D0*sqrt(5D0/14D0)
 	matg(13,3)=-1.5D0/sqrt(14D0)
-	!G+2=3*¡Ì(3/28)*(XXZZ-YYZZ)-¡Ì5/4*(XXXX-YYYY)
+	!G+2=3*âˆš(3/28)*(XXZZ-YYZZ)-âˆš5/4*(XXXX-YYYY)
 	matg(11,4)=3D0*sqrt(3D0/28D0)
 	matg(12,4)=-3D0*sqrt(3D0/28D0)
 	matg(1,4)=-sqrt(5D0)/4D0
 	matg(2,4)=sqrt(5D0)/4D0
-	!G-2=3/¡Ì7*XYZZ-¡Ì(5/28)*(XXXY+XYYY)
+	!G-2=3/âˆš7*XYZZ-âˆš(5/28)*(XXXY+XYYY)
 	matg(15,5)=3D0/sqrt(7D0)
 	matg(4,5)=-sqrt(5D0/28D0)
 	matg(6,5)=-sqrt(5D0/28D0)
-	!G+3=¡Ì(5/8)*XXXZ-3/¡Ì8*XYYZ
+	!G+3=âˆš(5/8)*XXXZ-3/âˆš8*XYYZ
 	matg(5,6)=sqrt(5D0/8D0)
 	matg(14,6)=-3D0/sqrt(8D0)
-	!G-3=-¡Ì(5/8)*YYYZ+3/¡Ì8*XXYZ
+	!G-3=-âˆš(5/8)*YYYZ+3/âˆš8*XXYZ
 	matg(7,7)=-sqrt(5D0/8D0)
 	matg(13,7)=3D0/sqrt(8D0)
-	!G+4=¡Ì35/8*(XXXX+YYYY)-3/4*¡Ì3*XXYY
+	!G+4=âˆš35/8*(XXXX+YYYY)-3/4*âˆš3*XXYY
 	matg(1,8)=sqrt(35D0)/8D0
 	matg(2,8)=sqrt(35D0)/8D0
 	matg(10,8)=-3D0/4D0*sqrt(3D0)
-	!G-4=¡Ì5/2*(XXXY-XYYY)
+	!G-4=âˆš5/2*(XXXY-XYYY)
 	matg(4,9)=sqrt(5D0)/2D0
 	matg(6,9)=-sqrt(5D0)/2D0
 end if
@@ -3015,60 +3016,60 @@ end if
 !          11    12    13    14    15    16    17    18    19    20    21
 !         XYYYY XXZZZ XXYZZ XXYYZ XXYYY XXXZZ XXXYZ XXXYY XXXXZ XXXXY XXXXX
 !
-!H 0=ZZZZZ-5/¡Ì21*(XXZZZ+YYZZZ)+5/8*(XXXXZ+YYYYZ)+¡Ì(15/7)/4*XXYYZ
+!H 0=ZZZZZ-5/âˆš21*(XXZZZ+YYZZZ)+5/8*(XXXXZ+YYYYZ)+âˆš(15/7)/4*XXYYZ
 math(1,1)=1D0
 math(12,1)=-5D0/sqrt(21D0)
 math(3,1)=-5D0/sqrt(21D0)
 math(19,1)=5D0/8D0
 math(5,1)=5D0/8D0
 math(14,1)=sqrt(15D0/7D0)/4D0
-!H+1=¡Ì(5/3)*XZZZZ-3*¡Ì(5/28)*XXXZZ-3/¡Ì28*XYYZZ+¡Ì15/8*XXXXX+¡Ì(5/3)/8*XYYYY+¡Ì(5/7)/4*XXXYY
+!H+1=âˆš(5/3)*XZZZZ-3*âˆš(5/28)*XXXZZ-3/âˆš28*XYYZZ+âˆš15/8*XXXXX+âˆš(5/3)/8*XYYYY+âˆš(5/7)/4*XXXYY
 math(7,2)=sqrt(5D0/3D0)
 math(16,2)=-3D0*sqrt(5D0/28D0)
 math(9,2)=-3D0/sqrt(28D0)
 math(21,2)=sqrt(15D0)/8D0
 math(11,2)=sqrt(5D0/3D0)/8D0
 math(18,2)=sqrt(5D0/7D0)/4D0
-!H-1=¡Ì(5/3)*YZZZZ-3*¡Ì(5/28)*YYYZZ-3/¡Ì28*XXYZZ+¡Ì15/8*YYYYY+¡Ì(5/3)/8*XXXXY+¡Ì(5/7)/4*XXYYY
+!H-1=âˆš(5/3)*YZZZZ-3*âˆš(5/28)*YYYZZ-3/âˆš28*XXYZZ+âˆš15/8*YYYYY+âˆš(5/3)/8*XXXXY+âˆš(5/7)/4*XXYYY
 math(2,3)=sqrt(5D0/3D0)
 math(4,3)=-3D0*sqrt(5D0/28D0)
 math(13,3)=-3D0/sqrt(28D0)
 math(6,3)=sqrt(15D0)/8D0
 math(20,3)=sqrt(5D0/3D0)/8D0
 math(15,3)=sqrt(5D0/7D0)/4D0
-!H+2=¡Ì5/2*(XXZZZ-YYZZZ)-¡Ì(35/3)/4*(XXXXZ-YYYYZ)
+!H+2=âˆš5/2*(XXZZZ-YYZZZ)-âˆš(35/3)/4*(XXXXZ-YYYYZ)
 math(12,4)=sqrt(5D0)/2D0
 math(3,4)=-sqrt(5D0)/2D0
 math(19,4)=-sqrt(35D0/3D0)/4D0
 math(5,4)=sqrt(35D0/3D0)/4D0
-!H-2=¡Ì(5/3)*XYZZZ-¡Ì(5/12)*(XXXYZ+XYYYZ)
+!H-2=âˆš(5/3)*XYZZZ-âˆš(5/12)*(XXXYZ+XYYYZ)
 math(8,5)=sqrt(5D0/3D0)
 math(17,5)=-sqrt(5D0/12D0)
 math(10,5)=-sqrt(5D0/12D0)
-!H+3=¡Ì(5/6)*XXXZZ-¡Ì(3/2)*XYYZZ-¡Ì(35/2)/8*(XXXXX-XYYYY)+¡Ì(5/6)/4*XXXYY
+!H+3=âˆš(5/6)*XXXZZ-âˆš(3/2)*XYYZZ-âˆš(35/2)/8*(XXXXX-XYYYY)+âˆš(5/6)/4*XXXYY
 math(16,6)=sqrt(5D0/6D0)
 math(9,6)=-sqrt(1.5D0)
 math(21,6)=-sqrt(17.5D0)/8D0
 math(11,6)=sqrt(17.5D0)/8D0
 math(18,6)=sqrt(5D0/6D0)/4D0
-!H-3=-¡Ì(5/6)*YYYZZ+¡Ì(3/2)*XXYZZ-¡Ì(35/2)/8*(XXXXY-YYYYY)-¡Ì(5/6)/4*XXYYY
+!H-3=-âˆš(5/6)*YYYZZ+âˆš(3/2)*XXYZZ-âˆš(35/2)/8*(XXXXY-YYYYY)-âˆš(5/6)/4*XXYYY
 math(4,7)=-sqrt(5D0/6D0)
 math(13,7)=sqrt(1.5D0)
 math(20,7)=-sqrt(17.5D0)/8D0
 math(6,7)=sqrt(17.5D0)/8D0
 math(15,7)=-sqrt(5D0/6D0)/4D0
-!H+4=¡Ì35/8*(XXXXZ+YYYYZ)-3/4*¡Ì3*XXYYZ
+!H+4=âˆš35/8*(XXXXZ+YYYYZ)-3/4*âˆš3*XXYYZ
 math(19,8)=sqrt(35D0)/8D0
 math(5,8)=sqrt(35D0)/8D0
 math(14,8)=-0.75D0*sqrt(3D0)
-!H-4=¡Ì5/2*(XXXYZ-XYYYZ)
+!H-4=âˆš5/2*(XXXYZ-XYYYZ)
 math(17,9)=sqrt(5D0)/2D0
 math(10,9)=-sqrt(5D0)/2D0
-!H+5=3/8*¡Ì(7/2)*XXXXX+5/8*¡Ì(7/2)*XYYYY-5/4*¡Ì(3/2)*XXXYY
+!H+5=3/8*âˆš(7/2)*XXXXX+5/8*âˆš(7/2)*XYYYY-5/4*âˆš(3/2)*XXXYY
 math(21,10)=3D0/8D0*sqrt(3.5D0)
 math(11,10)=5D0/8D0*sqrt(3.5D0)
 math(18,10)=-1.25D0*sqrt(1.5D0)
-!H-5=3/8*¡Ì(7/2)*YYYYY+5/8*¡Ì(7/2)*XXXXY-5/4*¡Ì(3/2)*XXYYY
+!H-5=3/8*âˆš(7/2)*YYYYY+5/8*âˆš(7/2)*XXXXY-5/4*âˆš(3/2)*XXYYY
 math(6,11)=3D0/8D0*sqrt(3.5D0)
 math(20,11)=5D0/8D0*sqrt(3.5D0)
 math(15,11)=-1.25D0*sqrt(1.5D0)
@@ -3098,7 +3099,7 @@ do while(.true.)
         if (istatus==0) return !Successfully generated
     else
 		inquire(file=c200tmp,exist=alive)
-		if (alive==.false.) then
+		if (.not.alive) then
 			write(*,*) "Error: Unable to find this file!"
 			cycle
 		end if
@@ -3214,8 +3215,8 @@ end subroutine
 
 !!-------- Randomly generate name of Sobereva's lover
 subroutine mylover(outname)
-integer,parameter :: nlovers=58
-character*80 lovername(nlovers),outname
+integer,parameter :: nlovers=59
+character(len=80) lovername(nlovers),outname
 CALL RANDOM_SEED()
 CALL RANDOM_NUMBER(tmp)
 lovername(1)="K-ON\Mio_Akiyama"
@@ -3277,6 +3278,7 @@ lovername(55)="Adachi_to_shimamura\Sakura_Adachi"
 lovername(56)="Don't_Toy_with_Me,_Miss_Nagatoro\Hayase_Nagatoro"
 lovername(57)="Super_Cub\Reiko"
 lovername(58)="LoveLive!_Superstar!!\Sumire_Heanna"
+lovername(59)="Jahy-sama_wa_Kujikenai!\Jahy"
 
 !Dear Kanan,
 !
@@ -3424,29 +3426,33 @@ end subroutine
 
 
 
-!!----- Generate connectivity matrix, invoked by such as subroutine outcml. PBC has not been considered to avoid incompatibility problem
-!infomode=1: Output prompts  =0: Silent
-subroutine genconnmat(infomode)
+!!----- Generate connectivity matrix
+!infomode =1: Output prompts  =0: Silent
+!iallowPBC =1: Allow considering PBC when this system is PBC  =0: Not allow (can avoid incompatibility problem)
+subroutine genconnmat(infomode,iallowPBC)
 use defvar
+use util
 implicit real*8 (a-h,o-z)
-integer infomode
+integer infomode,iallowPBC
+
 if (allocated(a)) then
     if (allocated(connmat)) deallocate(connmat)
     allocate(connmat(ncenter,ncenter))
     if (infomode==1) then
 		write(*,*) "Generating bonding relationship..."
-		write(*,"(a,f6.3,a)") " Note: If distance between two atoms is smaller than sum of their &
+		write(*,"(a,f5.3,a)") " Note: If distance between two atoms is smaller than sum of their &
 		covalent radii multiplied by ",bondcrit,", then they are regarded as bonded"
     end if
     connmat=0
     do iatm=1,ncenter
+		covri=covr(a(iatm)%index)
         do jatm=iatm+1,ncenter
-			!if (ifPBC==0) then
+			if (iallowPBC==1.and.ifPBC>0) then
+				call nearest_atmdistxyz(iatm,jatm,tmpdist,atmx,atmy,atmz)
+            else	
 				tmpdist=atomdist(iatm,jatm)
-    !        else	
-				!call nearest_atmdistxyz(iatm,jatm,tmpdist,atmx,atmy,atmz)
-    !        end if
-            if ( tmpdist < bondcrit*(covr(a(iatm)%index)+covr(a(jatm)%index)) ) connmat(iatm,jatm)=1
+            end if
+            if ( tmpdist < bondcrit*(covri+covr(a(jatm)%index)) ) connmat(iatm,jatm)=1
             connmat(jatm,iatm)=connmat(iatm,jatm)
         end do
     end do
@@ -3616,7 +3622,7 @@ implicit real*8 (a-h,o-z)
 integer iselatm,iffrag(ncenter)
 iffrag=0
 iffrag(iselatm)=1
-if (.not.allocated(connmat)) call genconnmat(0) !Generate connectivity matrix
+if (.not.allocated(connmat)) call genconnmat(0,0) !Generate connectivity matrix
 do while(.true.)
     inew=0
     do iatm=1,ncenter !Cycle all atoms, if it is not in fragment, and it is linked to an atom already in fragment, it will be added to fragment
@@ -3633,6 +3639,58 @@ do while(.true.)
     end do
     if (inew==0) exit
 end do
+end subroutine
+
+
+
+!!--------- Generate fragment index of each atom according to connectivity (connmat)
+!Each atom has initial fragment index of itself, then each atom is compare with adjacent ones, if an adjacent atom has fragment &
+!index smaller than it, the its fragment will be updated to the adjacent one. Iteration performs until no fragment updation is occurred
+subroutine genconnfrag(atmfrg)
+use defvar
+use util
+integer atmfrg(ncenter),tmpidx(ncenter)
+character c2000tmp*2000
+
+forall (i=1:ncenter) atmfrg(i)=i
+
+do while(.true.)
+    inew=0
+    do iatm=1,ncenter
+        do jatm=1,ncenter
+            if (connmat(iatm,jatm)>0.and.atmfrg(jatm)<atmfrg(iatm)) then
+                atmfrg(iatm)=atmfrg(jatm)
+                inew=inew+1
+                exit
+            end if
+        end do
+    end do
+    if (inew==0) exit
+end do
+
+!Make fragment indices contiguous
+nfrg=0
+do iatm=1,ncenter
+    natmfrg=count(atmfrg==iatm)
+    if (natmfrg/=0) then
+        nfrg=nfrg+1
+        where(atmfrg==iatm) atmfrg=nfrg
+    end if
+end do
+!Show fragment information
+!do ifrg=1,nfrg
+!    write(*,"(' Fragment',i7,', number of atoms',i7)") ifrg,count(atmfrg==ifrg)
+!    itmp=0
+!    do iatm=1,ncenter
+!        if (atmfrg(iatm)==ifrg) then
+!            itmp=itmp+1
+!            tmpidx(itmp)=iatm
+!        end if
+!    end do
+!    call arr2str_2(tmpidx(1:itmp),c2000tmp)
+!    write(*,"(a)") trim(c2000tmp)
+!end do
+
 end subroutine
 
 
@@ -3738,30 +3796,64 @@ end subroutine
 
 
 
-!!--------- Initialize LIBRETA for present wavefunction if haven't and show some notices
+!!--------- Initialize LIBRETA for present wavefunction if haven't
+!info=1: Show some notices
+!info=2: silent
 !Usually according to "function ifdoESP" to determine if initialize LIBRETA for a real space function
-subroutine doinitlibreta
+subroutine doinitlibreta(info)
 use defvar
 use libreta
+integer info
 if (iuserfunc>=61.and.iuserfunc<=67) return !In this case, the function involves derivative of ESP, while I found the numerical derivate of ESP produced by libreta has noise
-write(*,*)
 if (if_initlibreta==0) then
-    write(*,*) "Initializing LIBRETA library for ESP evaluation, please wait..."
-    if (nprims>7000) then
-        write(*,"(a)") " Note: Number of GTFs of present system is large, if then Multiwfn crashes due to insufficient memory, &
-        please change ""iESPcode"" in settings.ini to 1 to use slower ESP evaluation code instead. Alternatively, use a computer with larger memory!"
+	if (info==1) then
+		write(*,*)
+		if (iESPcode==2) write(*,*) "Initializing LIBRETA library (fast version) for ESP evaluation ..."
+		if (iESPcode==3) write(*,*) "Initializing LIBRETA library (slow version) for ESP evaluation ..."
+		if (nprims>7000) then
+			write(*,"(a)") " Note: Number of GTFs of present system is large, if then Multiwfn crashes due to insufficient memory, &
+			please change ""iESPcode"" in settings.ini to 1 to use slower ESP evaluation code instead. Alternatively, use a computer with larger memory!"
+		end if
     end if
-    call initlibreta()
+    if (iESPcode==2) then
+	    call initlibreta
+    else if (iESPcode==3) then
+		call initlibreta_slow
+    end if
     if_initlibreta=1 !Global variable
-    write(*,*) "LIBRETA library has been successfully initialized!"
+    if (info==1) write(*,*) "LIBRETA library has been successfully initialized!"
 end if
-write(*,"(/,a)") " NOTE: The ESP evaluation code based on LIBRETA library is being used. &
-Please not only cite Multiwfn original paper in your work, but also cite the paper describing the efficient ESP evaluation algorithm adopted by Multiwfn:"
-write(*,"(a)") " Jun Zhang, Tian Lu, Phys. Chem. Chem. Phys., 23, 20323 (2021) DOI: 10.1039/D1CP02805G"
-if (isys==1.and.nthreads>10) then
-    write(*,"(a,/)") " Warning!!! In Windows system, it is found that the performance of ESP evaluation code may &
-    severely degrade when more than 10 CPU cores are used, therefore 10 cores are used in the following ESP calculation. &
-    If you want to pursue better performance by utilizing more cores, please use Linux version instead!"
+if (info==1) then
+	write(*,"(/,a)") " NOTE: The ESP evaluation code based on LIBRETA library is being used. &
+	Please not only cite Multiwfn original paper in your work, but also cite the paper describing the efficient ESP evaluation algorithm adopted by Multiwfn:"
+	write(*,"(a)") " Jun Zhang, Tian Lu, Phys. Chem. Chem. Phys., 23, 20323 (2021) DOI: 10.1039/D1CP02805G"
+	if (isys==1.and.nthreads>10) then
+		write(*,"(a,/)") " Warning!!! In Windows system, it is found that the performance of ESP evaluation code may &
+		severely degrade when more than 10 CPU cores are used, therefore 10 cores are used in the following ESP calculation. &
+		If you want to pursue better performance by utilizing more cores, please use Linux version instead!"
+	end if
+end if
+end subroutine
+
+
+
+!!--------- Initialize for some special functions
+subroutine init_func
+use defvar
+!Local Hartree-Fock exchange energy involves Coulomb matrix generated by libreta and density matrix, so initialize
+if (iuserfunc==999.and.allocated(b)) then
+    write(*,"(/,a)") " Local Hartree-Fock exchange energy is chosen as user-defined function, &
+    it requires Coulomb integral between GTFs, so Libreta library is initialized now..."
+    if (iESPcode/=3) then
+		write(*,*) "iESPcode in settings.ini is not 3, now is forced to switched to 3"
+		iESPcode=3
+    end if
+    call doinitlibreta(0)
+    write(*,"(/,a)") " Note: If local Hartree-Fock exchange energy will be studied using Multiwfn, &
+    please note only cite original paper of Multiwfn but also cite Libreta library: J. Chem. Theory Comput., 14, 572 (2018)"
+    write(*,*)
+    write(*,*) "Generating density matrix between GTFs..."
+    call genPprim
 end if
 end subroutine
 
@@ -3905,9 +3997,6 @@ call walltime(nwalltime2)
 write(*,"(' Generation of atomic overlap matrix took up',i8,' seconds wall clock time')") nwalltime2-nwalltime1
 
 !Check quality of AOMbas
-!do iatm=1,ncenter
-!    call showmatgau(AOMbas(:,:,iatm),form="f14.6")
-!end do
 devmax=0
 do ibas=1,nbasis
     tmp=sum(AOMbas(ibas,ibas,:))
@@ -3970,20 +4059,6 @@ ifragcontri=0 !Fragment has not been manually defined by user
 end subroutine
 
 
-!!-------- Return distance between two atoms in Bohr
-real*8 function atomdist(iatm,jatm)
-use defvar
-integer iatm,jatm
-atomdist=dsqrt((a(iatm)%x-a(jatm)%x)**2+(a(iatm)%y-a(jatm)%y)**2+(a(iatm)%z-a(jatm)%z)**2)
-end function
-!!-------- Return distance between two atoms in Angstrom
-real*8 function atomdistA(iatm,jatm)
-use defvar
-integer iatm,jatm
-atomdistA=dsqrt((a(iatm)%x-a(jatm)%x)**2+(a(iatm)%y-a(jatm)%y)**2+(a(iatm)%z-a(jatm)%z)**2)*b2a
-end function
-
-
 !!-------- Export all internal geometry parameters to int_coord.txt in current folder
 subroutine showgeomparam(outname)
 use defvar
@@ -3992,12 +4067,11 @@ character(len=*) outname
 integer nneigh(ncenter) !Number of neighbours (the number of atoms connect to this atom)
 integer neigh(30,ncenter) !neigh(1:nneigh(i),i) is list of neighbouring atom indices of atom i
 integer nbond !Number of bonds
-integer bondA(ncenter*15),bondB(ncenter*15) !Indices of the two atoms (A,B) of each bond
+integer,allocatable :: bond(:,:) !bond(1/2,i) are indices of the two atoms involved in bond i
 integer nangle !Number of angles
-integer angleA(ncenter*15),angleB(ncenter*15),angleC(ncenter*15) !Indices of the three atoms (A,B,C) of each angle
+integer,allocatable :: angle(:,:) !angle(1/2/3,i) are indices of the three atoms involved in angle i
 integer ndih !Number of dihedrals
-integer dihA(ncenter*15),dihB(ncenter*15),dihC(ncenter*15),dihD(ncenter*15) !Indices of four atoms (A,B,C,D) of each dihedral
-real*8 atomdist
+integer,allocatable :: dih(:,:) !dih(1/2/3/4,i) are indices of the four atoms involved in dihedral i
 
 open(10,file=outname,status="replace")
 
@@ -4014,77 +4088,115 @@ do iatm=1,ncenter
 end do
 
 !Determining bond list
-nbond=0
-do iatm=1,ncenter
-    do jatm=iatm+1,ncenter
-        if (any(neigh(1:nneigh(iatm),iatm)==jatm)) then
-            nbond=nbond+1
-            bondA(nbond)=iatm
-            bondB(nbond)=jatm
-        end if
+do itime=1,2
+    nbond=0
+    do iatm=1,ncenter
+        do jatm=iatm+1,ncenter
+            if (any(neigh(1:nneigh(iatm),iatm)==jatm)) then
+                nbond=nbond+1
+                if (itime==2) then
+                    bond(1,nbond)=iatm
+                    bond(2,nbond)=jatm
+                end if
+            end if
+        end do
     end do
+    if (itime==1) allocate(bond(2,nbond))
 end do
 write(10,"(' Number of bonds:',i8)") nbond
 do ibond=1,nbond
-    iatm=bondA(ibond)
-    jatm=bondB(ibond)
+    iatm=bond(1,ibond)
+    jatm=bond(2,ibond)
     write(10,"(' #',i5,'      Atoms:',2i5,'    Distance:',f12.6,' Angstrom')") ibond,iatm,jatm,distmat(iatm,jatm)*b2a
 end do
 
 !Determining angle list
-nangle=0
-do icen=1,ncenter
-    if (nneigh(icen)<2) cycle
-    do idx=1,nneigh(icen)
-        iatm=neigh(idx,icen)
-        do jdx=idx+1,nneigh(icen)
-            jatm=neigh(jdx,icen)
-            nangle=nangle+1
-            angleA(nangle)=iatm
-            angleB(nangle)=icen
-            angleC(nangle)=jatm
+do itime=1,2
+    nangle=0
+    do icen=1,ncenter
+        if (nneigh(icen)<2) cycle
+        do idx=1,nneigh(icen)
+            iatm=neigh(idx,icen)
+            do jdx=idx+1,nneigh(icen)
+                jatm=neigh(jdx,icen)
+                nangle=nangle+1
+                if (itime==2) then
+                    angle(1,nangle)=iatm
+                    angle(2,nangle)=icen
+                    angle(3,nangle)=jatm
+                end if
+            end do
         end do
     end do
+    if (itime==1) allocate(angle(3,nangle))
 end do
+!Sort angle array, making index from small to large, from left to right
+call sortidxlist(angle,3,nangle)
 write(10,*)
 write(10,"(' Number of angles:',i8)") nangle
 do iangle=1,nangle
-    iatm=angleA(iangle)
-    jatm=angleB(iangle)
-    katm=angleC(iangle)
+    iatm=angle(1,iangle)
+    jatm=angle(2,iangle)
+    katm=angle(3,iangle)
     angval=xyz2angle(a(iatm)%x,a(iatm)%y,a(iatm)%z,a(jatm)%x,a(jatm)%y,a(jatm)%z,a(katm)%x,a(katm)%y,a(katm)%z)
     write(10,"(' #',i5,'      Atoms:',3i5,'    Angle:',f12.6,' degree')") iangle,iatm,jatm,katm,angval
 end do
 
 !Determining dihedral list. iatm-icen-jcen-jatm
-ndih=0
-do ibond=1,nbond
-    icen=bondA(ibond)
-    jcen=bondB(ibond)
-    neiA=nneigh(icen)
-    neiB=nneigh(jcen)
-    if (neiA==0.or.neiB==0) cycle
-    do idx=1,neiA
-        iatm=neigh(idx,icen)
-        if (iatm==jcen) cycle
-        do jdx=1,neiB
-            jatm=neigh(jdx,jcen)
-            if (jatm==icen) cycle
-            ndih=ndih+1
-            dihA(ndih)=iatm
-            dihB(ndih)=icen
-            dihC(ndih)=jcen
-            dihD(ndih)=jatm
+nlinear=0
+do itime=1,2
+    ndih=0
+    do ibond=1,nbond
+        icen=bond(1,ibond)
+        jcen=bond(2,ibond)
+        neiA=nneigh(icen)
+        neiB=nneigh(jcen)
+        if (neiA==0.or.neiB==0) cycle
+        do idx=1,neiA
+            iatm=neigh(idx,icen)
+            if (iatm==jcen) cycle
+            do jdx=1,neiB
+                jatm=neigh(jdx,jcen)
+                if (jatm==icen) cycle
+                if (iatm==jatm) cycle
+                angdev1=180-atomang(iatm,icen,jcen)
+                angdev2=180-atomang(icen,jcen,jatm)
+                if (angdev1<1.or.angdev2<1) then
+                    nlinear=nlinear+1
+                    cycle
+                end if
+                ndih=ndih+1
+                if (itime==2) then
+                    if (jatm>iatm) then
+                        dih(1,ndih)=iatm
+                        dih(2,ndih)=icen
+                        dih(3,ndih)=jcen
+                        dih(4,ndih)=jatm
+                    else !Require the index of the fourth atom is larger than that of the first atom
+                        dih(1,ndih)=jatm
+                        dih(2,ndih)=jcen
+                        dih(3,ndih)=icen
+                        dih(4,ndih)=iatm
+                    end if
+                end if
+            end do
         end do
     end do
+    if (itime==1) allocate(dih(4,ndih))
 end do
+if (nlinear>0) then
+    write(*,"(a,i5,a)") " Note:",nlinear," dihedrals deviate from linear less than 1 degree, they are ignored"
+end if
+
+!Sort dih array, making index from small to large, from left to right
+call sortidxlist(dih,4,ndih)
 write(10,*)
 write(10,"(' Number of dihedrals:',i8)") ndih
 do idih=1,ndih
-    iatm=dihA(idih)
-    jatm=dihB(idih)
-    katm=dihC(idih)
-    latm=dihD(idih)
+    iatm=dih(1,idih)
+    jatm=dih(2,idih)
+    katm=dih(3,idih)
+    latm=dih(4,idih)
     dihval=xyz2dih(a(iatm)%x,a(iatm)%y,a(iatm)%z,a(jatm)%x,a(jatm)%y,a(jatm)%z,a(katm)%x,a(katm)%y,a(katm)%z,a(latm)%x,a(latm)%y,a(latm)%z)
     write(10,"(' #',i5,'      Atoms:',4i5,'    Dihedral:',f12.6,' degree')") idih,iatm,jatm,katm,latm,dihval
 end do
@@ -4104,9 +4216,8 @@ use util
 integer Zmat(ncenter,3),ierror
 integer nneigh(ncenter) !Number of neighbours (the number of atoms connect to this atom)
 integer neigh(30,ncenter) !neigh(1:nneigh(i),i) is list of neighbouring atom indices of atom i
-real*8 atomdist
 
-call genconnmat(0) !Z-matrix will be generated considering connectivity as much as possible, so generate this
+call genconnmat(0,0) !Z-matrix will be generated considering connectivity as much as possible, so generate this
 
 !Determining neighbours
 nneigh=0
@@ -4353,4 +4464,23 @@ write(*,*) "Fock/KS matrix has been successfully generated!"
 !call loadFockfile(istatus)
 !!call showmatgau(FmatA,form="f14.8")
 !write(*,"(' Maximum deviation to loaded Fock matrix',f20.10)") maxval(abs(tmpmat-FmatA))
+end subroutine
+
+
+
+!!----------- Find element index from element name. If idx returns 0, means the index was not found
+subroutine elename2idx(name,idx)
+use defvar
+use util
+character(len=*) name
+integer idx
+idx=0
+call lc2uc(name(1:1)) !Convert to upper case
+call uc2lc(name(2:2)) !Convert to lower case
+do iele=1,nelesupp
+	if ( name(1:2)==ind2name(iele) ) then
+		idx=iele
+		return
+	end if
+end do
 end subroutine

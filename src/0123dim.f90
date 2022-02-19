@@ -229,7 +229,7 @@ else !Common case
 		    alive=.false.
 		    if (cubegenpath/=" ".and.ifiletype==1.and.isel==12) then
 			    inquire(file=cubegenpath,exist=alive)
-			    if (alive==.false.) then
+			    if (.not.alive) then
 				    write(*,"(a)") " Note: Albeit current file type is fch/fchk/chk and ""cubegenpath"" parameter in settings.ini has been defined, &
 				    the cubegen cannot be found, therefore electrostatic potential will still be calculated using internal code of Multiwfn"
 			    end if
@@ -274,8 +274,8 @@ else !Common case
 		    else !Normal case, use internal code to calculate data
                 nthreads_old=nthreads
                 !Use fast ESP evaluation function for almost all functions that rely on ESP
-                if (ifdoESP(isel).and.iESPcode==2) then
-                    call doinitlibreta
+                if (ifdoESP(isel).and.(iESPcode==2.or.iESPcode==3)) then
+                    call doinitlibreta(1)
                     if (isys==1.and.nESPthreads>10) nthreads=10
                 end if
                 ifinish=0
@@ -318,9 +318,11 @@ else !Common case
 		    if (icustom/=ncustommap) then !Not the last time
 			    icustom=icustom+1
 			    filename=custommapname(icustom)
+                call savePBCinfo
 			    call dealloall
 			    write(*,"(' Loading: ',a)") trim(filename)
 			    call readinfile(filename,1)
+                call loadPBCinfo
 			    !Input the MO index for current file. Since the MO index may be not the same as the first loaded one
 			    if (isel==4) then
 				    write(*,"(' Input index of the orbital to be calculated for ',a,', e.g. 3')") trim(filename)
@@ -640,7 +642,7 @@ end if
 write(*,*) "Hint: You can press ENTER button directly to use recommended value"
 read(*,"(a)") c200tmp
 
-if (c200tmp==' ') then !Press enter directly
+if (c200tmp==' ') then !Pressing enter button directly
 	if (idrawtype==1.or.idrawtype==2.or.idrawtype==6) then
 		if (ifdoESP(ifuncsel)) then
 			ngridnum1=100
@@ -1105,8 +1107,8 @@ else !Start calculation of plane data
 	else !Common case
         nthreads_old=nthreads
         !For some ESP related functions, initialize LIBRETA so that fast code will be used
-        if (ifdoESP(ifuncsel).and.iESPcode==2) then
-            call doinitlibreta
+        if (ifdoESP(ifuncsel).and.(iESPcode==2.or.iESPcode==3)) then
+            call doinitlibreta(1)
             if (isys==1.and.nthreads>10) nthreads=10
         end if
 	    !$OMP PARALLEL DO private(i,j,rnowx,rnowy,rnowz) shared(planemat,d1add,d1min,d2add,d2min) schedule(dynamic) NUM_THREADS(nthreads)
@@ -1180,9 +1182,11 @@ else !Start calculation of plane data
 		if (icustom/=ncustommap) then !Not the final time
 			icustom=icustom+1
 			filename=custommapname(icustom)
+            call savePBCinfo
 			call dealloall
 			write(*,"(' Loading: ',a)") trim(filename)
 			call readinfile(filename,1)
+            call loadPBCinfo
 			if (ifuncsel/=4) call delvirorb(0)
 			!Input the MO index for current file. Since the MO index may be not the same as the first loaded one
 			if (ifuncsel==4) then
@@ -2086,9 +2090,11 @@ if (igridsel==100) then !Calculate value on a set of points loaded from external
 		if (icustom/=ncustommap) then
 			icustom=icustom+1
 			filename=custommapname(icustom)
+            call savePBCinfo
 			call dealloall
 			write(*,"(' Loading:  ',a)") trim(filename)
 			call readinfile(filename,1)
+            call loadPBCinfo
 			if (ifuncsel/=4) call delvirorb(0)
 			!Input the MO index for current file. Since the MO index may be not the same as the first loaded one
 			if (ifuncsel==4) then
@@ -2180,9 +2186,11 @@ else !Calculate grid data
 			if (icustom/=ncustommap) then !Not last time
 				icustom=icustom+1
 				filename=custommapname(icustom)
+                call savePBCinfo !In order to keep PBC status of atom identical to the whole system, saving PBC of the whole system, and then apply to atom after loading atomic wfn file
 				call dealloall
 				write(*,"(' Loading:  ',a)") trim(filename)
 				call readinfile(filename,1)
+                call loadPBCinfo
 				if (ifuncsel/=4) call delvirorb(0)
 				!Input the MO index for current file. Since the MO index may be not the same as the first loaded one
 				if (ifuncsel==4) then
@@ -2517,7 +2525,7 @@ do while(.true.)
 		do while(.true.)
 			read(*,"(a)") extctrsetting
 			inquire(file=extctrsetting,exist=alive)
-			if (alive==.true.) exit
+			if (alive) exit
 			write(*,*) "File not found, input again"
 		end do
 		open(10,file=extctrsetting,status="old")

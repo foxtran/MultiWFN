@@ -595,7 +595,7 @@ if (icompmethod>0) then
 			call invarr(orbcomp(:,iorb),iatmarr(:,iorb)) !Then become from large to small
 		end do
 		
-        if (itime==1) write(*,"(/,a)") " Hint: If you hope to print the LMOs in the order of atoms and atom pairs, &
+        if (itime==1) write(*,"(/,a)") " Hint: If you hope to print the LMOs in the order of atoms and atomic pairs, &
         set ""iprintLMOorder"" in settings.ini to 1 prior to the analysis"
 		if (wfntype==0) then
 			if (itime==1) write(*,"(/,a)") " **** Major character of occupied LMOs:"
@@ -673,7 +673,7 @@ if (icompmethod>0) then
 				    end if
 			    end if
 		    end do
-        else if (iprintLMOorder==1) then !Print LMO in the sequence of major contribution atom pair
+        else if (iprintLMOorder==1) then !Print LMO in the sequence of major contribution atomic pair
             do iatm=1,ncenter
                 do jatm=iatm+1,ncenter
 		            do idx=1,norblist

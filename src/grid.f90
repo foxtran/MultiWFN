@@ -18,7 +18,7 @@ logical,allocatable :: boundgrd(:,:,:)
 alive=.false.
 if (cubegenpath/=" ".and.ifiletype==1.and.functype==12) then
 	inquire(file=cubegenpath,exist=alive)
-	if (alive==.false.) then
+	if (.not.alive) then
 		write(*,"(a)") " Note: Albeit current file type is fch/fchk/chk and ""cubegenpath"" parameter in settings.ini has been defined, &
 		the cubegen cannot be found, therefore electrostatic potential will still be calculated using internal code of Multiwfn"
 	end if
@@ -127,15 +127,15 @@ if (functype==12.and.ESPrhoiso/=0) then
 			end do
 		end do
 	end do
-	write(*,"(' Number of grids to calculate ESP:',i12)") count(boundgrd==.true.)
+	write(*,"(' Number of grids to calculate ESP:',i12)") count(boundgrd.eqv..true.)
 end if
 
 call walltime(iwalltime1)
 
 !If the function to be calculated is related to ESP, initialize LIBRETA so that faster code will be used
 nthreads_old=nthreads
-if (ifdoESP(functype).and.iESPcode==2) then
-    call doinitlibreta
+if (ifdoESP(functype).and.(iESPcode==2.or.iESPcode==3)) then
+    call doinitlibreta(1)
     if (isys==1.and.nthreads>10) nthreads=10
 end if
 
@@ -162,7 +162,7 @@ do k=1,nz
                 call IRI_s2lr(tmpx,tmpy,tmpz,cubmat(i,j,k),cubmattmp(i,j,k))
 			else
 				if (functype==12.and.ESPrhoiso/=0) then
-					if (boundgrd(i,j,k)==.false.) cycle
+					if (.not.boundgrd(i,j,k)) cycle
                 end if
 				cubmat(i,j,k)=calcfuncall(functype,tmpx,tmpy,tmpz)
 			end if
@@ -183,13 +183,13 @@ if (functype==12.and.ESPrhoiso/=0.and.ESPrhonlay==1) then
     do iz=2,nz-1
 		do iy=2,ny-1
 			do ix=2,nx-1
-				if (boundgrd(ix,iy,iz)==.true.) cycle
-                if (boundgrd(ix+1,iy,iz)==.true.) cubmat(ix,iy,iz)=cubmat(ix+1,iy,iz)
-                if (boundgrd(ix-1,iy,iz)==.true.) cubmat(ix,iy,iz)=cubmat(ix-1,iy,iz)
-                if (boundgrd(ix,iy+1,iz)==.true.) cubmat(ix,iy,iz)=cubmat(ix,iy+1,iz)
-                if (boundgrd(ix,iy-1,iz)==.true.) cubmat(ix,iy,iz)=cubmat(ix,iy-1,iz)
-                if (boundgrd(ix,iy,iz+1)==.true.) cubmat(ix,iy,iz)=cubmat(ix,iy,iz+1)
-                if (boundgrd(ix,iy,iz-1)==.true.) cubmat(ix,iy,iz)=cubmat(ix,iy,iz-1)
+				if (boundgrd(ix,iy,iz)) cycle
+                if (boundgrd(ix+1,iy,iz)) cubmat(ix,iy,iz)=cubmat(ix+1,iy,iz)
+                if (boundgrd(ix-1,iy,iz)) cubmat(ix,iy,iz)=cubmat(ix-1,iy,iz)
+                if (boundgrd(ix,iy+1,iz)) cubmat(ix,iy,iz)=cubmat(ix,iy+1,iz)
+                if (boundgrd(ix,iy-1,iz)) cubmat(ix,iy,iz)=cubmat(ix,iy-1,iz)
+                if (boundgrd(ix,iy,iz+1)) cubmat(ix,iy,iz)=cubmat(ix,iy,iz+1)
+                if (boundgrd(ix,iy,iz-1)) cubmat(ix,iy,iz)=cubmat(ix,iy,iz-1)
 			end do
 		end do
 	end do
@@ -216,8 +216,7 @@ use GUI
 use util
 implicit real*8 (a-h,o-z)
 real*8 molxlen,molylen,molzlen,tmpx,tmpy,tmpz
-character*200 cubefilename,pointfilename
-character c80tmp*80,c2000tmp*2000
+character cubefilename*200,pointfilename*200,c80tmp*80,c2000tmp*2000
 integer imode
 logical filealive
 integer selatm(ncenter)
@@ -429,6 +428,7 @@ end if
 end subroutine
 
 
+
 !!------- A subroutine directly define grid for PBC case, embedded by subroutine setgrid, setgridfixspc, etc.
 !Note that after employing the following rule, then in e.g. X direction,
 !the first grid not only differs from last grid by translation vector, but also by a grid spacing. See Section 3.6 for illustration
@@ -436,6 +436,7 @@ subroutine setgrid_for_PBC
 use defvar
 implicit real*8 (a-h,o-z)
 character c80tmp*80
+
 write(*,*) "Now input X,Y,Z of origin in Bohr, e.g. 0.2,0,-5.5"
 write(*,*) "You can also input in Angstrom by adding ""A"" suffix, e.g. 0.2,0,-5.5 A"
 write(*,*) "If press ENTER button directly, (0,0,0) will be used"
@@ -450,6 +451,7 @@ else
         orgz=orgz/b2a
     end if
 end if
+
 write(*,*) "Now input lengths of three dimensions of the box in Bohr, e.g. 8.7,9.1,6.55"
 write(*,*) "You can also input in Angstrom by adding ""A"" suffix, e.g. 8.7,9.1,6.55 A"
 write(*,"(a)") " If length of a dimension is set to be 0, then box length of that dimension will be equal to cell length"
@@ -469,10 +471,17 @@ if (c80tmp/=" ") then
     if (btmp/=0) v2len=btmp
     if (ctmp/=0) v3len=ctmp
 end if
+
 write(*,*) "Now input grid spacing in Bohr, e.g. 0.25"
-write(*,*) "Hint about grid quality: 0.2 is fine, 0.3 is coarse, 0.4 is very poor"
+!write(*,*) "Hint about grid quality: 0.2 is fine, 0.3 is coarse, 0.4 is very poor"
 write(*,"(a)") " Note: The grid spacing will be automatically slightly altered so that number of grids in each direction is integer"
-read(*,*) grdspc
+write(*,*) "If directly pressing ENTER button, 0.25 Bohr will be used"
+read(*,"(a)") c80tmp
+if (c80tmp==" ") then
+	grdspc=0.25D0
+else
+	read(c80tmp,*) grdspc
+end if
 nx=nint(v1len/grdspc)
 grdspcv1=v1len/nx
 gridv1(:)=cellv1(:)/dsqrt(sum(cellv1**2)) * grdspcv1
@@ -818,7 +827,7 @@ end subroutine
 
 
 !!----------- If three vectors of the grid data are parallel to X/Y/Z axis, respectively. Return 1 means yes, 0 means no
-integer function ifgridortho
+integer function ifgridortho()
 use defvar
 if (abs(gridv1(2))<1E-10.and.abs(gridv1(3))<1E-10.and.abs(gridv2(1))<1E-10.and.abs(gridv2(3))<1E-10.and.abs(gridv3(1))<1E-10.and.abs(gridv3(2))<1E-10) then
     ifgridortho=1

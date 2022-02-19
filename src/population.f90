@@ -648,7 +648,7 @@ if (isel==1.or.isel==2.or.isel==4) then
     call outatmchg(10,charge(:))
 		
 else if (isel==3) then
-	write(ides,*) "The (i,j) element corresponds to ¡Æ[imo] Occ(imo)*C(i,imo)*C(j,imo)*S(i,j)"
+	write(ides,*) "The (i,j) element corresponds to âˆ‘[imo] Occ(imo)*C(i,imo)*C(j,imo)*S(i,j)"
 	write(ides,*)
 	call showmatgau(Ptot*Sbas,"Total gross basis function population matrix",0,"f14.8",ides)
 	write(ides,*)
@@ -724,6 +724,7 @@ type(content) gridatm(radpot*sphpot),gridatmorg(radpot*sphpot)
 real*8 atmdipx(ncenter),atmdipy(ncenter),atmdipz(ncenter),charge(ncenter)
 real*8 :: covr_becke(0:nelesupp) !covalent radii used for Becke population
 integer :: nbeckeiter=3
+character radfilename*200
 
 if (.not.allocated(b)) then
     write(*,"(a)") " Error: Your input file does not contain wavefunction information which is needed by this function! &
@@ -1456,7 +1457,7 @@ integer,allocatable :: chgconsatm(:,:) !chgconsatm(1:chgconsnatm(i),i) is the at
 real*8,allocatable :: chgconsval(:) !Value of charge constraint
 !Conformation information
 integer nconf
-character*200,allocatable :: conffilepath(:) !File path of each conformation
+character(len=200),allocatable :: conffilepath(:) !File path of each conformation
 real*8,allocatable :: confweight(:)
 real*8,allocatable :: fitcen(:,:,:) !x/y/z, atom index, conformer index
 !About distribution of fitting points
@@ -1760,7 +1761,7 @@ do while(.true.) !Interface loop
             write(*,*) "The current additional fitting centers have been cleaned"
         else
             inquire(file=addcenfilepath,exist=alive)
-            if (alive==.false.) then
+            if (.not.alive) then
                 write(*,*) "Error: Cannot find the file! Press ENTER button to cancel"
                 read(*,*)
                 cycle
@@ -2506,7 +2507,7 @@ use defvar
 use function
 implicit real*8 (a-h,o-z)
 integer igridtype
-character*200 addcenfile,extptfile,chgfile,gauoutfilepath,outchgfilepath
+character(len=200) addcenfile,extptfile,chgfile,gauoutfilepath,outchgfilepath
 character selectyn,c80tmp*80,c2000tmp*2000
 integer :: iESPtype=1,ioutfitptval=0,iradiisel=1
 !About distribution of fitting points
@@ -2654,7 +2655,7 @@ forall(i=1:ncenter) CHELPGatmlist(i)=i
 				nMKlayer=nMKlayer+1
 				write(*,"(' Input scale factor (w.r.t atomic vdW radius) for layer',i4)") nMKlayer
 				write(*,*) "If input ""q"", the setting will be finished"
-				if (sclvdwlayer(nMKlayer)/=0) write(*,"(' If press ENTER directly, current value',f8.4,' will be retained')") sclvdwlayer(ilayer)
+				if (sclvdwlayer(nMKlayer)/=0) write(*,"(' If pressing ENTER button directly, current value',f8.4,' will be retained')") sclvdwlayer(nMKlayer)
 				read(*,"(a)") c80tmp
 				if (index(c80tmp,'q')/=0) then
 					sclvdwlayer(nMKlayer:)=0
@@ -3145,7 +3146,7 @@ if (iradtype>0) then
 		idxtmp=a(iatm)%index
 		if (espfitvdwr(idxtmp)==-1D0) then
 			write(*,"(' vdW radius used in fitting for ',a,' is missing, input the radius (Angstrom)')") ind2name(idxtmp)
-			write(*,"(a)") " Hint: If press ENTER directly, corresponding UFF radii scaled by 1/1.2 will be used, this is a usually reasonable choice"
+			write(*,"(a)") " Hint: If pressing ENTER button directly, corresponding UFF radii scaled by 1/1.2 will be used, this is a usually reasonable choice"
 			read(*,"(a)") c80
 			if (c80==" ") then
 				espfitvdwr(idxtmp)=vdwr_UFF(idxtmp)/1.2D0
@@ -3255,7 +3256,7 @@ if (ishowprompt==1) write(*,*) "Calculating ESP at fitting points, please wait..
 alive=.false.
 if (cubegenpath/=" ".and.ifiletype==1) then
 	inquire(file=cubegenpath,exist=alive)
-	if (alive==.false..and.ishowprompt==1) then
+	if ((.not.alive).and.ishowprompt==1) then
 		write(*,"(a)") " Note: Albeit current file type is fch/fchk/chk and ""cubegenpath"" parameter in settings.ini has been defined, &
 		the cubegen cannot be found, therefore electrostatic potential will still be calculated using internal code of Multiwfn"
 	end if
@@ -3297,8 +3298,8 @@ if (alive.and.ifiletype==1) then !Use cubegen to calculate ESP
     
 else !Use internal code to evaluate ESP
     nESPthreads=nthreads
-    if (iESPcode==2) then
-        call doinitlibreta
+    if (iESPcode==2.or.iESPcode==3) then
+        call doinitlibreta(1)
         if (isys==1.and.nESPthreads>10) nESPthreads=10
     end if
     write(*,*)
@@ -3405,7 +3406,7 @@ real*8 molrho(radpot*sphpot),promol(radpot*sphpot),tmpdens(radpot*sphpot),selfde
 real*8 charge(ncenter),lastcharge(ncenter) !Atomic charge of current iter. and last iter.
 real*8 radrholow(200),radrhohigh(200)
 character sep,c80tmp*80
-character*2 :: statname(-4:4)=(/ "-4","-3","-2","-1","_0","+1","+2","+3","+4" /)
+character(len=2) :: statname(-4:4)=(/ "-4","-3","-2","-1","_0","+1","+2","+3","+4" /)
 integer :: maxcyc=50,ioutmedchg=0
 real*8 :: crit=0.0002D0
 real*8,external :: fdens_rad
@@ -3544,7 +3545,7 @@ if (imode==2) then
 				if (a(jatm)%index==1.and.istat==1) cycle !H+ doesn't contains electron and cannot compute density
 				c80tmp="atmrad"//sep//trim(a(jatm)%name)//statname(istat)//".rad"
 				inquire(file=c80tmp,exist=alive)
-				if (alive==.false.) cycle !If the .rad file of jatm in charge state "istat" is not available, skip calculation
+				if (.not.alive) cycle !If the .rad file of jatm in charge state "istat" is not available, skip calculation
 				open(10,file=c80tmp,status="old")
 				read(10,*) atmradnpt(jatm)
 				do ipt=1,atmradnpt(jatm)
@@ -3567,7 +3568,7 @@ atmradrho=0
 do iatm=1,ncenter
     c80tmp="atmrad"//sep//trim(a(iatm)%name)//"_0.rad"
     inquire(file=c80tmp,exist=alive)
-    if (alive==.false.) then
+    if (.not.alive) then
         write(*,*)
         write(*,*) "Error: The file "//trim(c80tmp)//" cannot be found!"
         write(*,*) "Press ENTER button to return"
@@ -3665,7 +3666,7 @@ do icyc=1,maxcyc
 		radrholow=0
 		c80tmp="atmrad"//sep//trim(a(iatm)%name)//statname(ichglow)//".rad"
 		inquire(file=c80tmp,exist=alive)
-		if (alive==.false.) then
+		if (.not.alive) then
 			write(*,"(' Error: ',a,' is needed but was not prepared!')") trim(c80tmp)
             write(*,"(' Current charge of atom',i5,'(',a,'):',f12.8)") iatm,a(iatm)%name,charge(iatm)
             write(*,"(a)") " Note: This error implies that this atom has unusual charge. You should manually provide the corresponding .rad file &
@@ -3683,7 +3684,7 @@ do icyc=1,maxcyc
 		radrhohigh=0
 		c80tmp="atmrad"//sep//trim(a(iatm)%name)//statname(ichghigh)//".rad"
 		inquire(file=c80tmp,exist=alive)
-		if (alive==.false.) then
+		if (.not.alive) then
 			write(*,"(' Error: ',a,' is needed but was not prepared!')") trim(c80tmp)
             write(*,"(' Current charge of atom',i5,'(',a,'):',f12.8)") iatm,a(iatm)%name,charge(iatm)
             write(*,"(a)") " Note: This error implies that this atom has unusual charge. You should manually provide the corresponding .rad file &
@@ -3729,7 +3730,7 @@ use defvar
 use util
 implicit real*8 (a-h,o-z)
 character c80tmp*80,c200tmp*200,calclevel*80,radname*200,sep
-character*2 :: statname(-3:3)=(/ "-3","-2","-1","_0","+1","+2","+3" /)
+character(len=2) :: statname(-3:3)=(/ "-3","-2","-1","_0","+1","+2","+3" /)
 integer :: chgmulti(nelesupp,-3:3)=0 !Ground state multiplicity of each charge state of each element. If value=0, means undefined
 
 !Define chgmulti for elements for possible states
@@ -3922,7 +3923,7 @@ do iatm=1,ncenter
 		
 		!Generate .gjf file 
 		inquire(directory="atmrad",exist=alive)
-		if (alive==.false.) call system("mkdir atmrad")
+		if (.not.alive) call system("mkdir atmrad")
 		c200tmp="atmrad"//sep//trim(a(iatm)%name)//statname(istat)//".gjf"
 		open(10,file=c200tmp,status="replace")
 		write(10,"(a)") "# "//trim(calclevel)//" out=wfn"
@@ -3981,7 +3982,7 @@ do iatm=1,ncenter
 		inquire(file=trim(c80tmp)//".rad",exist=alive)
 		if (alive) cycle
 		inquire(file=trim(c80tmp)//".wfn",exist=alive)
-		if (alive==.false.) then
+		if (.not.alive) then
 			write(*,"(' Error: ',a,' was not found!')") trim(c80tmp)//".wfn"
 			write(*,*) "If you want to skip, press ENTER button directly"
 			read(*,*)
@@ -4069,11 +4070,25 @@ real*8 EEMmat(ncenter+1,ncenter+1),EEMarr(ncenter+1),qarr(ncenter+1)
 real*8 kappa,Aparm(nelesupp,maxBO),Bparm(nelesupp,maxBO) !If parameter is -1, means undefined parameter
 real*8 :: chgnet=0
 
-if (ifiletype/=11.and.ifiletype/=13) then
-	write(*,"(a)") " Error: MDL Molfile (.mol) or .mol2 file must be used as input file, since it contains atomic connectivity information!"
-	write(*,*) "Press Enter button to return"
-	read(*,*)
-	return
+if (ifPBC==0) then
+	if (ifiletype/=11.and.ifiletype/=13) then
+		write(*,"(/,a)") " Warning: Commonly MDL Molfile (.mol) or .mol2 file should be used as input file, &
+        since it contains atomic connectivity information. If you want to let Multiwfn guess interatomic connectivity &
+        and then calculate EEM charges, you can input ""g"", however bond multiplicity cannot be determined in this way, and thus &
+        the EEM charges may be problematic if the employed EEM parameters explicitly involve bond multiplicity"
+		write(*,*) "If you simply want to return, press ENTER button"
+		read(*,"(a)") c200tmp
+        if (index(c200tmp,'g')/=0) then
+			call genconnmat(1,0)
+        else
+			return
+        end if
+	end if
+else
+	write(*,"(/,a)") " Note: Multiwfn will guess interatomic connectivity and then calculate EEM. &
+    However bond multiplicity cannot be determined in this way, and thus the &
+    EEM charges may be problematic if the employed EEM parameters explicitly involve bond multiplicity"
+	call genconnmat(1,1)
 end if
 
 iparmset=2
@@ -4139,11 +4154,7 @@ EEMcyc: do while(.true.)
 				do while(.true.)
 					read(10,*,iostat=ierror) c200tmp,imulti,tmpA,tmpB
 					if (ierror/=0) exit
-					call lc2uc(c200tmp(1:1)) !Convert to upper case
-					call uc2lc(c200tmp(2:2)) !Convert to lower case
-					do iele=1,nelesupp
-						if (c200tmp(1:2)==ind2name(iele)) exit
-					end do
+                    call elename2idx(c200tmp,iele)
 					Aparm(iele,imulti)=tmpA
 					Bparm(iele,imulti)=tmpB
 					nload=nload+1
@@ -4482,7 +4493,7 @@ parma(53,1)=9.90D0; parmb(53,1)=7.96D0; parmc(53,1)=0.96D0 !One bond
 !hydroxyl oxygen is identified as o3, =O as o2, the result is identical to Antechamber. It seems that only when P connected to multiple =O &
 !the case will be come more complicated, but this situation is quite rare and thus not needed to consider
 
-call genconnmat(1)
+call genconnmat(1,1)
 write(*,*)
 
 nbond=0
@@ -4599,7 +4610,7 @@ do icyc=1,maxcyc
     charge=charge+delta_q
     if (outmedinfo==1) then
         do iatm=1,ncenter
-	        write(*,"(i6,'(',a,')  ¦¤q=',f10.6,'  X=',f10.3,' eV  q=',f12.6)") iatm,ind2name(a(iatm)%index),delta_q(iatm),eleneg(iatm),charge(iatm)
+	        write(*,"(i6,'(',a,')  Î”q=',f10.6,'  X=',f10.3,' eV  q=',f12.6)") iatm,ind2name(a(iatm)%index),delta_q(iatm),eleneg(iatm),charge(iatm)
         end do
     end if
     if (deltamax<convcrit) exit

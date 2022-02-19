@@ -2,6 +2,7 @@
 subroutine showcellinfo
 use defvar
 implicit real*8 (a-h,o-z)
+character c200tmp*200
 if (ifPBC>0) then
 	write(*,*)
     write(*,*) "Cell information"
@@ -22,12 +23,15 @@ if (ifPBC>0) then
         end if
     end if
     if (ifPBC==3) then
-        call getcellabc(r1,r2,r3,alpha,beta,gamma)
+        call getcellabc(asize,bsize,csize,alpha,beta,gamma)
         write(*,"(' Cell angles:  Alpha=',f9.4,'  Beta=',f9.4,'  Gamma=',f9.4,' degree')") alpha,beta,gamma
         call calc_cellvol(cellvol)
         write(*,"(' Cell volume:',f16.4,' Bohr^3    (',f16.4,' Angstrom^3 )')") cellvol,cellvol*b2a**3
         dens=sum(atmwei(a%index))*amu2kg*1000  /(cellvol*b2a**3/1D24)
         write(*,"(' Density:',f10.5,' g/cm^3    (',f10.3,' kg/m^3 )')") dens,dens*1000
+        write(*,*)
+        write(c200tmp,"(a,3f10.5,3f8.3,a)") "pbc set {",asize,bsize,csize,alpha,beta,gamma," } -all"
+        write(*,"(a,/,1x,a)") " Command of showing box in VMD program: (then run ""pbc box"")",trim(c200tmp)
     end if
 end if
 end subroutine
@@ -638,6 +642,7 @@ end subroutine
 !implicit real*8 (a-h,o-z)
 !real*8 x,y,z,basval(nbasis),GTFvalarr(nprims)
 !
+!lastcen=-1
 !GTFvalarr=0D0
 !do j=1,nprims
 !	ix=type2ix(b(j)%type)
@@ -782,4 +787,25 @@ end do
 !do iatm=1,ncenter_tmp
 !    write(*,"(i5,1x,a,3f12.6)") iatm,a_tmp(iatm)%name,a_tmp(iatm)%x,a_tmp(iatm)%y,a_tmp(iatm)%z
 !end do
+end subroutine
+
+
+
+!!!-------- Save current PBC information to memory
+subroutine savePBCinfo
+use defvar
+ifPBC_bk=ifPBC
+cellv1_bk=cellv1
+cellv2_bk=cellv2
+cellv3_bk=cellv3
+end subroutine
+
+!!!-------- Load saved PBC information
+subroutine loadPBCinfo
+use defvar
+ifPBC=ifPBC_bk
+cellv1=cellv1_bk
+cellv2=cellv2_bk
+cellv3=cellv3_bk
+call init_PBC
 end subroutine

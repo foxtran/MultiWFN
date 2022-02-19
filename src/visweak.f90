@@ -14,7 +14,7 @@ do while(.true.)
 	write(*,*) "6 Visualization of van der Waals potential (JMM, 26, 315)"
 	write(*,*) "9 Becke/Hirshfeld surface analysis (CrystEngComm, 11, 19)"
 	write(*,*) "10 IGM analysis based on promolecular density (PCCP, 19, 17928)"
-	write(*,"(a)") " 11 IGM analysis based on Hirshfeld partition of molecular density (IGMH) (DOI: 10.26434/chemrxiv-2021-628vh)"
+	write(*,"(a)") " 11 IGM analysis based on Hirshfeld partition of molecular density (IGMH) (JCC, 43, 539)"
 	write(*,*) "12 Averaged IGM analysis (aIGM)"
 	read(*,*) isel
 	if (isel==0) then
@@ -312,8 +312,8 @@ end subroutine
 !!------------------------------------------------------------------------------------------------
 !! ----------- Independent Gradient Model (IGM) analysis based on promolecular density -----------
 !!------------------------------------------------------------------------------------------------
-!iIGMtype=1: Based on promolecular approximation
-!iIGMtype=2: Based on Hirshfeld partition of actual density
+!iIGMtype=1: Based on promolecular approximation (original IGM)
+!iIGMtype=2: Based on Hirshfeld partition of actual density (IGMH)
 subroutine IGM(iIGMtype)
 use function
 use util
@@ -323,10 +323,10 @@ implicit real*8 (a-h,o-z)
 character c2000tmp*2000,selectyn
 real*8 grad(3),IGM_gradnorm,IGM_gradnorm_inter,gradtmp(3)
 integer iIGMtype
-integer,allocatable :: IGMfrag(:,:),IGMfragsize(:) !Definition of each fragment used in IGM, and the number of atoms in each fragment\
-real*8,allocatable :: dg_intra(:,:,:) !delta_g_intra of fragments
-real*8,allocatable :: dg_inter(:,:,:) !delta_g_inter between fragment 1 and 2
-real*8,allocatable :: dg(:,:,:) !delta_g
+integer,allocatable :: IGMfrag(:,:),IGMfragsize(:) !Definition of each fragment used in IGM, and the number of atoms in each fragment
+real*8,allocatable :: dg_intra(:,:,:) !delta-g_intra of fragments
+real*8,allocatable :: dg_inter(:,:,:) !delta-g_inter between fragment 1 and 2
+real*8,allocatable :: dg(:,:,:) !delta-g
 real*8,allocatable :: sl2r(:,:,:) !sign(lambda2)rho
 real*8,allocatable :: rhogrid(:,:,:) !real density
 real*8,allocatable :: gradgrid(:,:,:,:) !real density gradient (1/2/3,i,j,k)
@@ -337,10 +337,15 @@ real*8,allocatable :: IBSIWmat(:,:)
 !write(*,*) "Citation: Phys. Chem. Chem. Phys., 19, 17928 (2017)"
 write(*,*) "Note: Atomic unit is used for all outputs of this function"
 
-if (iIGMtype==2) then
+
+if (iIGMtype==1) then
+	write(*,*) "***** Please cite following papers in your work: *****"
+    write(*,*) "Phys. Chem. Chem. Phys., 19, 17928 (2017)"
+    write(*,*) "J. Comput. Chem., 43, 539 (2022) DOI: 10.1002/jcc.26812"
+else if (iIGMtype==2) then
 	write(*,*)
-	write(*,*) "Please cite introductory paper of IGMH:"
-    write(*,*) "Tian Lu, Qinxue Chen, ChemRxiv (2021) DOI: 10.26434/chemrxiv-2021-628vh"
+	write(*,*) "***** Please cite this introductory paper of IGMH: *****"
+    write(*,*) "Tian Lu, Qinxue Chen, J. Comput. Chem., 43, 539 (2022) DOI: 10.1002/jcc.26812"
 end if
 
 !----- Define fragments
@@ -440,7 +445,7 @@ do k=1,nz
 end do
 !$OMP END PARALLEL DO
 
-write(*,*) "Calculating delta_g, delta_g_inter and delta_g_intra..."
+write(*,*) "Calculating delta-g, delta-g_inter and delta-g_intra..."
 ifinish=0
 dg_inter=0
 !$OMP PARALLEL DO SHARED(ifinish,dg,dg_inter) PRIVATE(i,j,k,tmpx,tmpy,tmpz,grad,gradnorm,IGM_gradnorm,IGM_gradnorm_inter,gradtmp) schedule(dynamic) NUM_THREADS(nthreads)
@@ -488,9 +493,9 @@ dginter_int=dvol*sum(dg_inter)
 dg_int=dvol*sum(dg)
 dgintra_int=dg_int-dginter_int
 write(*,*)
-write(*,"(a,f12.6,' a.u.')") " Integral of delta_g over whole space:      ",dg_int
-write(*,"(a,f12.6,' a.u.')") " Integral of delta_g_inter over whole space:",dginter_int
-write(*,"(a,f12.6,' a.u.')") " Integral of delta_g_intra over whole space:",dgintra_int
+write(*,"(a,f12.6,' a.u.')") " Integral of delta-g over whole space:      ",dg_int
+write(*,"(a,f12.6,' a.u.')") " Integral of delta-g_inter over whole space:",dginter_int
+write(*,"(a,f12.6,' a.u.')") " Integral of delta-g_intra over whole space:",dgintra_int
 
 ymin=0.0D0
 ymax=maxval(dg)
@@ -507,16 +512,16 @@ do while (.true.)
 	write(*,*) "2 Output scatter points to output.txt in current folder"
 	write(*,*) "3 Output cube files to current folder"
 	write(*,*) "4 Show isosurface of grid data"
-	write(*,*) "5 Screen delta_g_intra in high density region"
-	write(*,"(a)") " 6 Evaluate contribution of atomic pairs and atoms to interfragment interaction (atom and atom pair dg indices as well as IBSIW index)"
-	write(*,*) "7 Set delta_g where value of sign(lambda2)rho is out of a certain range"
-	write(*,*) "8 Set delta_g_inter where value of sign(lambda2)rho is out of a certain range"
+	write(*,*) "5 Screen delta-g_intra in high density region"
+	write(*,"(a)") " 6 Evaluate contribution of atomic pairs and atoms to interfragment interaction (atomic and atomic pair delta-g indices as well as IBSIW index)"
+	write(*,*) "7 Set delta-g where value of sign(lambda2)rho is out of a certain range"
+	write(*,*) "8 Set delta-g_inter where value of sign(lambda2)rho is out of a certain range"
 	read(*,*) isel
 	if (isel==1.or.isel==-1) then
-		write(*,*) "1 delta_g_inter vs. sign(lambda2)rho"
-		write(*,*) "2 delta_g_intra vs. sign(lambda2)rho"
-		write(*,*) "3 delta_g vs. sign(lambda2)rho"
-		write(*,*) "4 delta_g_inter + delta_g_intra vs. sign(lambda2)rho"
+		write(*,*) "1 delta-g_inter vs. sign(lambda2)rho"
+		write(*,*) "2 delta-g_intra vs. sign(lambda2)rho"
+		write(*,*) "3 delta-g vs. sign(lambda2)rho"
+		write(*,*) "4 delta-g_inter + delta-g_intra vs. sign(lambda2)rho"
 		read(*,*) itype
 		if (.not.allocated(scatterx)) allocate(scatterx(nx*ny*nz),scattery(nx*ny*nz))
 		if (itype==4.and.(.not.allocated(scattery2))) allocate(scattery2(nx*ny*nz))
@@ -567,28 +572,28 @@ do while (.true.)
 		write(*,*) "Outputting output.txt..."
 		write(10,"(4E16.8)") ((( dg_inter(i,j,k),dg_intra(i,j,k),dg(i,j,k),sl2r(i,j,k),k=1,nz),j=1,ny),i=1,nx)
 		close(10)
-		write(*,*) "Finished! Column 1/2/3/4 = delta_g_inter/delta_g_intra/delta_g/sign(lambda2)rho"
+		write(*,*) "Finished! Column 1/2/3/4 = delta-g_inter/delta-g_intra/delta-g/sign(lambda2)rho"
 	else if (isel==3) then
 		open(10,file="dg_inter.cub",status="replace")
 		call outcube(dg_inter,nx,ny,nz,orgx,orgy,orgz,gridv1,gridv2,gridv3,10)
 		close(10)
-		write(*,*) "delta_g_inter has been exported to dg_inter.cub in current folder"
+		write(*,*) "delta-g_inter has been exported to dg_inter.cub in current folder"
 		open(10,file="dg_intra.cub",status="replace")
 		call outcube(dg_intra,nx,ny,nz,orgx,orgy,orgz,gridv1,gridv2,gridv3,10)
 		close(10)
-		write(*,*) "delta_g_intra has been exported to dg_intra.cub in current folder"
+		write(*,*) "delta-g_intra has been exported to dg_intra.cub in current folder"
 		open(10,file="dg.cub",status="replace")
 		call outcube(dg,nx,ny,nz,orgx,orgy,orgz,gridv1,gridv2,gridv3,10)
 		close(10)
-		write(*,*) "delta_g has been exported to dg.cub in current folder"
+		write(*,*) "delta-g has been exported to dg.cub in current folder"
 		open(10,file="sl2r.cub",status="replace")
 		call outcube(sl2r,nx,ny,nz,orgx,orgy,orgz,gridv1,gridv2,gridv3,10)
 		close(10)
 		write(*,*) "sign(lambda2)rho has been exported to sl2r.cub in current folder"
 	else if (isel==4) then
-		write(*,*) "1 delta_g_inter"
-		write(*,*) "2 delta_g_intra"
-		write(*,*) "3 delta_g"
+		write(*,*) "1 delta-g_inter"
+		write(*,*) "2 delta-g_intra"
+		write(*,*) "3 delta-g"
 		write(*,*) "4 sign(lambda2)rho"
 		read(*,*) itype
 		if (allocated(cubmat)) deallocate(cubmat)
@@ -606,7 +611,7 @@ do while (.true.)
 		call drawisosurgui(1)
 	else if (isel==5) then
 		write(*,*) "Input range of sign(lambda2)rho, e.g. -0.12,0.08"
-		write(*,"(a)") " delta_g_intra will be set to 0 if sign(lambda2)rho is out of the given range"
+		write(*,"(a)") " delta-g_intra will be set to 0 if sign(lambda2)rho is out of the given range"
 		read(*,*) denslow,denshigh
 		do k=1,nz
 			do j=1,ny
@@ -617,7 +622,7 @@ do while (.true.)
 		end do
 		write(*,*) "Done!"
         
-	else if (isel==6) then !Calculate and print atom and atom pair dg indices as well as IBSIW
+	else if (isel==6) then !Calculate and print atomic and atomic pair dg indices as well as IBSIW
 		if (nIGMfrag==2) then
 			ifrag=1
 			jfrag=2
@@ -628,7 +633,7 @@ do while (.true.)
 		ni=IGMfragsize(ifrag)
 		nj=IGMfragsize(jfrag)
         
-        !Calculate atom pair delta-g indices
+        !Calculate atomic pair delta-g indices
 		allocate(atmpairdg(ni,nj))
 		write(*,*) "Please wait..."
         call calcatmpairdg(iIGMtype,ni,IGMfrag(ifrag,:),nj,IGMfrag(jfrag,:),atmpairdg)
@@ -641,7 +646,7 @@ do while (.true.)
 			tmpidx1(iatmtmp)=IGMfrag(ifrag,iatmtmp)
 		end do
 		call sort(tmparr,list=tmpidx1) !Sort from small to large
-		write(10,"(' Atom delta-g indices of fragment',i3,' and percentage contributions')") ifrag
+		write(10,"(' Atomic delta-g indices of fragment',i3,' and percentage contributions')") ifrag
         totval=sum(tmparr(:))
 		do idx=ni,1,-1
 			write(10,"(' Atom',i5,' :',f12.6,'  (',f7.2,' % )')") tmpidx1(idx),tmparr(idx),tmparr(idx)/totval*100
@@ -654,12 +659,12 @@ do while (.true.)
 			tmpidx1(jatmtmp)=IGMfrag(jfrag,jatmtmp)
 		end do
 		call sort(tmparr,list=tmpidx1) !Sort from small to large
-		write(10,"(/,' Atom delta-g indices of fragment',i3,' and percentage contributions')") jfrag
+		write(10,"(/,' Atomic delta-g indices of fragment',i3,' and percentage contributions')") jfrag
 		do jdx=nj,1,-1
 			write(10,"(' Atom',i5,' :',f12.6,'  (',f7.2,' % )')") tmpidx1(jdx),tmparr(jdx),tmparr(jdx)/totval*100
 		end do
 		deallocate(tmparr,tmpidx1)
-		!Output atom pair dg indices
+		!Output atomic pair dg indices
 		allocate(tmparr(ni*nj),tmpidx1(ni*nj),tmpidx2(ni*nj))
 		itmp=0
 		do iatmtmp=1,ni
@@ -671,20 +676,20 @@ do while (.true.)
 			end do
 		end do
 		call sort(tmparr,list=tmpidx1,list2=tmpidx2) !Sort from small to large
-		write(10,"(/,' Atom pair delta-g indices and percentage contributions (zero terms are not shown)')")
+		write(10,"(/,' Atomic pair delta-g indices and percentage contributions (zero terms are not shown)')")
 		do idx=ni*nj,1,-1
 			if (tmparr(idx)==0) cycle
 			write(10,"(2i5,' :',f12.6,'  (',f7.2,' % )')") tmpidx1(idx),tmpidx2(idx),tmparr(idx),tmparr(idx)/totval*100
 		end do
-        write(10,"(/,a,f12.6)") " Sum of all atom pair dg indices:",sum(atmpairdg(:,:))
+        write(10,"(/,a,f12.6)") " Sum of all atomic pair delta-g indices:",sum(atmpairdg(:,:))
 		close(10)
         deallocate(tmparr,tmpidx1,tmpidx2)
-		write(*,"(a)") " Atom and atom pair delta-g indices have been outputted to atmdg.txt in current folder"
+		write(*,"(a)") " Atomic and atomic pair delta-g indices have been outputted to atmdg.txt in current folder"
         
         !Calculate IBSIW index
         allocate(IBSIWmat(ni,nj))
 		open(10,file="IBSIW.txt",status="replace")
-        !Convert atom pair dg indices to IBSIW
+        !Convert atomic pair dg indices to IBSIW
 		do idx=1,ni
 			do jdx=1,nj
                 dist=distmat(IGMfrag(ifrag,idx),IGMfrag(jfrag,jdx))*b2a
@@ -715,7 +720,7 @@ do while (.true.)
 			write(10,"(' Atom',i5,' :',f12.6)") tmpidx1(jdx),tmparr(jdx)
 		end do
 		deallocate(tmparr,tmpidx1)
-		!Output atom pair dg indices
+		!Output atomic pair dg indices
 		allocate(tmparr(ni*nj),tmpidx1(ni*nj),tmpidx2(ni*nj))
 		itmp=0
 		do iatmtmp=1,ni
@@ -736,36 +741,68 @@ do while (.true.)
         deallocate(IBSIWmat,tmparr,tmpidx1,tmpidx2)
 		write(*,*) "IBSIW have been outputted to IBSIW.txt in current folder"
         
-		write(*,"(/,a)") " If outputting the two fragments as atmdg.pqr and atmdg%.pqr in current folder, whose ""Charge"" atomic property carries &
-        atom delta-g index and its percentage contribution, respectively? (y/n)"
-		read(*,*) selectyn
-		if (selectyn=='y') then
-			do itime=1,2
-				if (itime==1) open(10,file="atmdg.pqr",status="replace")
-				if (itime==2) open(10,file="atmdg%.pqr",status="replace")
-				write(10,"('REMARK   Generated by Multiwfn, Totally',i10,' atoms')") ni+nj
+        iouttype=1 !1: atmdg.pdb. 2: atmdg.pqr & atmdg%.pqr. pqr is not good choice because VMD is unable to load elements from it, making determination of bonding often incorrect
+        if (iouttype==1) then
+        		write(*,"(/,a)") " If outputting the two fragments as atmdg.pdb in current folder, whose ""Charge"" and ""Occupancy"" &
+                atomic properties correspond to atomic delta-g index multiplied by 10 and percentage atomic delta-g index, respectively? (y/n)"
+			read(*,*) selectyn
+			if (selectyn=='y') then
+				open(10,file="atmdg.pdb",status="replace")
+                write(10,"('REMARK   Generated by Multiwfn, Totally',i10,' atoms')") ni+nj
 				i=1
 				do iatmtmp=1,ni
-					val=sum(atmpairdg(iatmtmp,:))
-                    if (itime==2) val=val/totval
+					val=sum(atmpairdg(iatmtmp,:))*10 !Atomic delta-g multiplied by 10
+					val2=val/totval*10 !Percentage contribution
 					iatm=IGMfrag(ifrag,iatmtmp)
-					write(10,"(a6,i5,1x,a4,1x,a3, 1x,a1,i4,4x,3f8.3,f13.8,f8.3,1x,a2)") &
-					"HETATM",i,' '//ind2name_up(a(iatm)%index)//' ',"MOL",'A',1,a(iatm)%x*b2a,a(iatm)%y*b2a,a(iatm)%z*b2a,val,vdwr(a(iatm)%index)*b2a,adjustr(ind2name_up(a(iatm)%index))
+					write(10,"(a6,i5,1x,a4,1x,a3, 1x,a1,i4,4x,3f8.3,2f6.2,10x,a2)") &
+					"HETATM",i,' '//ind2name_up(a(iatm)%index)//' ',"MOL",'A',1,a(iatm)%x*b2a,a(iatm)%y*b2a,a(iatm)%z*b2a,val2,val,adjustr(ind2name_up(a(iatm)%index))
 					i=i+1
 				end do
 				do jatmtmp=1,nj
-					val=sum(atmpairdg(:,jatmtmp))
-                    if (itime==2) val=val/totval
+					val=sum(atmpairdg(:,jatmtmp))*10
+					val2=val/totval*10
 					jatm=IGMfrag(jfrag,jatmtmp)
-					write(10,"(a6,i5,1x,a4,1x,a3, 1x,a1,i4,4x,3f8.3,f13.8,f8.3,1x,a2)") &
-					"HETATM",i,' '//ind2name_up(a(jatm)%index)//' ',"MOL",'A',1,a(jatm)%x*b2a,a(jatm)%y*b2a,a(jatm)%z*b2a,val,vdwr(a(iatm)%index)*b2a,adjustr(ind2name_up(a(jatm)%index))
+					write(10,"(a6,i5,1x,a4,1x,a3, 1x,a1,i4,4x,3f8.3,2f6.2,10x,a2)") &
+					"HETATM",i,' '//ind2name_up(a(jatm)%index)//' ',"MOL",'B',1,a(jatm)%x*b2a,a(jatm)%y*b2a,a(jatm)%z*b2a,val2,val,adjustr(ind2name_up(a(jatm)%index))
 					i=i+1
 				end do
 				write(10,"('END')")
 				close(10)
-            end do
-			write(*,*) "Done! atmdg.pqr and atmdg%.pqr have been outputted to current folder"
-		end if
+                write(*,*) "Done! atmdg.pdb has been outputted to current folder"
+			end if
+        else if (iouttype==2) then !atmdg.pqr & atmdg%.pqr
+   !     		write(*,"(/,a)") " If outputting the two fragments as atmdg.pqr and atmdg%.pqr in current folder, whose ""Charge"" atomic property carries &
+			!atom delta-g index and its percentage contribution, respectively? (y/n)"
+			!read(*,*) selectyn
+			!if (selectyn=='y') then
+			!	do itime=1,2
+			!		if (itime==1) open(10,file="atmdg.pqr",status="replace")
+			!		if (itime==2) open(10,file="atmdg%.pqr",status="replace")
+			!		write(10,"('REMARK   Generated by Multiwfn, Totally',i10,' atoms')") ni+nj
+			!		i=1
+			!		do iatmtmp=1,ni
+			!			val=sum(atmpairdg(iatmtmp,:))
+			!			if (itime==2) val=val/totval
+			!			iatm=IGMfrag(ifrag,iatmtmp)
+			!			write(10,"(a6,i5,1x,a4,1x,a3, 1x,a1,i4,4x,3f8.3,f13.8,f8.3,1x,a2)") &
+			!			"HETATM",i,' '//ind2name_up(a(iatm)%index)//' ',"MOL",'A',1,a(iatm)%x*b2a,a(iatm)%y*b2a,a(iatm)%z*b2a,val,vdwr(a(iatm)%index)*b2a,adjustr(ind2name_up(a(iatm)%index))
+			!			i=i+1
+			!		end do
+			!		do jatmtmp=1,nj
+			!			val=sum(atmpairdg(:,jatmtmp))
+			!			if (itime==2) val=val/totval
+			!			jatm=IGMfrag(jfrag,jatmtmp)
+			!			write(10,"(a6,i5,1x,a4,1x,a3, 1x,a1,i4,4x,3f8.3,f13.8,f8.3,1x,a2)") &
+			!			"HETATM",i,' '//ind2name_up(a(jatm)%index)//' ',"MOL",'B',1,a(jatm)%x*b2a,a(jatm)%y*b2a,a(jatm)%z*b2a,val,vdwr(a(iatm)%index)*b2a,adjustr(ind2name_up(a(jatm)%index))
+			!			i=i+1
+			!		end do
+			!		write(10,"('END')")
+			!		close(10)
+			!	end do
+			!	write(*,*) "Done! atmdg.pqr and atmdg%.pqr have been outputted to current folder"
+			!end if
+        end if
+        
 		deallocate(atmpairdg)
 		
 	else if (isel==7.or.isel==8) then
@@ -777,8 +814,8 @@ do while (.true.)
 			read(*,*)
 			cycle
 		end if
-		if (isel==7) write(*,*) "Input expected value of delta_g, e.g. 0"
-		if (isel==8) write(*,*) "Input expected value of delta_g_inter, e.g. 0"
+		if (isel==7) write(*,*) "Input expected value of delta-g, e.g. 0"
+		if (isel==8) write(*,*) "Input expected value of delta-g_inter, e.g. 0"
 		read(*,*) tmpval
 		if (isel==7) where (sl2r>rupper.or.sl2r<rlower) dg=tmpval
 		if (isel==8) where (sl2r>rupper.or.sl2r<rlower) dg_inter=tmpval
@@ -790,7 +827,7 @@ end subroutine
 
 
 
-!!------ Calculate atomic pair delta-g index of atom pairs between two lists atmlist1 and atmlist2
+!!------ Calculate atomic pair delta-g index of atomic pairs between two lists atmlist1 and atmlist2
 ! iIGMtype=1: IGM based on promolecular approximation; =2: IGM based on Hirshfeld partition (IGMH)
 subroutine calcatmpairdg(iIGMtype,natm1,atmlist1,natm2,atmlist2,atmpairdg)
 use defvar
@@ -919,7 +956,7 @@ do icen=1,ncenter
                 end if
             end do
         end if
-        !Calculate atom pair delta-g matrix contributed by this point
+        !Calculate atomic pair delta-g matrix contributed by this point
         do itmp=1,natm1
             iatm=atmlist1(itmp)
             do jtmp=1,natm2
@@ -1084,14 +1121,14 @@ do while (.true.)
 	write(*,*)
 	write(*,"(' -3 Change range of Y-axis of scatter graph, current:',f11.6,' to',f11.6)") ymin,ymax
 	write(*,"(' -2 Change range of X-axis of scatter graph, current:',f11.6,' to',f11.6)") xmin,xmax
-	write(*,*) "-1 Draw scatter map between averaged delta_g_inter and sign(lambda2)*rho"
+	write(*,*) "-1 Draw scatter map between averaged delta-g_inter and sign(lambda2)*rho"
 	write(*,*) "0 Exit"
 	write(*,*) "1 Save the scatter map to image file"
 	write(*,*) "2 Output data of the scatter map to output.txt"
-	write(*,"(a)") " 3 Output averaged delta_g_inter and sign(lambda2)*rho to avgdg_inter.cub and avgsl2r.cub in current folder, respectively"
+	write(*,"(a)") " 3 Output averaged delta-g_inter and sign(lambda2)*rho to avgdg_inter.cub and avgsl2r.cub in current folder, respectively"
 	write(*,"(a)") " 4 Output averaged RDG to avgRDG.cub in current folder"
 	write(*,"(a)") " 5 Compute thermal fluctuation index (TFI) and export to thermflu.cub in current folder"
-	!write(*,"(a)") " 7 Evaluate contribution of atomic pairs and atoms to interfragment interaction (atom and atom pair dg indices as well as IBSIW index)"
+	!write(*,"(a)") " 7 Evaluate contribution of atomic pairs and atoms to interfragment interaction (atom and atomic pair delta-g indices as well as IBSIW index)"
 	read(*,*) isel
     
 	if (isel==-3) then
@@ -1131,9 +1168,9 @@ do while (.true.)
 		write(*,*) "Outputting output.txt..."
 		write(10,"(2E16.8)") ((( avgsl2r(i,j,k),dg_inter(i,j,k),k=1,nz),j=1,ny),i=1,nx)
 		close(10)
-		write(*,"(a)") " Done! Columns 1 and 2 correspond to averaged sign(lambda2)rho and delta_g_inter, respectively"
+		write(*,"(a)") " Done! Columns 1 and 2 correspond to averaged sign(lambda2)rho and delta-g_inter, respectively"
     else if (isel==3) then
-        write(*,*) "Exporting averaged delta_g_inter to avgdg_inter.cub..."
+        write(*,*) "Exporting averaged delta-g_inter to avgdg_inter.cub..."
         open(10,file="avgdg_inter.cub",status="replace")
 		call outcube(dg_inter,nx,ny,nz,orgx,orgy,orgz,gridv1,gridv2,gridv3,10)
 		close(10)
@@ -1179,12 +1216,7 @@ Potential in Studying Intermolecular Interactions. J. Mol. Model., 26, 315 (2020
 if (ivdwprobe==0) then
     write(*,*) "Input name of probe atom, e.g. Ar"
     read(*,*) c80tmp
-    do iele=1,nelesupp
-        if (ind2name(iele)==c80tmp(1:2)) then
-            ivdwprobe=iele
-            exit
-        end if
-    end do
+    call elename2idx(c80tmp,ivdwprobe)
 end if
 
 write(*,*) "Parameters of UFF forcefield are used in this module"
@@ -1200,7 +1232,6 @@ parmAj=UFF_A(ivdwprobe)
 parmBj=UFF_B(ivdwprobe)
 write(*,"(' UFF atomic well depth:',f10.3,' kcal/mol')") parmAj
 write(*,"(' UFF atomic radius:    ',f10.3,' Angstrom')") parmBj/2
-write(*,*)
 
 aug3D=8 !Use 8 Bohr as extension distance because vdW potential largely spread
 call setgrid(1,igridsel)

@@ -62,7 +62,7 @@ do while(.true.)
 	write(*,*) "0 Print and visualize all generated CPs, paths and interbasin surfaces"
 	write(*,*) "1 Search CPs from given starting points"
 	write(*,*) "2 Search CPs from nuclear positions"
-	write(*,*) "3 Search CPs from midpoint of atom pairs"
+	write(*,*) "3 Search CPs from midpoint of atomic pairs"
 	write(*,*) "4 Search CPs from triangle center of three atoms"
 	write(*,*) "5 Search CPs from pyramid center of four atoms"
 	write(*,*) "6 Search CPs from a batch of points within a sphere" !cube, random in sphere
@@ -513,7 +513,7 @@ do while(.true.)
 				write(*,*) "Input file path, e.g. C:\ltwd\CPs.txt"
 				write(*,"(a)") " (The format of the file must be identical to the one outputted by option 4)"
 				if (numcp>0) write(*,*) "Note: After loading the file, all found CPs will be cleaned"
-                write(*,*) "Note: If press ENTER directly, CPs.txt in current folder will be loaded"
+                write(*,"(a)") " Note: If pressing ENTER button directly, CPs.txt in current folder will be loaded"
 				read(*,"(a)") c200
                 if (c200==" ") c200="CPs.txt"
 				inquire(file=c200,exist=alive)
@@ -652,7 +652,7 @@ do while(.true.)
 			else if (isearch==1) then
 				write(*,"(a,i5,a)") " 10 Set the atoms to be considered in searching modes 2, 3, 4, 5, current: Within",nsearchlist," atoms"
 			else if (isearch==2) then
-				write(*,"(a,i5,a,i5,a)") " 10 Set the atoms to be considered in searching modes 2, 3, 4, 5, current: Betweem",count(inlist1==.true.)," atoms and",count(inlist2==.true.)," atoms"
+				write(*,"(a,i5,a,i5,a)") " 10 Set the atoms to be considered in searching modes 2, 3, 4, 5, current: Betweem",count(inlist1.eqv..true.)," atoms and",count(inlist2.eqv..true.)," atoms"
 			end if
             if (topotrustrad==0) then
                 write(*,*) "11 Set trust radius of searching, current: Undefined"
@@ -1050,7 +1050,7 @@ do while(.true.)
 			write(*,"(' Totally find',i6,' new critical points')") numcp-numcpold
 		
 		!4444444444444444444, search CPs from triangle center of three atoms
-        !If distance between any atom pair is longer than threshold, the search will be skipped. For PBC case, only consider the other two atoms closest to it
+        !If distance between any atomic pair is longer than threshold, the search will be skipped. For PBC case, only consider the other two atoms closest to it
 		else if (isel==4) then
 			numcpold=numcp
 			itime=0
@@ -2033,10 +2033,10 @@ do i=1,topomaxcyc
 		    exit
 	    end if
 	    disp=-matmul(invmat(hess,3),grad)
-    else if (itopomethod==2) then !Barzilai¨CBorwein steep descent to determine displacement vector
+    else if (itopomethod==2) then !Barzilaiâ€“Borwein steep descent to determine displacement vector
         gvec_old=gvec
         call gencalchessmat(1,ifunc,coord(1,1),coord(2,1),coord(3,1),value,gvec(:),hess) !Obtain gradient
-        if (i>1) then !Use BB2 (see "STABILIZED BARZILAI-BORWEIN METHOD") to determine stepsize, corresponding to Barzilai¨CBorwein in https://en.wikipedia.org/wiki/Gradient_descent
+        if (i>1) then !Use BB2 (see "STABILIZED BARZILAI-BORWEIN METHOD") to determine stepsize, corresponding to Barzilaiâ€“Borwein in https://en.wikipedia.org/wiki/Gradient_descent
             dvec(:)=disp(:,1)
             val1=sum(dvec(:)*(gvec-gvec_old))
             val2=sum((gvec-gvec_old)**2)
@@ -2046,7 +2046,7 @@ do i=1,topomaxcyc
             disp(:,1)=-gvec(:)*stepinit/dsqrt(sum(gvec(:)**2))
         end if
         grad(:,1)=gvec(:)
-    else if (itopomethod==3) then !Barzilai¨CBorwein steep ascent to determine displacement vector, proposed by Tian Lu by modifying BB2
+    else if (itopomethod==3) then !Barzilaiâ€“Borwein steep ascent to determine displacement vector, proposed by Tian Lu by modifying BB2
         gvec_old=gvec
         call gencalchessmat(1,ifunc,coord(1,1),coord(2,1),coord(3,1),value,gvec(:),hess) !Obtain gradient
         if (i>1) then
