@@ -10,6 +10,7 @@ integer orbarr(nmo)
 integer,allocatable :: exclfragatm(:),tmparrint(:),idxsel(:)
 character(len=3) :: orbtype(0:2)=(/ "A+B"," A "," B " /)
 character symstr*6
+
 write(*,*) "Note: ""GTF"" in this function refers to Gaussian type primitive function"
 call updatenelec !Sometimes the naelec/nbelec/nelec recorded in the input file is not in line with sum of occupation numbers, so update
 do while(.true.)
@@ -46,9 +47,9 @@ do while(.true.)
 	if (allocated(MOsym)) write(*,*) "35 Keep or discard orbital contributions according to irreducible rep."
 	write(*,*) "36 Invert phase of some orbitals"
 	write(*,*) "37 Split spatial orbitals as alpha and beta spin orbitals"
-	read(*,*) iselect
+	read(*,*) isel
 	
-	if (iselect==-1) then
+	if (isel==-1) then
 		if (allocated(CObasa).and.imodwfn==1) then
 			write(*,*) "Updating density matrix..."
 			call genP
@@ -57,9 +58,9 @@ do while(.true.)
         if (imodwfn==1) if_initlibreta=0 !LIBRETA should then be re-initialized
 		exit
 		
-	else if (iselect==-3.or.iselect==-4) then
+	else if (isel==-3.or.isel==-4) then
 		if (allocated(fragatm)) deallocate(fragatm) !fragatm has been defined previously by default, fragatm contains all atoms
-		if (iselect==-3) then
+		if (isel==-3) then
 			! "fragatm" is convertion relationship from fragment to the whole,
 			! e.g. fragatm(4) is the actual atom index corresponding the 4th atom in fragment list
 			write(*,"(a)") " Input atomic indices to define the fragment, e.g. 1,3-6,8,10-11 means atoms 1,3,4,5,6,8,10,11 will constitute the fragment"
@@ -68,7 +69,7 @@ do while(.true.)
 			allocate(fragatm(nfragatm))
 			call str2arr(c2000tmp,nfragatm,fragatm)
 			call sort(fragatm,"val")
-		else if (iselect==-4) then
+		else if (isel==-4) then
 			write(*,*) "Input indices of the atoms to be excluded"
 			write(*,*) "e.g. 1,3-6,8,10-11 means the atoms 1,3,4,5,6,8,10,11 will be excluded"
 			read(*,"(a)") c2000tmp
@@ -95,7 +96,7 @@ do while(.true.)
 		ifragcontri=1 !Fragment has been defined by users
 		write(*,"(' Done,',i8,' GTFs have been discarded,',i8,' GTFs reserved')") nprims-j,j
 		nprims=j !Cut list at j, all functions after j seem non exist
-		if (iselect==-4) deallocate(exclfragatm)
+		if (isel==-4) deallocate(exclfragatm)
 
 		!Modification of wavefunction has finished, now reduce size of b, CO... to current nprims and nmo to avoid potential problems
 		if (allocated(b)) then !Only for input file contains wavefunctions
@@ -108,16 +109,16 @@ do while(.true.)
 			deallocate(b_tmp)
 		end if
         
-	else if (iselect==0) then
+	else if (isel==0) then
 		call outwfn("new.wfn",1,1,10)
 		write(*,*) "Wavefunction has been outputted to new.wfn in current folder"
 	
-	else if (iselect==1) then
+	else if (isel==1) then
 		do i=1,nprims
 			write(*,"(i6,' Center:',i5,'(',a2,')','   Type: ',a,'   Exponent:',E16.7)") i,b(i)%center,a(b(i)%center)%name,GTFtype2name(b(i)%type),b(i)%exp
 		end do
 	
-	else if (iselect==2) then
+	else if (isel==2) then
 		do i=1,nbasis
             if (isphergau==1) then
 			    write(*,"(' Basis:',i5,'   Shell:',i5,'   Center:',i5,'(',a2,')   Type:',a)")&
@@ -128,7 +129,7 @@ do while(.true.)
             end if
 		end do
 	
-	else if (iselect==3) then
+	else if (isel==3) then
 		write(*,*) "Basic information of all orbitals:"
 		symstr=" "
 		naorb=count(MOtype==1)
@@ -150,7 +151,7 @@ do while(.true.)
 		if (any(MOtype==2)) write(*,"(a)") " Note: For beta orbitals, &
 		the index in the parenthese shown above is the index counted from the first beta orbital"
 		
-	else if (iselect==4) then
+	else if (isel==4) then
 		write(*,*) "Input the orbital index, e.g. 12"
 		read(*,*) i
 		if (i<1.or.i>nmo) then
@@ -177,7 +178,7 @@ do while(.true.)
 			write(*,"(a,/)") " Note: The ""coeff."" are expansion coefficients of orbitals with respect to basis functions, which are normalized functions"
 		end if
 	
-	else if (iselect==5) then
+	else if (isel==5) then
 		write(*,*) "0 Return"
 		write(*,*) "1 Print on screen"
 		write(*,*) "2 Print to Cmat.txt in current folder"
@@ -201,7 +202,7 @@ do while(.true.)
 			end if
 		end if
 	
-	else if (iselect==6) then
+	else if (isel==6) then
 		write(*,*) "0 Return"
 		write(*,*) "1 Print on screen"
 		write(*,*) "2 Print to Pmat.txt in current folder"
@@ -243,7 +244,7 @@ do while(.true.)
 		end if
 	
 	!Print various kinds of integral matrix between basis functions
-	else if (iselect==7) then
+	else if (isel==7) then
 		write(*,*) "Print which kind of integral matrix?"
 		write(*,*) "1 Overlap integral"
 		write(*,*) "2 Electric dipole moment integral"
@@ -367,7 +368,7 @@ do while(.true.)
 			close(ides)
 		end if
 		
-	else if (iselect==11) then
+	else if (isel==11) then
 		write(*,*) "Exchange information of which two GTFs? Input their indices, e.g. 18,21"
 		read(*,*) i,j
 		write(*,*) "Exchange which information for the two GTFs?"
@@ -384,7 +385,7 @@ do while(.true.)
 		if (iswapcontent==5) call swapGTF(i,j,"MO ")
 		write(*,*) "Exchanging finished!"
 	
-	else if (iselect==21) then
+	else if (isel==21) then
 		write(*,*) "Input index of the GTF, e.g. 13"
 		read(*,*) i
 		write(*,*) "Input the index of the center that you want the function centered at, e.g. 5"
@@ -396,7 +397,7 @@ do while(.true.)
 			write(*,"(' Error: The center index should >0 and <=',i7)") ncenter
 		end if
 	
-	else if (iselect==22) then
+	else if (isel==22) then
 		write(*,*) "Input index of the GTF, e.g. 13"
 		read(*,*) i
 		write(*,*) "Input the type you want to set, should be one of the following ones"
@@ -413,7 +414,7 @@ do while(.true.)
 			if (j==20) write(*,*) "Error: Cannot recognize this type"
 		end do
 	
-	else if (iselect==23) then
+	else if (isel==23) then
 		write(*,*) "Input index of the GTF, e.g. 13"
 		read(*,*) i
 		write(*,*) "Input exponent, e.g. 0.035"
@@ -421,7 +422,7 @@ do while(.true.)
 		b(i)%exp=rexp
         write(*,*) "Done!"
 	
-	else if (iselect==24) then
+	else if (isel==24) then
 		write(*,*) "Input index of the GTF, e.g. 13"
 		read(*,*) iprm
 		write(*,*) "Input orbital index, e.g. 12"
@@ -435,7 +436,7 @@ do while(.true.)
 			write(*,"(' Error: The index of the GTF or orbital exceeded valid range!')")
 		end if
 	
-	else if (iselect==25) then
+	else if (isel==25) then
 		isetmode=1
 		if (allocated(CObasa)) then
 			write(*,*) "1 Set coefficients of some GTFs in some orbitals"
@@ -587,7 +588,7 @@ do while(.true.)
 			imodwfn=1
 		end if
 
-	else if (iselect==26) then
+	else if (isel==26) then
 		do while(.true.)
 			write(*,*)
 			write(*,*) "Select the orbitals for which the occupation numbers are needed to be changed"
@@ -650,7 +651,7 @@ do while(.true.)
 			end if
 		end do
 	
-	else if (iselect==27) then
+	else if (isel==27) then
 		do while(.true.)
 			write(*,*) "Set type for which range of orbitals?"
 			write(*,*) "e.g. 2,4,13-16,20 means selecting orbitals 2,4,13,14,15,16,20"
@@ -703,7 +704,7 @@ do while(.true.)
 			imodwfn=1
 		end do
 		
-	else if (iselect==28) then
+	else if (isel==28) then
 		do while(.true.)
 			write(*,*) "Select the orbitals for which the energy are needed to be changed"
 			write(*,*) "e.g. 2,4,13-16,20 means selecting orbitals 2,4,13,14,15,16,20"
@@ -755,7 +756,7 @@ do while(.true.)
 			write(*,*) "Done!"
 		end do
 	
-	else if (iselect==29) then
+	else if (isel==29) then
 		write(*,"(a)") " Input indices of two orbitals, e.g. 3,8, then all of their information (energy, occupation, coefficients) will be exchanged"
         read(*,*) iorb,jorb
         if (MOtype(iorb)==MOtype(jorb)) then
@@ -791,7 +792,7 @@ do while(.true.)
             read(*,*)
         end if
 	
-	else if (iselect==30) then
+	else if (isel==30) then
 		write(*,*) "1 Exchange orbital energies (in eV) with occupation numbers"
 		write(*,*) "2 Exchange orbital energies (in Hartree) with occupation numbers"
         write(*,*) "Note: For EDDB user, you should choose 1"
@@ -818,7 +819,7 @@ do while(.true.)
         imodwfn=1
         call updatenelec
     
-	else if (iselect==31) then
+	else if (isel==31) then
 		write(*,*) "Input X,Y,Z of translation vector (e.g. 3.2,1.0,0)"
 		read(*,*) pbctransx,pbctransy,pbctransz
 		write(*,*) "You inputted coordinates are in which unit?  1: Bohr  2: Angstrom"
@@ -835,7 +836,7 @@ do while(.true.)
 		end do
 		imodwfn=1
 	
-	else if (iselect==32) then
+	else if (isel==32) then
 		write(*,*) "Input X,Y,Z of translation vector (e.g. 3.2,1.0,0)"
 		read(*,*) pbctransx,pbctransy,pbctransz
 		write(*,*) "You inputted coordinates are in which unit?  1: Bohr  2: Angstrom"
@@ -867,10 +868,10 @@ do while(.true.)
 		allocate(b(nprims))
 		allocate(CO(nmo,nprims))
 		do idup=0,numdup
-			a(ncenter_tmp*idup+1:ncenter_tmp*(idup+1))=a_tmp(1:center_tmp)
-			a(ncenter_tmp*idup+1:ncenter_tmp*(idup+1))%x=a_tmp(1:center_tmp)%x+pbctransx*idup
-			a(ncenter_tmp*idup+1:ncenter_tmp*(idup+1))%y=a_tmp(1:center_tmp)%y+pbctransy*idup
-			a(ncenter_tmp*idup+1:ncenter_tmp*(idup+1))%z=a_tmp(1:center_tmp)%z+pbctransz*idup
+			a(ncenter_tmp*idup+1:ncenter_tmp*(idup+1))=a_tmp(1:ncenter_tmp)
+			a(ncenter_tmp*idup+1:ncenter_tmp*(idup+1))%x=a_tmp(1:ncenter_tmp)%x+pbctransx*idup
+			a(ncenter_tmp*idup+1:ncenter_tmp*(idup+1))%y=a_tmp(1:ncenter_tmp)%y+pbctransy*idup
+			a(ncenter_tmp*idup+1:ncenter_tmp*(idup+1))%z=a_tmp(1:ncenter_tmp)%z+pbctransz*idup
 			b(nprims_tmp*idup+1:nprims_tmp*(idup+1))=b_tmp(1:nprims_tmp)
 			b(nprims_tmp*idup+1:nprims_tmp*(idup+1))%center=b_tmp(1:nprims_tmp)%center+ncenter_tmp*idup
 			CO(:,nprims_tmp*idup+1:nprims_tmp*(idup+1))=CO_tmp(:,1:nprims_tmp) !Notice that the orbitals do not satisify normalization condition any more, and the orbital occupation number will be artifical
@@ -879,7 +880,7 @@ do while(.true.)
 		imodwfn=1
 		call gendistmat !The number of atoms have changed, so we must update distance matrix
 	
-	else if (iselect==33) then
+	else if (isel==33) then
 		write(*,*) "Rotate which orbital? (Input 0 to rotate all orbitals)"
 		read(*,*) iorb
 		if (iorb/=0) then
@@ -902,7 +903,7 @@ do while(.true.)
 		end if
 		write(*,*) "Done!"
 	
-	else if (iselect==34) then
+	else if (isel==34) then
 		call getninnerele(ninnerele,1)
 		nelec=nelec-ninnerele
 		naelec=naelec-ninnerele/2
@@ -921,10 +922,10 @@ do while(.true.)
 		if (wfntype==3.or.wfntype==4) write(*,"(' Warning: Discarding inner orbitals for multiconfiguration wavefunction will lead to unexpected result!')") 
 		imodwfn=1
 	
-	else if (iselect==35) then
+	else if (isel==35) then
 		call selMO_IRREP
 	
-	else if (iselect==36) then
+	else if (isel==36) then
 		write(*,*) "Input index of the orbitals, e.g. 2,3,7-10"
 		read(*,"(a)") c1000tmp
 		call str2arr(c1000tmp,ntmp,orbarr)
@@ -942,7 +943,7 @@ do while(.true.)
 		write(*,*) "Done!"
 		imodwfn=1
 	
-	else if (iselect==37) then
+	else if (isel==37) then
 		if (wfntype==1.or.wfntype==4) then
 			write(*,*) "Error: The current wavefunction is already unrestricted!"
             write(*,*) "Press ENTER button to return"
@@ -999,6 +1000,11 @@ do while(.true.)
         imodwfn=1
         write(*,*) "Finished!"
 	end if
+    
+    !These operations may changed coefficients or GTFs, so unique GTF information should be updated
+    if (isel==11.or.isel==21.or.isel==22.or.isel==23.or.isel==24.or.isel==25.or.isel==32.or.isel==33.or.isel==36.or.isel==37) then
+		call gen_GTFuniq(1)
+    end if
 end do
 end subroutine
 
@@ -2251,7 +2257,7 @@ end subroutine
 
 
 !!!------------------- Delete virtual orbitals higher than LUMO+10 for HF/DFT wavefunctions
-!Each time delvirob has been called, delvirorb_back should be then called to recover previous wavefunction status
+!Each time "delvirob" has been called, "delvirorb_back" should be then called to recover previous wavefunction status
 !infomode=1 means show prompt
 subroutine delvirorb(infomode)
 use defvar
@@ -2266,22 +2272,25 @@ if (wfntype==3.or.wfntype==4) return !This routine doesn't work for post-HF case
 if (ifdelvirorb==1) return !This routine has already been called while delvirorb_back was not used after that
 
 if (allocated(CO_back)) deallocate(CO_back,MOene_back,MOocc_back,MOtype_back)
+if (allocated(CO_uniq_back)) deallocate(CO_uniq_back)
 allocate(CO_back(nmo,nprims),MOene_back(nmo),MOocc_back(nmo),MOtype_back(nmo))
 nmo_back=nmo
 CO_back=CO
+CO_uniq_back=CO_uniq
 MOene_back=MOene
 MOocc_back=MOocc
 MOtype_back=MOtype
 
-call getHOMOidx !Return idxHOMO (RHF, ROHF), or idxHOMO and idxHOMOb (UHF)
+call getHOMOidx !Return idxHOMO (R, RO), or idxHOMO and idxHOMOb (U)
 if (wfntype==0.or.wfntype==2) then !RHF, ROHF
 	if (nmo<=idxHOMO+nvirsave) return
 	nmo=idxHOMO+nvirsave !Simply shield those virtual orbitals
-else if (wfntype==1) then !Reserve up to LUMO+10 for alpha, and identical number of orbitals for beta
+else if (wfntype==1) then !Reserve up to LUMO+10 for alpha, and same number of orbitals for beta
 	if (nmo/2<=idxHOMO+nvirsave) return !naelec is always >= nbelec
-	nperserve=idxHOMO+nvirsave
-	!Cobasa and Cobasb needn't to be modified, because they are not directly involved in real space function calculation
+	nperserve=idxHOMO+nvirsave !Number of lowest preserved alpha orbitals
+	!CObasa and CObasb needn't to be modified, because they are not directly involved in real space function calculation
 	CO(nperserve+1:2*nperserve,:)=CO(nmo/2+1:nmo/2+nperserve,:)
+	CO_uniq(nperserve+1:2*nperserve,:)=CO_uniq(nmo/2+1:nmo/2+nperserve,:)
 	MOene(nperserve+1:2*nperserve)=MOene(nmo/2+1:nmo/2+nperserve)
 	MOocc(nperserve+1:2*nperserve)=MOocc(nmo/2+1:nmo/2+nperserve)
 	MOtype(nperserve+1:2*nperserve)=MOtype(nmo/2+1:nmo/2+nperserve)
@@ -2303,6 +2312,7 @@ integer infomode
 if (ifdelvirorb==1) then
     nmo=nmo_back
     CO=CO_back
+    if (allocated(CO_uniq_back)) CO_uniq=CO_uniq_back
     MOene=MOene_back
     MOocc=MOocc_back
     MOtype=MOtype_back
@@ -2362,6 +2372,10 @@ use defvar
 call delvirorb_back(0) !If delvirorb has taken effect, use this routine to deallocate relevant arrays
 if (allocated(a)) deallocate(a)
 if (allocated(b)) deallocate(b)
+if (allocated(b_uniq)) then
+	nprims_uniq=0
+	deallocate(b_uniq,CO_uniq)
+end if
 if (allocated(CO)) deallocate(CO)
 if (allocated(MOocc)) deallocate(MOocc)
 if (allocated(MOsym)) deallocate(MOsym)
@@ -2374,8 +2388,8 @@ if (allocated(b_EDF)) then
 end if
 if (allocated(connmat)) deallocate(connmat)
 !Related to basis functions
-if (allocated(shtype)) deallocate(shtype,shcen,shcon,primshexp,primshcoeff,&
-basshell,bascen,bastype,basstart,basend,primstart,primend,primconnorm)
+if (allocated(shtype)) deallocate(shtype,shcen,shcon,primshexp,primshcoeff)
+if (allocated(basshell)) deallocate(basshell,bascen,bastype,basstart,basend,primstart,primend,primconnorm)
 if (allocated(shtypeCar)) deallocate(shtypeCar)
 if (allocated(CObasa)) deallocate(CObasa)
 if (allocated(CObasb)) deallocate(CObasb)
@@ -3426,7 +3440,7 @@ end subroutine
 
 
 
-!!----- Generate connectivity matrix
+!!---------- Generate connectivity matrix
 !infomode =1: Output prompts  =0: Silent
 !iallowPBC =1: Allow considering PBC when this system is PBC  =0: Not allow (can avoid incompatibility problem)
 subroutine genconnmat(infomode,iallowPBC)
@@ -3435,6 +3449,7 @@ use util
 implicit real*8 (a-h,o-z)
 integer infomode,iallowPBC
 
+!call walltime(iwalltime1)
 if (allocated(a)) then
     if (allocated(connmat)) deallocate(connmat)
     allocate(connmat(ncenter,ncenter))
@@ -3444,6 +3459,7 @@ if (allocated(a)) then
 		covalent radii multiplied by ",bondcrit,", then they are regarded as bonded"
     end if
     connmat=0
+	!$OMP PARALLEL DO SHARED(connmat) PRIVATE(iatm,jatm,covri,covrj,tmpdist) schedule(dynamic) NUM_THREADS(nthreads)
     do iatm=1,ncenter
 		covri=covr(a(iatm)%index)
         do jatm=iatm+1,ncenter
@@ -3452,14 +3468,20 @@ if (allocated(a)) then
             else	
 				tmpdist=atomdist(iatm,jatm)
             end if
-            if ( tmpdist < bondcrit*(covri+covr(a(jatm)%index)) ) connmat(iatm,jatm)=1
+			covrj=covr(a(jatm)%index)
+            if ( tmpdist < bondcrit*(covri+covrj) ) connmat(iatm,jatm)=1
             connmat(jatm,iatm)=connmat(iatm,jatm)
         end do
     end do
+	!$OMP END PARALLEL DO
 else
     if (infomode==1) write(*,"(a)") " Unable to generate bonding relationship because there is no atom information!"
 end if
 
+call walltime(iwalltime2)
+!write(*,"(' Generating connectivity matrix took up wall clock time',i10,' s')") iwalltime2-iwalltime1
+
+!Check connectivity
 !do i=1,ncenter
 !    do j=i+1,ncenter
 !        if (connmat(i,j)==1) write(*,*) i,j,connmat(i,j)
@@ -3469,9 +3491,154 @@ end subroutine
 
 
 
+!!--------- Generate neighbouring list of each atom
+!itype=1: Based on existing connectivity matrix "connmat"
+!itype=2: Directly based on interatomic distance
+subroutine genneighlist(itype,iallowPBC,neigh,nneigh)
+use defvar
+use util
+implicit real*8 (a-h,o-z)
+integer nneigh(ncenter) !Number of neighbours (the number of atoms connected to this atom)
+integer neigh(maxneigh,ncenter) !neigh(1:nneigh(i),i) is list of neighbouring atom indices of atom i
+integer itype,iallowPBC
 
-!!---------  Align atoms in "a" (mol1) to "a_org" (mol2), the atoms must have the same order and same number
-!See http://nghiaho.com/?page_id=671
+nneigh=0
+if (itype==1) then
+	if (.not.allocated(connmat)) call genconnmat(1,iallowPBC) !Generate connectivity matrix
+	!$OMP PARALLEL DO SHARED(nneigh,neigh) PRIVATE(iatm,jatm) schedule(dynamic) NUM_THREADS(nthreads)
+	do iatm=1,ncenter
+		do jatm=1,ncenter
+			if (connmat(jatm,iatm)>0) then
+				nneigh(iatm)=nneigh(iatm)+1
+				neigh(nneigh(iatm),iatm)=jatm
+			end if
+		end do
+	end do
+	!$OMP END PARALLEL DO
+else if (itype==2) then
+	write(*,*) "Generating bonding relationship..."
+	write(*,"(a,f5.3,a)") " Note: If distance between two atoms is smaller than sum of their &
+	covalent radii multiplied by ",bondcrit,", then they are regarded as bonded"
+    !$OMP PARALLEL DO SHARED(nneigh,neigh) PRIVATE(iatm,jatm,covri,covrj,tmpdist) schedule(dynamic) NUM_THREADS(nthreads)
+    do iatm=1,ncenter
+		covri=covr(a(iatm)%index)
+        do jatm=1,ncenter
+			if (iallowPBC==1.and.ifPBC>0) then
+				call nearest_atmdistxyz(iatm,jatm,tmpdist,atmx,atmy,atmz)
+            else	
+				tmpdist=atomdist(iatm,jatm)
+            end if
+			covrj=covr(a(jatm)%index)
+            if ( tmpdist < bondcrit*(covri+covrj) ) then
+				nneigh(iatm)=nneigh(iatm)+1
+				neigh(nneigh(iatm),iatm)=jatm
+			end if
+        end do
+    end do
+	!$OMP END PARALLEL DO
+end if
+
+!write(*,*) "Neighbouring list:"
+!do iatm=1,ncenter
+!	write(*,"(i6,a,':')",advance="no") iatm,a(iatm)%name
+!	do idx=1,nneigh(iatm)
+!		write(*,"(i6)",advance="no") neigh(idx,iatm)
+!    end do
+!    write(*,*)
+!end do
+end subroutine
+
+
+
+!!--------- Generate fragment index of all atoms according to connectivity
+!Each atom has initial fragment index of itself, then each atom is compare with adjacent ones, if an adjacent atom has fragment &
+!index smaller than it, the its fragment will be updated to the adjacent one. Iteration performs until no fragment updation is occurred
+subroutine genconnfrag(atmfrg)
+use defvar
+use util
+integer atmfrg(ncenter),tmpidx(ncenter)
+integer neigh(maxneigh,ncenter),nneigh(ncenter)
+character c2000tmp*2000
+
+write(*,*) "Generate neighbouring list..."
+call genneighlist(2,1,neigh,nneigh) !Generate according to interatomic distance
+
+!write(*,*) "Generate atmfrg..."
+forall (i=1:ncenter) atmfrg(i)=i
+do while(.true.)
+    inew=0
+    do iatm=1,ncenter
+        do jdx=1,nneigh(iatm)
+			jatm=neigh(jdx,iatm)
+            if (atmfrg(jatm)<atmfrg(iatm)) then
+                atmfrg(iatm)=atmfrg(jatm)
+                inew=inew+1
+                exit
+            end if
+        end do
+    end do
+    if (inew==0) exit
+end do
+
+!Make fragment indices contiguous
+nfrg=0
+do iatm=1,ncenter
+    natmfrg=count(atmfrg==iatm)
+    if (natmfrg/=0) then
+        nfrg=nfrg+1
+        where(atmfrg==iatm) atmfrg=nfrg
+    end if
+end do
+
+!Show fragment information
+!do ifrg=1,nfrg
+!    write(*,"(' Fragment',i7,', number of atoms',i7)") ifrg,count(atmfrg==ifrg)
+!    itmp=0
+!    do iatm=1,ncenter
+!        if (atmfrg(iatm)==ifrg) then
+!            itmp=itmp+1
+!            tmpidx(itmp)=iatm
+!        end if
+!    end do
+!    call arr2str_2(tmpidx(1:itmp),c2000tmp)
+!    write(*,"(a)") trim(c2000tmp)
+!end do
+end subroutine
+
+
+
+!!-------- Input index of an atom, then the indices of all atoms in the fragment will be returned
+!"iatm" is the selected atom, "iffrag" has length of ncenter, if an atom is in the fragment, the value is 1, else 0
+subroutine getfragatoms(iselatm,iffrag)
+use defvar
+use util
+implicit real*8 (a-h,o-z)
+integer iselatm,iffrag(ncenter)
+iffrag=0
+iffrag(iselatm)=1
+if (.not.allocated(connmat)) call genconnmat(0,0) !Generate connectivity matrix
+do while(.true.)
+    inew=0
+    do iatm=1,ncenter !Cycle all atoms, if it is not in fragment, and it is linked to an atom already in fragment, it will be added to fragment
+        if (iffrag(iatm)==1) cycle !The atom is already in fragment
+        if (ishowhydrogen==0.and.a(iatm)%index==1) cycle !If this is hydrogen while we request do not showing hydrogens, skip it
+        do jatm=1,ncenter !Cycle neighbouring atoms
+            if (jatm==iatm) cycle
+            if (connmat(iatm,jatm)>0.and.iffrag(jatm)==1) then
+                iffrag(iatm)=1
+                inew=inew+1
+                exit
+            end if
+        end do
+    end do
+    if (inew==0) exit
+end do
+end subroutine
+
+
+
+!!--------- Align atoms in "a" (mol1) to "a_org" (mol2), the atoms must have the same order and same number
+!See http://nghiaho.com/?page_id=671 "FINDING OPTIMAL ROTATION AND TRANSLATION BETWEEN CORRESPONDING 3D POINTS"
 !Test purpose:
 !call readinfile("C:\Users\Sobereva\Desktop\md2.xyz",0)
 !call geomalign
@@ -3613,88 +3780,6 @@ end subroutine
 
 
 
-!!-------- Input index of an atom, then the indices of all atoms in the fragment will be returned
-!"iatm" is the selected atom, "iffrag" has length of ncenter, if an atom is in the fragment, the value is 1, else 0
-subroutine getfragatoms(iselatm,iffrag)
-use defvar
-use util
-implicit real*8 (a-h,o-z)
-integer iselatm,iffrag(ncenter)
-iffrag=0
-iffrag(iselatm)=1
-if (.not.allocated(connmat)) call genconnmat(0,0) !Generate connectivity matrix
-do while(.true.)
-    inew=0
-    do iatm=1,ncenter !Cycle all atoms, if it is not in fragment, and it is linked to an atom already in fragment, it will be added to fragment
-        if (iffrag(iatm)==1) cycle !The atom is already in fragment
-        if (ishowhydrogen==0.and.a(iatm)%index==1) cycle !If this is hydrogen while we request do not showing hydrogens, skip it
-        do jatm=1,ncenter !Cycle neighbouring atoms
-            if (jatm==iatm) cycle
-            if (connmat(iatm,jatm)>0.and.iffrag(jatm)==1) then
-                iffrag(iatm)=1
-                inew=inew+1
-                exit
-            end if
-        end do
-    end do
-    if (inew==0) exit
-end do
-end subroutine
-
-
-
-!!--------- Generate fragment index of each atom according to connectivity (connmat)
-!Each atom has initial fragment index of itself, then each atom is compare with adjacent ones, if an adjacent atom has fragment &
-!index smaller than it, the its fragment will be updated to the adjacent one. Iteration performs until no fragment updation is occurred
-subroutine genconnfrag(atmfrg)
-use defvar
-use util
-integer atmfrg(ncenter),tmpidx(ncenter)
-character c2000tmp*2000
-
-forall (i=1:ncenter) atmfrg(i)=i
-
-do while(.true.)
-    inew=0
-    do iatm=1,ncenter
-        do jatm=1,ncenter
-            if (connmat(iatm,jatm)>0.and.atmfrg(jatm)<atmfrg(iatm)) then
-                atmfrg(iatm)=atmfrg(jatm)
-                inew=inew+1
-                exit
-            end if
-        end do
-    end do
-    if (inew==0) exit
-end do
-
-!Make fragment indices contiguous
-nfrg=0
-do iatm=1,ncenter
-    natmfrg=count(atmfrg==iatm)
-    if (natmfrg/=0) then
-        nfrg=nfrg+1
-        where(atmfrg==iatm) atmfrg=nfrg
-    end if
-end do
-!Show fragment information
-!do ifrg=1,nfrg
-!    write(*,"(' Fragment',i7,', number of atoms',i7)") ifrg,count(atmfrg==ifrg)
-!    itmp=0
-!    do iatm=1,ncenter
-!        if (atmfrg(iatm)==ifrg) then
-!            itmp=itmp+1
-!            tmpidx(itmp)=iatm
-!        end if
-!    end do
-!    call arr2str_2(tmpidx(1:itmp),c2000tmp)
-!    write(*,"(a)") trim(c2000tmp)
-!end do
-
-end subroutine
-
-
-
 !!-------- Determine HOMO index for single-determinant wavefunction using the safest way. idxHOMO and idxHOMOb are global variables
 !Can be used for the case of only GTF information and that containing basis function information
 !idxHOMO: HOMO of RHF, or highest SOMO of ROHF, or alpha-HOMO of UHF
@@ -3798,12 +3883,18 @@ end subroutine
 
 !!--------- Initialize LIBRETA for present wavefunction if haven't
 !info=1: Show some notices
-!info=2: silent
+!info=2: Silent
 !Usually according to "function ifdoESP" to determine if initialize LIBRETA for a real space function
 subroutine doinitlibreta(info)
 use defvar
 use libreta
 integer info
+if (ifPBC>0) then
+	write(*,*) "Error: Currently evaluation of ESP does not support periodic system"
+    write(*,*) "Press ENTER button to continue (then Multiwfn may crash)"
+    read(*,*)
+    pause
+end if
 if (iuserfunc>=61.and.iuserfunc<=67) return !In this case, the function involves derivative of ESP, while I found the numerical derivate of ESP produced by libreta has noise
 if (if_initlibreta==0) then
 	if (info==1) then
@@ -4065,7 +4156,7 @@ use defvar
 use util
 character(len=*) outname
 integer nneigh(ncenter) !Number of neighbours (the number of atoms connect to this atom)
-integer neigh(30,ncenter) !neigh(1:nneigh(i),i) is list of neighbouring atom indices of atom i
+integer neigh(maxneigh,ncenter) !neigh(1:nneigh(i),i) is list of neighbouring atom indices of atom i
 integer nbond !Number of bonds
 integer,allocatable :: bond(:,:) !bond(1/2,i) are indices of the two atoms involved in bond i
 integer nangle !Number of angles
@@ -4214,21 +4305,10 @@ subroutine genZmat(Zmat,ierror)
 use defvar
 use util
 integer Zmat(ncenter,3),ierror
-integer nneigh(ncenter) !Number of neighbours (the number of atoms connect to this atom)
-integer neigh(30,ncenter) !neigh(1:nneigh(i),i) is list of neighbouring atom indices of atom i
+integer nneigh(ncenter) !Number of neighbours (the number of atoms connected to this atom)
+integer neigh(maxneigh,ncenter) !neigh(1:nneigh(i),i) is list of neighbouring atom indices of atom i
 
-call genconnmat(0,0) !Z-matrix will be generated considering connectivity as much as possible, so generate this
-
-!Determining neighbours
-nneigh=0
-do iatm=1,ncenter
-    do jatm=1,ncenter
-        if (connmat(iatm,jatm)>0) then
-            nneigh(iatm)=nneigh(iatm)+1
-            neigh(nneigh(iatm),iatm)=jatm
-        end if
-    end do
-end do
+call genneighlist(1,1,neigh,nneigh) !Determining neighbours according to connmat
 
 ierror=0
 Zmat=0 !Element of 0 means unavailable
@@ -4483,4 +4563,38 @@ do iele=1,nelesupp
 		return
 	end if
 end do
+end subroutine
+
+
+
+!!----------- Generate unique GTF information
+!infomode=0: Print number of unique GTFs. =1: Do not print
+subroutine gen_GTFuniq(infomode)
+use defvar
+integer ifcombined(nprims)
+if (allocated(b_uniq)) deallocate(b_uniq)
+if (allocated(CO_uniq)) deallocate(CO_uniq)
+
+do itime=1,2
+	nprims_uniq=0
+	ifcombined=0
+	do iGTF=1,nprims
+		if (ifcombined(iGTF)==0) then
+			nprims_uniq=nprims_uniq+1
+            if (itime==2) then
+				b_uniq(nprims_uniq)=b(iGTF)
+				CO_uniq(:,nprims_uniq)=CO(:,iGTF)
+            end if
+			do jGTF=iGTF+1,nprims
+				if (b(jGTF)%center==b(iGTF)%center.and.b(jGTF)%type==b(iGTF)%type.and.b(jGTF)%exp==b(iGTF)%exp) then
+					if (itime==2) CO_uniq(:,nprims_uniq)=CO_uniq(:,nprims_uniq)+CO(:,jGTF)
+					ifcombined(jGTF)=1
+				end if
+			end do
+        end if
+	end do
+    if (itime==1) allocate(b_uniq(nprims_uniq),CO_uniq(nmo,nprims_uniq))
+end do
+
+if (infomode==0) write(*,"(' Number of unique GTFs:',i6)") nprims_uniq
 end subroutine

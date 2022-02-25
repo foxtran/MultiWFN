@@ -1169,10 +1169,10 @@ end if
 end subroutine
 
 
-!!------- Determine how many data (integer or float) in the given string. Maximally test 1000
+!!------- Determine how many data in the given string. Maximally test 1000
 subroutine numdatastr(str,ndata)
 character(len=*) str
-real*8 arr(1000)
+character(len=100) arr(1000)
 integer ndata
 do i=1,1000
 	read(str,*,iostat=ierror) arr(1:i)

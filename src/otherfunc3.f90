@@ -1888,10 +1888,15 @@ do while(.true.)
     else if (isel==-1) then
 	    call outxyz_wrapper
     else if (isel==0) then
-        write(*,*) "Atom list:"
-		do i=1,ncenter
-			write(*,"(i5,'(',a2,')',' --> Charge:',f10.6,'  x,y,z(Bohr):',3f11.6)") i,a(i)%name,a(i)%charge,a(i)%x,a(i)%y,a(i)%z
-		end do
+        if (ncenter<=300) then
+            write(*,*) "Atom list:"
+		    do i=1,ncenter
+			    write(*,"(i5,'(',a2,')',' --> Charge:',f10.6,'  x,y,z(Bohr):',3f11.6)") i,a(i)%name,a(i)%charge,a(i)%x,a(i)%y,a(i)%z
+		    end do
+        else
+			write(*,"(a)") " Note: There are more than 300 atoms, so their information are not shown here now. &
+            To print, in the manu bar please select ""Tools"" - ""Print XYZ coordinates"""
+        end if
         call drawmolgui
         
     else if (isel==1) then !Translate selected part
@@ -2709,6 +2714,8 @@ end subroutine
 
 
 !!---------- Extract a molecular cluster (central molecule + neighbouring ones)
+!The botteneck of cost is call genconnmat(1,0). In fact the cost of this routine can be reduced &
+!if directly constructing neighbouring list and then atmfrg
 subroutine extract_molclus
 use defvar
 use util
@@ -2725,6 +2732,7 @@ write(*,*) "Input threshold of detecting contact"
 write(*,"(a)") " If you input e.g. 1.5, then if the closest distance between a neighbouring molecule &
 and current molecule is shorter than the sum of the corresponding atomic vdW radii multiplied by 1.5, the neighbouring molecule will be extracted"
 write(*,*) "If pressing ENTER button directly, 1.2 will be used"
+write(*,"(a)") " If you simply want to keep get the single molecule containing the atom you selected, input 0"
 read(*,"(a)") c80tmp
 if (c80tmp==" ") then
     crit=1.2D0
@@ -2736,9 +2744,11 @@ allocate(a_old(ncenter))
 a_old=a
 ncenter_old=ncenter
 deallocate(a)
-ifPBC=0
 nelec=0
 
+call walltime(iwalltime1)
+
+write(*,*) "Constructing 5*5*5 supercell..."
 !Temporarily replicate original cell in each direction as (-2:2), where 0 is current cell
 !This guarantee that we can extract a cluster containing selected molecule and all whole molecules surrounding it
 !The original atoms keep their original indices
@@ -2761,24 +2771,29 @@ do i1=-2,2
 end do
 deallocate(a_old)
 
-allocate(atmfrg(ncenter))
+!PBC information is useless anymore
+ifPBC=0
+cellv1=0
+cellv2=0
+cellv3=0
+
 write(*,*) "Generating fragments according to connectivity..."
-call genconnmat(0,0)
-call genconnfrag(atmfrg)
-ncenidx=count(atmfrg==atmfrg(iselatm))
+allocate(atmfrg(ncenter))
+call genconnfrag(atmfrg) !atmfrg records fragment index of every atom
+ncenidx=count(atmfrg==atmfrg(iselatm)) !Number of atoms in central molecule
 allocate(iext(ncenter),cenidx(ncenidx))
 iext=0
 itmp=0
 do iatm=1,ncenter
-    if (atmfrg(iatm)==atmfrg(iselatm)) then
+    if (atmfrg(iatm)==atmfrg(iselatm)) then 
         itmp=itmp+1
-        cenidx(itmp)=iatm
-        iext(iatm)=1
+        cenidx(itmp)=iatm !cenidx array records indices of central atoms
+        iext(iatm)=1 !This atom will be extracted
     end if
 end do
 
 !Determine which atoms should be kepted
-write(*,*) "Finding neighbouring molecules..."
+write(*,*) "Determining neighbouring molecules..."
 do iatm=1,ncenter
     if (iext(iatm)==1) cycle !This atom is already to be extracted
     vdwr_i=vdwr(a(iatm)%index)
@@ -2811,9 +2826,11 @@ do iatm=1,ncenter_old
     end if
 end do
 
-write(*,"(' Index of you previously selected atom in current system:',i8)") iselnew
+call walltime(iwalltime2)
+write(*,"(' Extraction totally took up wall clock time',i10,' s')") iwalltime2-iwalltime1
+
+write(*,"(/,' Index of you previously selected atom in current system:',i8)") iselnew
 allocate(iffrag(ncenter),idxarr(ncenter))
-call genconnmat(0,0)
 call getfragatoms(iselnew,iffrag)
 icen=0
 do iatm=1,ncenter

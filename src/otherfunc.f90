@@ -24,7 +24,7 @@ do while(.true.)
     !write(*,*) "16 Calculate various quantities in conceptual density functional theory (CDFT)"
     write(*,*) "17 Generate Fock/KS matrix based on orbital energies and coefficients"
 	write(*,*) "18 Yoshizawa's electron transport route analysis"
-	write(*,*) "19 Generate promolecular .wfn file from fragment wavefunctions"
+	write(*,*) "19 Generate new wavefunction by combining fragment wavefunctions"
 	write(*,*) "20 Calculate Hellmann-Feynman forces"
 	write(*,*) "21 Calculate properties based on geometry information for specific atoms"
 	write(*,*) "22 Detect pi orbitals, set occupation numbers and calculate pi composition"
@@ -81,7 +81,7 @@ do while(.true.)
 	else if (isel==18) then
 		call Yoshieletrans
 	else if (isel==19) then
-		call genpromolwfn
+		call gencombwfn
 	else if (isel==20) then
 		call hellmann_feynman
 	else if (isel==21) then
@@ -3781,7 +3781,7 @@ if (selectyn=='Y'.or.selectyn=='y') then
 		"HETATM",i,' '//ind2name_up(a(i)%index)//' ',"MOL",'A',1,a(i)%x*b2a,a(i)%y*b2a,a(i)%z*b2a,chgval,vdwr(a(i)%index)*b2a,adjustr(ind2name_up(a(i)%index))
 	end do
     close(10)
-    write(*,"(a)") " Done! In the newly generated .pqr file, ""charge"" property corresponds to closest distance between &
+    write(*,"(a)") " Done! In the newly generated .pqr file, ""charge"" property corresponds to the closest distance between &
     atoms to fitted plane in Angstrom, positive and negative values correspond to whether the atom is above or below the plane. &
     You can use e.g. VMD to color atoms corresponding this property"
 end if
@@ -3790,21 +3790,31 @@ end subroutine
 
 
 
-!! ------------ Generate promolecular wavefunction "promol.wfn" by combining several fragment wavefunctions
-! Any format of wavefunction file can be used as input, all orbitals including the virtual ones are stored to _all arrays first,
-! and then the virtual ones will be skipped in the output of .wfn files.
-! After using this module, the present wavefunction will become the promolecular wavefunction
-subroutine genpromolwfn
+!! ------------ Generate combined wavefunction by combining several fragment wavefunctions
+! Any format of wavefunction file can be used as input, all orbitals including the virtual ones are stored to _all arrays first
+subroutine gencombwfn
 use defvar
 implicit real*8 (a-h,o-z)
 character selectyn*1,c200tmp*200
 character,allocatable :: namearray(:)*200
 type(atomtype),allocatable :: a_all(:)
 type(primtype),allocatable :: b_all(:)
-real*8,allocatable :: MOene_all(:),MOocc_all(:),CO_all(:,:),tmparr(:)
+real*8,allocatable :: MOene_all(:),MOocc_all(:),CO_all(:,:),tmparr(:),tmparr2(:)
+integer,allocatable :: shtype_all(:),shcon_all(:),shcen_all(:)
+real*8,allocatable :: primshexp_all(:),primshcoeff_all(:),CObasa_all(:,:),CObasb_all(:,:)
+integer,allocatable :: MOtype_all(:)
 integer,allocatable :: iopshfrag(:),iflipspin(:)
+real*8 naelec_all,nbelec_all
 
-write(*,*) "How many fragments to combine?  (Including the fragment 1 that has been loaded)"
+write(*,*) "0 Return"
+write(*,*) "Generate which kind of file?"
+write(*,*) "1: combine.wfn"
+write(*,*) "2: combine.mwfn"
+write(*,"(a)") " Note: For option 2, all inputted fragment wavefunction files must contain basis function information"
+read(*,*) ifile
+if (ifile==0) return
+
+write(*,*) "How many fragments to combine? (Including the fragment 1 that has been loaded)"
 read(*,*) nfrag
 allocate(namearray(nfrag),iopshfrag(nfrag),iflipspin(nfrag))
 do i=1,nfrag
@@ -3813,8 +3823,12 @@ do i=1,nfrag
 		namearray(1)=filename
 	else if (i/=1) then
 		do while(.true.)
-			write(*,"(/,' Input wavefunction file of fragment',i4)") i
-			write(*,*) "(Any format of wavefunction file may be used, e.g. .wfn/.wfx/.fch/.molden)"
+			write(*,"(/,' Input wavefunction file of fragment',i4,', e.g. D:\combine\B.mwfn')") i
+			if (ifile==1) then
+				write(*,*) "(Any format of wavefunction file can be used, e.g. .wfn/wfx/mwfn/fch/molden)"
+			else if (ifile==2) then
+				write(*,*) "(The file must contain basis function information, e.g. .mwfn/fch/molden/gms)"
+            end if
 			read(*,"(a)") c200tmp
 			inquire(file=c200tmp,exist=alive)
 			if (alive) exit
@@ -3823,7 +3837,8 @@ do i=1,nfrag
 		namearray(i)=c200tmp
 	end if
 end do
-!Detect if need to treat this promolecule as open-shell
+
+!Detect if need to treat this whole system as open-shell
 iopsh=0
 do i=1,nfrag
 	call dealloall
@@ -3834,116 +3849,204 @@ do i=1,nfrag
 	end if
 end do
 
-!Gain some basic informations so that the arrays can be allocated
+!Gain some basic information so that the arrays can be allocated
 nprims_all=0
+nshell_all=0
 ncenter_all=0
+if (ifile==2) then
+	nbasis_all=0
+    nprimshell_all=0
+end if
 nmo_all=0
 nmoa_all=0
 nmob_all=0
-iopshfrag=0 !Assume all fragments are closed-shell
-iflipspin=0 !Assume don't flip spin
+iopshfrag(:)=0 !Assume all fragments are closed-shell
+naelec_all=0
+nbelec_all=0
 do i=1,nfrag
 	call dealloall
 	write(*,"(/,' Loading ',a)") trim(namearray(i))
 	call readinfile(namearray(i),1)
-	nprims_all=nprims_all+nprims
 	ncenter_all=ncenter_all+ncenter
+	nprims_all=nprims_all+nprims
+    if (ifile==2) then
+		if (nbasis==0) then
+			write(*,*) "Error: This file does not contain basis function information!"
+            write(*,*) "Press ENTER button to exit"
+            read(*,*)
+            stop
+        end if
+		nshell_all=nshell_all+nshell
+        nprimshell_all=nprimshell_all+nprimshell
+		nbasis_all=nbasis_all+nbasis
+    end if
 	if (iopsh==1) then !Open-shell treatment
-		if (wfntype==1.or.wfntype==4) then !This is open-shell fragment
+		if (wfntype==1.or.wfntype==4) then !This is an open-shell fragment
 			iopshfrag(i)=1
 			nmoatmp=count(MOtype==1)
 			nmobtmp=count(MOtype==2)
-			write(*,*) "If flip electron spin for this fragment? (y/n)"
+            write(*,"(' Number of alpha orbitals of this fragment:',i6)") nmoatmp
+            write(*,"(' Number of beta orbitals of this fragment: ',i6)") nmobtmp
+            write(*,"(' Number of alpha electrons of this fragment:',f10.6)") naelec
+            write(*,"(' Number of beta electrons of this fragment: ',f10.6)") nbelec
+            write(*,*)
+			write(*,*) "If flipping electron spin for this fragment? (y/n)"
 			read(*,*) selectyn
 			if (selectyn=="y") then
 				iflipspin(i)=1
-				nmoa_all=nmoa_all+nmoatmp
-				nmob_all=nmob_all+nmobtmp
-			else
 				nmoa_all=nmoa_all+nmobtmp
 				nmob_all=nmob_all+nmoatmp
+				naelec_all=naelec_all+nbelec
+				nbelec_all=nbelec_all+naelec
+			else
+				iflipspin(i)=0
+				nmoa_all=nmoa_all+nmoatmp
+				nmob_all=nmob_all+nmobtmp
+				naelec_all=naelec_all+naelec
+				nbelec_all=nbelec_all+nbelec
 			end if
-		else !This is closed-shell fragment, separate it as equivalent alpha and beta parts
+		else !This is a closed-shell fragment, separate it as equivalent alpha and beta parts
 			nmoa_all=nmoa_all+nmo
 			nmob_all=nmob_all+nmo
 		end if
 	else !Closed-shell treatment
 		nmo_all=nmo_all+nmo
+        naelec_all=naelec_all+naelec
+        nbelec_all=nbelec_all+nbelec
 	end if
 end do
 if (iopsh==1) nmo_all=nmoa_all+nmob_all
 
-allocate(a_all(ncenter_all),b_all(nprims_all),MOene_all(nmo_all),MOocc_all(nmo_all),CO_all(nmo_all,nprims_all),tmparr(nprims_all))
-CO_all=0
+!Output brief information of combined wavefunction for check
 write(*,*)
-write(*,"(' The total number of atoms:',i6)") ncenter_all
-write(*,"(' The total number of orbitals:',i6)") nmo_all
-write(*,"(' The total number of GTFs:',i6)") nprims_all
-if (iopsh==0) write(*,"(' The total number of orbitals:',i6)") nmo_all
-if (iopsh==1) write(*,"(' The total number of alpha and beta orbitals:',2i6)") nmoa_all,nmob_all
+write(*,*) "Information of combined wavefunction:"
+write(*,"(' Total number of atoms:',i6)") ncenter_all
+write(*,"(' Total number of GTFs:',i6)") nprims_all
+if (ifile==2) then
+	write(*,"(' Total number of basis functions:',i6)") nbasis_all
+	write(*,"(' Total number of basis function shells:',i6)") nshell_all
+	write(*,"(' Total number of primitive shells:',i6)") nprimshell_all
+end if
+write(*,"(' Total number of orbitals:',i6)") nmo_all
+if (iopsh==1) write(*,"(' Total number of alpha and beta orbitals:',2i6)") nmoa_all,nmob_all
 write(*,*)
 
-!Read information from fragment wavefunction file
+!Allocate array of combined wavefunction
+allocate(a_all(ncenter_all),b_all(nprims_all),MOene_all(nmo_all),MOocc_all(nmo_all),MOtype_all(nmo_all),CO_all(nmo_all,nprims_all),tmparr(nprims_all))
+CO_all=0
+if (ifile==2) then
+	allocate(shtype_all(nshell_all),shcen_all(nshell_all),shcon_all(nshell_all))
+	allocate(primshexp_all(nprimshell_all),primshcoeff_all(nprimshell_all))
+    allocate(CObasa_all(nbasis_all,nbasis_all))
+    CObasa_all=0
+    if (iopsh==1) then
+		allocate(CObasb_all(nbasis_all,nbasis_all))
+		CObasb_all=0
+    end if
+end if
+
+!Read information from fragment wavefunction files and gradually construct combined wavefunction
 icenter=1
 iprim=1
+ish=1
+iprimsh=1
+ibasis=1
 imo=1
 imoa=1
 imob=nmoa_all+1
 do i=1,nfrag
+	write(*,"(a)") " Dealing with "//trim(namearray(i))//" ..."
 	call dealloall
 	call readinfile(namearray(i),1)
-	a_all(icenter:icenter+ncenter-1)=a
-	b_all(iprim:iprim+nprims-1)=b
+	a_all(icenter:icenter+ncenter-1)=a(:)
+	b_all(iprim:iprim+nprims-1)=b(:)
 	b_all(iprim:iprim+nprims-1)%center=b_all(iprim:iprim+nprims-1)%center+(icenter-1)
-	if (iopsh==0) then !Promolecule is closed-shell
+    if (ifile==2) then
+		shtype_all(ish:ish+nshell-1)=shtype(:)
+		shcon_all(ish:ish+nshell-1)=shcon(:)
+		shcen_all(ish:ish+nshell-1)=shcen(:)+(icenter-1)
+        primshexp_all(iprimsh:iprimsh+nprimshell-1)=primshexp(:)
+        primshcoeff_all(iprimsh:iprimsh+nprimshell-1)=primshcoeff(:)
+    end if
+	if (iopsh==0) then !Overall closed-shell situation
 		MOene_all(imo:imo+nmo-1)=MOene
 		MOocc_all(imo:imo+nmo-1)=MOocc
+        MOtype_all(imo:imo+nmo-1)=0
 		CO_all(imo:imo+nmo-1,iprim:iprim+nprims-1)=CO
 		imo=imo+nmo
-	else if (iopsh==1) then !Promolecule is open-shell
+        if (ifile==2) CObasa_all(ibasis:ibasis+nbasis-1,ibasis:ibasis+nbasis-1)=CObasa
+	else if (iopsh==1) then !Overall open-shell situation
 		if (iopshfrag(i)==0) then !Closed-shell fragment
+			!Alpha part
 			MOene_all(imoa:imoa+nmo-1)=MOene
 			MOocc_all(imoa:imoa+nmo-1)=MOocc/2D0
+			MOtype_all(imoa:imoa+nmo-1)=0
 			CO_all(imoa:imoa+nmo-1,iprim:iprim+nprims-1)=CO
 			imoa=imoa+nmo
+			if (ifile==2) CObasa_all(ibasis:ibasis+nbasis-1,ibasis:ibasis+nbasis-1)=CObasa
+			!Beta part
 			MOene_all(imob:imob+nmo-1)=MOene
 			MOocc_all(imob:imob+nmo-1)=MOocc/2D0
+			MOtype_all(imob:imob+nmo-1)=0
 			CO_all(imob:imob+nmo-1,iprim:iprim+nprims-1)=CO
 			imob=imob+nmo
+			if (ifile==2) CObasb_all(ibasis:ibasis+nbasis-1,ibasis:ibasis+nbasis-1)=CObasa
 		else !Open-shell fragment
-			do isep=nmo,1,-1 !Find where is the separation of alpha and beta MOs in this fragment
+			do isep=nmo,1,-1 !isep will be the last alpha MO
 				if (MOtype(isep)==1) exit
 			end do
 			nmoatmp=count(MOtype==1)
 			nmobtmp=count(MOtype==2)
+            !write(*,*) imoa,imob,nmoatmp,nmobtmp,isep
 			if (iflipspin(i)==0) then
-				MOene_all(imoa:imoa+nmoatmp-1)=MOene(1:isep) !Alpha part
+				!Alpha part
+				MOene_all(imoa:imoa+nmoatmp-1)=MOene(1:isep)
 				MOocc_all(imoa:imoa+nmoatmp-1)=MOocc(1:isep)
+				MOtype_all(imoa:imoa+nmoatmp-1)=1
 				CO_all(imoa:imoa+nmoatmp-1,iprim:iprim+nprims-1)=CO(1:isep,:)
 				imoa=imoa+nmoatmp
-				MOene_all(imob:imob+nmobtmp-1)=MOene(isep+1:nmo) !Beta part
-				MOocc_all(imob:imob+nmobtmp-1)=MOocc(isep+1:nmo)
-				CO_all(imob:imob+nmobtmp-1,iprim:iprim+nprims-1)=CO(isep+1:nmo,:)
-				imob=imob+nmobtmp
+				if (ifile==2) CObasa_all(ibasis:ibasis+nbasis-1,ibasis:ibasis+nbasis-1)=CObasa
+                !Beta part
+                if (nmobtmp>0) then
+					MOene_all(imob:imob+nmobtmp-1)=MOene(isep+1:nmo)
+					MOocc_all(imob:imob+nmobtmp-1)=MOocc(isep+1:nmo)
+					MOtype_all(imob:imob+nmobtmp-1)=2
+					CO_all(imob:imob+nmobtmp-1,iprim:iprim+nprims-1)=CO(isep+1:nmo,:)
+					imob=imob+nmobtmp
+					if (ifile==2) CObasb_all(ibasis:ibasis+nbasis-1,ibasis:ibasis+nbasis-1)=CObasb
+                end if
 			else if (iflipspin(i)==1) then
-				MOene_all(imoa:imoa+nmobtmp-1)=MOene(isep+1:nmo) !Alpha part
-				MOocc_all(imoa:imoa+nmobtmp-1)=MOocc(isep+1:nmo)
-				CO_all(imoa:imoa+nmobtmp-1,iprim:iprim+nprims-1)=CO(isep+1:nmo,:)
-				imoa=imoa+nmobtmp
-				MOene_all(imob:imob+nmoatmp-1)=MOene(1:isep) !Beta part
+				!Alpha part
+                if (nmobtmp>0) then
+					MOene_all(imoa:imoa+nmobtmp-1)=MOene(isep+1:nmo)
+					MOocc_all(imoa:imoa+nmobtmp-1)=MOocc(isep+1:nmo)
+					MOtype_all(imoa:imoa+nmobtmp-1)=1
+					CO_all(imoa:imoa+nmobtmp-1,iprim:iprim+nprims-1)=CO(isep+1:nmo,:)
+					imoa=imoa+nmobtmp
+					if (ifile==2) CObasa_all(ibasis:ibasis+nbasis-1,ibasis:ibasis+nbasis-1)=CObasb
+                end if
+                !Beta part
+				MOene_all(imob:imob+nmoatmp-1)=MOene(1:isep)
 				MOocc_all(imob:imob+nmoatmp-1)=MOocc(1:isep)
+				MOtype_all(imob:imob+nmoatmp-1)=2
 				CO_all(imob:imob+nmoatmp-1,iprim:iprim+nprims-1)=CO(1:isep,:)
 				imob=imob+nmoatmp
+                if (ifile==2) CObasb_all(ibasis:ibasis+nbasis-1,ibasis:ibasis+nbasis-1)=CObasa
 			end if
 		end if
 	end if
 	icenter=icenter+ncenter
 	iprim=iprim+nprims
+    if (ifile==2) then
+		ish=ish+nshell
+		iprimsh=iprimsh+nprimshell
+		ibasis=ibasis+nbasis
+    end if
 end do
 
 !Store the data to global arrays so that they can be outputted by "outwfn" subroutine
 call dealloall
-allocate(a(ncenter_all),b(nprims_all),MOene(nmo_all),MOocc(nmo_all),CO(nmo_all,nprims_all))
+allocate(a(ncenter_all),b(nprims_all),MOene(nmo_all),MOocc(nmo_all),MOtype(nmo_all),CO(nmo_all,nprims_all))
 ncenter=ncenter_all
 nprims=nprims_all
 nmo=nmo_all
@@ -3951,9 +4054,29 @@ a=a_all
 b=b_all
 MOocc=MOocc_all
 MOene=MOene_all
+MOtype=MOtype_all
 CO=CO_all
 totenergy=0
 virialratio=2
+if (ifile==2) then
+	nbasis=nbasis_all
+	allocate(shtype(nshell_all),shcen(nshell_all),shcon(nshell_all),primshexp(nprimshell_all),primshcoeff(nprimshell_all))
+    shtype=shtype_all
+    shcen=shcen_all
+    shcon=shcon_all
+    nshell=nshell_all
+    nprimshell=nprimshell_all
+    primshexp=primshexp_all
+    primshcoeff=primshcoeff_all
+    naelec=naelec_all
+    nbelec=nbelec_all
+	allocate(CObasa(nbasis_all,nbasis_all))
+	CObasa=CObasa_all
+    if (iopsh==1) then
+		allocate(CObasb(nbasis_all,nbasis_all))
+		CObasb=CObasb_all
+    end if
+end if
 
 !Determine wavefunction type
 if (all(nint(MOocc)==MOocc)) then
@@ -3968,31 +4091,20 @@ else
 	wfntype=3
 	if (iopsh==1) wfntype=4
 end if
-! !Though MOtype is not used in the outputted .wfn file, after using this module the present wavefunction will be updated to the promolecular one
-! !MOtype as well as distance matrix will be used after if we want to do more later
-! allocate(MOtype(nmo))
-! MOtype=0
-! if (wfntype==1.or.wfntype==4) then
-! 	MOtype(1:nmoa_all)=1
-! 	MOtype(nmoa_all+1:nmo)=2
-! end if
-! call gendistmat
-!!! I commented above codes, because there may be many vacancy (zero-occupied MOs) in present wavefunction,
-!!! with this wavefunction many properies cannot be calculated properly, however they will be automatically removed during "outwfn".
-!!! So I'd rather recover to the first loaded system.
 
 !Sort the orbitals according to energy/occupation
-if (iopsh==0) ntime=1 !Close shell
-if (iopsh==1) ntime=2 !Open shell
+if (iopsh==0) ntime=1 !Closed-shell
+if (iopsh==1) ntime=2 !Open-shell
+allocate(tmparr2(nbasis))
 do itime=1,ntime
 	if (iopsh==0) then
 		ilow=1
 		ihigh=nmo
 	else if (iopsh==1) then !First time sort alpha orbitals, the second time sort beta orbitals
-		if (itime==1) then
+		if (itime==1) then !Alpha orbital range
 			ilow=1
 			ihigh=nmoa_all
-		else
+		else if (itime==2) then !Beta orbital range
 			ilow=nmoa_all+1
 			ihigh=nmo_all
 		end if
@@ -4001,7 +4113,7 @@ do itime=1,ntime
 		do j=i+1,ihigh
 			if (wfntype==0.or.wfntype==1.or.wfntype==2) then !SCF wavefunction, sort according to energy from low to high
 				if (MOene(i)<=MOene(j)) cycle
-			else !Post-SCF wavefunction, sort according to occupation number, sort according to energy from high to low
+			else !Post-SCF wavefunction, sort according to occupation number, sort according to occupation from high to low
 				if (MOocc(i)>=MOocc(j)) cycle
 			end if
 			temp=MOene(i)
@@ -4010,14 +4122,34 @@ do itime=1,ntime
 			temp=MOocc(i)
 			MOocc(i)=MOocc(j)
 			MOocc(j)=temp
+			itmp=MOtype(i)
+			MOtype(i)=MOtype(j)
+			MOtype(j)=itmp
 			tmparr=CO(i,:)
 			CO(i,:)=CO(j,:)
 			CO(j,:)=tmparr
+            if (ifile==2) then
+				if (itime==1) then !Alpha or total
+					tmparr2=CObasa(:,i)
+					CObasa(:,i)=CObasa(:,j)
+					CObasa(:,j)=tmparr2
+				else if (itime==2) then !Beta
+					tmparr2=CObasb(:,i-nbasis)
+					CObasb(:,i-nbasis)=CObasb(:,j-nbasis)
+					CObasb(:,j-nbasis)=tmparr2
+                end if
+            end if
 		end do
 	end do
 end do
-call outwfn("promol.wfn",1,1,10) !Note that the unoccupied MOs are automatically skipped
-write(*,*) "New .wfn file has been outputted to promol.wfn in current folder"
+    
+if (ifile==1) then !Output .wfn file
+	call outwfn("combine.wfn",1,1,10) !Note that the unoccupied MOs are automatically skipped
+	write(*,*) "Combined wavefunction has been outputted to combine.wfn in current folder"
+else if (ifile==2) then !Output .mwfn file
+	call outmwfn("combine.mwfn",10,0)
+	write(*,*) "Combined wavefunction has been outputted to combine.mwfn in current folder"
+end if
 
 !Recover to the first loaded system
 call dealloall

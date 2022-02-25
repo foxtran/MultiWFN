@@ -112,6 +112,7 @@ CALL wgapp(idistools,"Batch plotting orbitals",idisbatchplot)
 CALL wgapp(idistools,"Select fragment",idisselfrag)
 CALL wgapp(idistools,"Get atom indices of given element",idisgetatmidx_by_ele)
 CALL wgapp(idistools,"Print XYZ coordinates in Angstrom",idisshowcoordA)
+CALL wgapp(idistools,"Print XYZ coordinates in Bohr",idisshowcoordB)
 CALL wgapp(idistools,"Print fractional coordinates",idisshowfractcoord)
 if (ifPBC==0) call swgatt(idisshowfractcoord,"INACTIVE","STATUS")
 CALL wgapp(idistools,"Export all internal coordinates",idisexpintcoord)
@@ -237,6 +238,7 @@ call SWGCBK(idisbatchplot,batchplot)
 call SWGCBK(idisselfrag,GUIselfrag)
 call SWGCBK(idisgetatmidx_by_ele,getatmidx_by_ele)
 call SWGCBK(idisshowcoordA,showcoordA)
+call SWGCBK(idisshowcoordA,showcoordB)
 call SWGCBK(idisshowfractcoord,showfractcoord)
 call SWGCBK(idisexpintcoord,export_intcoord)
 call SWGCBK(idisreturn,GUIreturn)
@@ -2548,7 +2550,6 @@ end subroutine
 
 
 
-
 !!!-------- Select a whole fragment in GUI by inputting an atom index
 subroutine GUIselfrag(id)
 use defvar
@@ -2647,6 +2648,21 @@ end do
 end subroutine
 
 
+
+!!!-------- Show atomic coordinates in Bohr
+subroutine showcoordB(id)
+use defvar
+integer,intent (in) :: id
+integer iatm
+write(*,*)
+do iatm=1,ncenter
+	write(*,"(i5,'(',a2,')','  Charge:',f9.5,'  x,y,z(Bohr):',3f11.6)") &
+    iatm,a(iatm)%name,a(iatm)%charge,a(iatm)%x,a(iatm)%y,a(iatm)%z
+end do
+end subroutine
+
+
+
 !!!-------- Show fractional coordinates
 subroutine showfractcoord(id)
 use defvar
@@ -2665,6 +2681,7 @@ end do
 end subroutine
 
 
+
 !!!-------- Export all internal coordinates
 subroutine export_intcoord(id)
 integer,intent (in) :: id
@@ -2672,6 +2689,7 @@ call showgeomparam("int_coord.txt")
 call swgtit(" ")
 call dwgmsg("All internal coordinates have been written to int_coord.txt in current folder")
 end subroutine
+
 
 
 !!!-------- Plot a batch of orbitals
@@ -2697,7 +2715,6 @@ isavepic=0
 write(*,*) "Done!"
 CALL SWGWTH(20) !Recover default
 end subroutine
-
 
 
 
@@ -2788,6 +2805,7 @@ write(10,*) "clrGcub2oppomeshpt",clrGcub2oppomeshpt
 write(10,*) "clrBcub2oppomeshpt",clrBcub2oppomeshpt
 close(10)
 end subroutine
+
 
 
 !!!-------- Load GUI setting from GUIsettings.ini, currently only invoked by main function 0
@@ -2932,6 +2950,7 @@ write(10,*) "clrGcub1oppomeshpt",clrGcub1oppomeshpt
 write(10,*) "clrBcub1oppomeshpt",clrBcub1oppomeshpt
 close(10)
 end subroutine
+
 
 
 !!!-------- Load isosurface GUI setting from isosur.ini. Currently only invoked by GUI_mode=3

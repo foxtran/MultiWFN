@@ -507,7 +507,7 @@ do while (.true.)
 	write(*,*) "             -------------- Post-processing menu --------------"
 	write(*,"(' -3 Change range of Y-axis of scatter graph, current:',f11.6,' to',f11.6)") ymin,ymax
 	write(*,"(' -2 Change range of X-axis of scatter graph, current:',f11.6,' to',f11.6)") xmin,xmax
-	write(*,*) "-1 Draw scatter graph    1 Save the scatter graph to file"
+	write(*,*) "-1 Draw scatter graph           1 Save the scatter graph to file"
 	write(*,*) "0 Exit"
 	write(*,*) "2 Output scatter points to output.txt in current folder"
 	write(*,*) "3 Output cube files to current folder"

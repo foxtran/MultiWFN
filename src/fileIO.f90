@@ -165,9 +165,9 @@ if (iresinfo==0) then !Residue information was not loaded, initialize empty cont
     a%resname=" "
 end if
 
-!Determine how to supply EDF information for the file containing GTF information when pseudopotential basis set is involved
-!For .wfn file, EDF has already been added in due case in subroutine readwfn, and EDF may has been added in subroutine readwfx if EDF is available in the file and readEDF==1
 if (allocated(b)) then
+    !Determine how to supply EDF information for the file containing GTF information when pseudopotential basis set is involved
+    !For .wfn file, EDF has already been added in due case in subroutine "readwfn", and EDF may has been added in subroutine readwfx if EDF is available in the file and readEDF==1
 	if (any(a%index/=nint(a%charge)) .and..not.allocated(b_EDF)) then
 		if (isupplyEDF==0) then !Do nothing
 			continue
@@ -894,6 +894,9 @@ if (ifPBC==0) then
 	    !read(*,*)
     end if
 end if
+
+!Generate unique GTF information
+call gen_GTFuniq(infomode)
 
 !Output summary of present wavefunction
 if (infomode==0) then
@@ -2633,12 +2636,15 @@ end do
 nbasisCar=nbasis
 if (isphergau==1) nbasis=nbasis5D
 
+!Generate unique GTF information
+call gen_GTFuniq(infomode)
+
 if (infomode==0) then
 	if (name2(itmplen-1:itmplen)=="37".or.name2(itmplen-1:itmplen)=="39") write(*,"(' Total/Alpha/Beta electrons:',3f12.4)") nelec,naelec,nbelec
 	write(*,"(' Atoms:',i6,',  Basis functions:',i6,',  Orbitals:',i6,',  GTFs:',i6)") ncenter,nbasis,nmo,nprims
-	if (wfntype==3) write(*,*) " This is closed-shell system"
+	if (wfntype==3) write(*,*) " This is a closed-shell system"
 	if (wfntype==4) then
-		write(*,*) " This is open-shell system"
+		write(*,*) " This is an open-shell system"
 		write(*,"(' Orbitals from 1 to',i6,' are alpha, from',i6,' to',i6,' are beta')") nbasis,nbasis+1,nmo
 	end if
 	write(*,*)
@@ -3102,9 +3108,9 @@ use defvar
 use util
 implicit real*8 (a-h,o-z)
 CHARACTER(LEN=*) name
-character wfntitle*80,lastline*80,c80tmp*80
+character wfntitle*80,lastline*80,c80tmp*80,c80tmp2*80
 real*8,allocatable :: tmpCO(:,:),tmpMOocc(:),tmpMOene(:)
-integer,allocatable :: tmpMOtype(:)
+integer,allocatable :: tmpMOtype(:),orbidx(:)
 integer i,j,infomode
 !Original .wfn format doesn't support g, however the .wfn outputted by Multiwfn, Molden2AIM and G09 since B.01 formally supports g
 !Below is the g sequence used in Molden2AIM, .wfx, .molden and the .wfn outputted by Multiwfn and G09 since B.01
@@ -3136,11 +3142,8 @@ if (infomode==0.and.index(wfntitle,"Run Type")/=0) then
 end if
 
 allocate(a(ncenter))
-allocate(b(nprims))
-allocate(CO(nmo,nprims))
-allocate(MOocc(nmo))
-allocate(MOene(nmo))
-allocate(MOtype(nmo))
+allocate(b(nprims),CO(nmo,nprims))
+allocate(MOocc(nmo),MOene(nmo),MOtype(nmo),orbidx(nmo))
 
 do i=1,ncenter
 	read(10,"(a24,3f12.8,10x,f5.1)") c80tmp,a(i)%x,a(i)%y,a(i)%z,a(i)%charge
@@ -3201,19 +3204,11 @@ end if
 !Read orbitals
 do i=1,nmo
 	read(10,"(a)") c80tmp
-	do ichar=1,80
-		if (c80tmp(ichar:ichar)=='=') then
-			read(c80tmp(ichar+1:),*) MOocc(i)
-			exit
-		end if
-	end do
-	do ichar=80,1,-1
-		if (c80tmp(ichar:ichar)=='=') then
-			read(c80tmp(ichar+1:),*) MOene(i)
-			exit
-		end if
-	end do
-! 	read(10,"(5E16.8)") (CO(i,j),j=1,nprims) ! Note: row/column of CO denote MO/basis function respectively, in contrary to convention
+    read(c80tmp,*) c80tmp2,orbidx(i)
+    ipos=index(c80tmp,'=')
+    read(c80tmp(ipos+1:),*) MOocc(i)
+    ipos=index(c80tmp,'=',back=.true.)
+    read(c80tmp(ipos+1:),*) MOene(i)
 	read(10,"(5E16.8)") CO(i,:)
 end do
 read(10,*)
@@ -3239,15 +3234,15 @@ if (iequalsign1/=0) read(lastline(iequalsign1+1:),*) totenergy
 if (iequalsign1==0) write(*,*) "Warning: Unable to find system energy in this file!"
 if (iequalsign2/=0) read(lastline(iequalsign2+1:),*) virialratio
 if (iequalsign2==0) write(*,*) "Warning: Unable to find Virial in this file!"
-call loclabel(10,"$MOSPIN $END",ifoundmospin,0) !Also read spin-type from $MOSPIN $END field outputted by Molden2AIM since v2.0.5, if detected
+call loclabel(10,"$MOSPIN",ifoundmospin,0) !Also read spin-type from $MOSPIN $END field outputted by Molden2AIM since v2.0.5, if detected
 if (ifoundmospin==1) then !Have defined spin-type explicitly, don't reset spin-type by guessing later
-	if (infomode==0) write(*,*) "Note: Found $MOSPIN $END field, orbital spin-types are loaded"
+	if (infomode==0) write(*,"(a)") " Note: Found $MOSPIN field, orbital spin types are directly loaded rather than automatically determined"
 	read(10,*)
 	read(10,*) MOtype
 	where (MOtype==3) MOtype=0
 end if
 
-! Load cell information if any. May be 1/2/3-dimension
+!Load cell information if any. May be 1/2/3-dimension
 call loclabel(10,"[Cell]",ifound)
 if (ifound==0) call loclabel(10,"[cell]",ifound)
 if (ifound==0) call loclabel(10,"[CELL]",ifound)
@@ -3274,7 +3269,7 @@ end if
 
 close(10)
 
-!Determine type of wavefunction
+!Determine MOtype of all orbitals and wfntype from occupancy
 if (sum(MOocc)==2*nmo.and.all(int(MOocc)==MOocc)) then
 	wfntype=0 !This is restricted wavefunction
 	MOtype=0
@@ -3282,26 +3277,27 @@ else if (sum(MOocc)==nmo.and.all(int(MOocc)==MOocc)) then
 	wfntype=1 !This is unrestricted wavefunction
 	if (ifoundmospin==0) then
 		MOtype=1 !Set all MO is alpha
-		do i=2,nmo !if nmo=1, i will be set to 2, and no errors will appear
-			if (MOene(i)<MOene(i-1)) exit
-		end do
-		MOtype(i:nmo)=2 !beta
+        if (nmo>1) then
+		    do i=2,nmo !If nmo=1, i will be set to 2, and no errors will appear
+			    if ( MOene(i)<MOene(i-1) .or. orbidx(i)>orbidx(i-1)+1 ) exit !If energy or index is not contiguous w.r.t. last orbital, beta orbital must be encountered
+		    end do
+		    MOtype(i:nmo)=2 !Beta
+        end if
 	end if
 else if (any(MOocc/=int(MOocc))) then
-	if (nint(maxval(MOocc))==2) then !maximum occupation close to 2, so considered as restricted multiconfiguration wavefunction
+	if (nint(maxval(MOocc))==2) then !Maximum occupation close to 2, so considered as restricted multiconfiguration wavefunction
 		wfntype=3
 		MOtype=0
 	else
 		wfntype=4 !This is unrestricted multiconfiguration wavefunction
 		if (ifoundmospin==0) then
-			MOtype=0
-			do i=2,nmo
-				if (MOocc(i)>MOocc(i-1)) then
-					MOtype(1:i-1)=1
-					MOtype(i:nmo)=2
-					exit
-				end if
-			end do
+			MOtype=1
+            if (nmo>1) then
+			    do i=2,nmo
+				    if (MOocc(i)>MOocc(i-1) .or. orbidx(i)>orbidx(i-1)+1 ) exit !If occupation or index is not contiguous w.r.t. last orbital, beta orbital must be encountered
+			    end do
+		        MOtype(i:nmo)=2 !Beta
+            end if
 		end if
 	end if
 else
@@ -3311,6 +3307,7 @@ else
 		if (MOocc(i)==1) MOtype(i)=1 !alpha
 	end do
 end if
+
 !Count electrons
 call updatenelec
 
@@ -3346,6 +3343,9 @@ if (any(a%index/=nint(a%charge))) then
 	end if
 end if
 
+!Generate unique GTF information
+call gen_GTFuniq(infomode)
+
 !Summary
 if (infomode==0) then
 	write(*,*)
@@ -3362,7 +3362,11 @@ if (infomode==0) then
 		do i=1,nmo
 			if (MOtype(i)==2) exit
 		end do
-		write(*,"(' Orbitals from 1 to',i6,' are alpha type, from',i6,' to',i6,' are beta type')") i-1,i,nmo
+		if (any(MOtype==2)) then
+            write(*,"(' Orbitals from 1 to',i6,' are alpha type, from',i6,' to',i6,' are beta type')") i-1,i,nmo
+        else
+            write(*,"(' All orbitals are alpha type')")
+        end if
 	end if
 	write(*,"(' Title line of this file: ',a)") trim(wfntitle)
 end if
@@ -3525,6 +3529,9 @@ else !post-HF
 	if (naelec==nbelec) wfntype=3
 	if (naelec/=nbelec) wfntype=4
 end if
+
+!Generate unique GTF information
+call gen_GTFuniq(infomode)
 
 if (infomode==0) then
 	write(*,*)
@@ -4496,6 +4503,9 @@ if (iorca==0.and.ifPBC==0) then !For ORCA with angular moment >f, warning has al
 	end if
 end if
 
+!Generate unique GTF information
+call gen_GTFuniq(infomode)
+
 !Output summary of present wavefunction
 if (infomode==0) then
 	write(*,*)
@@ -5395,7 +5405,7 @@ else if (icoordtype==-2) then !Z-matrix directly with geometry parameters
         write(ifileid,*)
     end do
 end if
-    
+
 if (any(cellv1/=0)) write(ifileid,"('Tv',3f12.6)") cellv1*b2a
 if (any(cellv2/=0)) write(ifileid,"('Tv',3f12.6)") cellv2*b2a
 if (any(cellv3/=0)) write(ifileid,"('Tv',3f12.6)") cellv3*b2a
@@ -7351,10 +7361,12 @@ do while(.true.)
     else if (isel==15) then
         if (iTDDFT==0) then
             iTDDFT=1
-            write(*,"(a)") " If outputting .molden file containing all occupied and virtual orbitals for post-processing analysis? (y/n)"
+            write(*,"(a)") " If outputting .molden file containing all occupied and a batch of virtual orbitals for post-processing analysis? (y/n)"
             read(*,*) selectyn
             if (selectyn=='y') then
-                nADDED_MOS=99999
+                write(*,"(a)") " How many virtual orbitals to solve and record in the .molden file? e.g. 40"
+                write(*,*) "You can input -1 or a very large number to solve all virtual orbitals"
+                read(*,*) nADDED_MOS
                 imolden=1
                 idiagOT=1
             end if
@@ -8748,6 +8760,9 @@ do i=1,nmo
 	write(ifileid,"(5D16.8)") (CO(i,j),j=1,nprims)
 end do
 write(ifileid,"('END DATA',/,' THE  HF ENERGY = ',f19.12,' THE VIRIAL(-V/T)= ',f12.8)") totenergy,virialratio
+write(ifileid,"(/,a)") "$MOSPIN"
+write(ifileid,"(30i2)") MOtype(:)
+write(ifileid,"(a)") "$END"
 if (ifPBC>0) then
     write(ifileid,"(/,a)") "[Cell]"
     write(ifileid,"(3f12.6)") cellv1(:)*b2a
@@ -9553,7 +9568,7 @@ integer ifileid,infomode
 open(ifileid,file=outname,status="replace")
 write(ifileid,"(a)") "# Generated by Multiwfn" !Comment
 write(ifileid,"('Wfntype=',i4)") wfntype
-write(ifileid,"('Charge=',f15.6)") sum(a%charge)-nelec
+write(ifileid,"('Charge=',f15.6)") sum(a%charge)-(naelec+nbelec)
 write(ifileid,"('Naelec=',f15.6)") naelec
 write(ifileid,"('Nbelec=',f15.6)") nbelec
 write(ifileid,"('E_tot=',1PE16.8)") totenergy
@@ -10139,6 +10154,9 @@ if (igenP==1) then
 end if
 if (infomode==0) write(*,*) "Generating overlap matrix..."
 call genSbas_curr
+
+!Generate unique GTF information
+call gen_GTFuniq(infomode)
 
 !Output summary of present wavefunction
 if (infomode==0) then

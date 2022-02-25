@@ -32,6 +32,7 @@ real*8,parameter :: planckc=6.62606896D-34,h_bar=1.054571628D-34,amu2kg=1.660538
 real*8,parameter :: boltzc=1.3806488D-23,boltzcau=3.1668114D-6,boltzceV=8.6173324D-5 !in J/K, in Hartree/K and in eV/K, respectively
 real*8,parameter :: avogacst=6.02214179D23,eV2nm=1239.842D0,au2nm=45.563D0 !eV and nm can be interconverted by dividing eV2nm
 integer,parameter :: nelesupp=150 !The number of elements supported, ghost(index=0) is not taken into account
+integer,parameter :: maxneigh=30 !Maximum number of neighbours in neighbouring list
 real*8 ctrval(1000) !Value of contour lines
 
 !Store important calculated data
@@ -253,7 +254,7 @@ integer :: ifiletype=0 !Plain text=0, fch/fchk=1, wfn=2, wfx=3, chg/pqr=4, pdb/x
 integer :: wfntype=0 !0/1/2= R/U/RO single determinant wavefunction, 3/4=R/U multiconfiguration wavefunction
 real*8 :: totenergy=0,virialratio=2,nelec=0,naelec=0,nbelec=0
 integer :: loadmulti=-99,loadcharge=-99 !Spin multiplicity and net charge, loaded directly from input file (e.g. from .gjf or .xyz), only utilized in rare cases. -99 means unloaded
-!-------- Variables for nuclei & GTF & Orbitals
+!-------- Variables for nuclei & GTF & Orbitals. Note: Row and column of CO(:,:) correspond to orbital and GTF, respectively, in contrary to convention
 type(atomtype),allocatable :: a(:),a_org(:),a_tmp(:) !a_tmp is only used in local temporary operation, should be destoried immediatedly after using
 type(primtype),allocatable :: b(:),b_org(:),b_tmp(:)
 real*8,allocatable :: MOocc(:),MOocc_org(:),MOene(:),MOene_org(:) !Occupation number & energy of orbital
@@ -262,7 +263,10 @@ character(len=10) :: orbtypename(0:2)=(/ character(len=10) :: "Alpha&Beta","Alph
 character(len=4),allocatable :: MOsym(:) !The symmetry of orbitals, meaningful when .mwfn/molden/gms is used
 real*8,allocatable :: CO(:,:),CO_org(:,:),CO_tmp(:,:) !Coefficient matrix of primitive basis functions, including both normalization and contraction coefficients
 real*8,allocatable :: COtr(:,:) !Transposed CO matrix, which is used in some routines for faster calculation than using CO. Must be deallocated after using
-!Note: Row/column of CO denote MO/GTF respectively, in contrary to convention
+!Unique GTFs (the GTFs with identical center, type and exponent are combined together and leave only one). Can be activated after running gen_GTFuniq
+integer :: nprims_uniq=0 !0 means uninitialized
+type(primtype),allocatable :: b_uniq(:) !b of unique GTFs
+real*8,allocatable :: CO_uniq(:,:) !CO of b_uniq. The coefficients of duplicated GTFs are summed together
 !-------- Describe inner electron density in EDF section
 type(primtype),allocatable :: b_EDF(:)
 real*8,allocatable :: CO_EDF(:)
@@ -305,7 +309,7 @@ real*8,allocatable :: Hexdeprim(:,:,:) !Hexadecapole moment integral matrix base
 integer :: nmo_back,ifdelvirorb=0 !If "delvirorb" has been called, then ifdelvirorb=1, otherwise 0
 real*8,allocatable :: MOene_back(:),MOocc_back(:)
 integer,allocatable :: MOtype_back(:)
-real*8,allocatable :: CO_back(:,:)
+real*8,allocatable :: CO_back(:,:),CO_uniq_back(:,:)
 !Translation vector of the cell in Bohr. If any vector has all zero values, that means cell information is not available. The ones with _bk suffix are used to backup PBC information, the ones with _org are original system information
 real*8 :: cellv1(3)=0,cellv2(3)=0,cellv3(3)=0,cellv1_org(3),cellv2_org(3),cellv3_org(3),cellv1_bk(3),cellv2_bk(3),cellv3_bk(3)
 integer :: ifPBC=0,ifPBC_org,ifPBC_bk !Dimension of periodicity. 0=Isolated system, 1/2/3/=one/two/three dimensions

@@ -27,7 +27,7 @@ end if
 
 10 call loadsetting
 write(*,*) "Multiwfn -- A Multifunctional Wavefunction Analyzer"
-write(*,*) "Version 3.8(dev), release date: 2022-Feb-19"
+write(*,*) "Version 3.8(dev), release date: 2022-Feb-25"
 write(*,"(a)") " Developer: Tian Lu (Beijing Kein Research Center for Natural Sciences)"
 write(*,*) "Below paper ***MUST BE CITED*** if Multiwfn is utilized in your work:"
 write(*,*) "         Tian Lu, Feiwu Chen, J. Comput. Chem., 33, 580-592 (2012)"
@@ -103,7 +103,7 @@ if (trim(filename)==" ") then !Haven't defined filename variable
 	if (alive) then
 		open(20,file=settingpath,status="old")
 		call loclabel(20,"lastfile")
-		write(20,"(a)") "lastfile= "//trim(filename)
+		write(20,"(a)") "lastfile= """//trim(filename)//""""
 		close(20)
 	end if
 else
@@ -220,7 +220,7 @@ if (allocated(a)) then
 end if
 
 !Special treatment
-!write(*,*) PBCnx_in,PBCny_in,PBCnz_in
+!call gen_GTFuniqmap
 
 !!!--------------------- Now everything start ---------------------!!!
 do while(.true.) !Main loop
@@ -304,10 +304,15 @@ do while(.true.) !Main loop
 			    cycle
 		    end if
 		    if (ncenter>0) then
-				write(*,*) "Atom list:"
-				do i=1,ncenter
-					write(*,"(i5,'(',a2,')',' --> Charge:',f10.6,'  x,y,z(Bohr):',3f11.6)") i,a(i)%name,a(i)%charge,a(i)%x,a(i)%y,a(i)%z
-				end do
+				if (ncenter<=300) then
+					write(*,*) "Atom list:"
+					do i=1,ncenter
+						write(*,"(i5,'(',a2,')',' --> Charge:',f10.6,'  x,y,z(Bohr):',3f11.6)") i,a(i)%name,a(i)%charge,a(i)%x,a(i)%y,a(i)%z
+					end do
+                else
+					write(*,"(a)") " Note: There are more than 300 atoms, so their information are not shown here now. &
+                    To print, in the manu bar please select ""Tools"" - ""Print XYZ coordinates"""
+				end if
             end if
 		    if (allocated(CObasa).and.imodwfn==0) then !fch and occupation number hasn't been modified
 			    if (wfntype==0) then
