@@ -1,0 +1,9 @@
+# artifacts
+*.o
+*.mod
+*.fmod
+
+# executables
+
+src/Multiwfn
+src/Multiwfn_noGUI
