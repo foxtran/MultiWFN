@@ -88,14 +88,14 @@ do while(.true.)
 		j=0
 		do i=1,nprims
 			if (any(fragatm==b(i)%center)) then
-				j=j+1      !Move function in the fragment to head of list
+				j=j+1      !Move GTFs in the fragment to head of list
 				CO(:,j)=CO(:,i)
 				b(j)=b(i)
 			end if
 		end do
 		ifragcontri=1 !Fragment has been defined by users
 		write(*,"(' Done,',i8,' GTFs have been discarded,',i8,' GTFs reserved')") nprims-j,j
-		nprims=j !Cut list at j, all functions after j seem non exist
+		nprims=j !Cut list at j, all functions after j seems nonexistent
 		if (isel==-4) deallocate(exclfragatm)
 
 		!Modification of wavefunction has finished, now reduce size of b, CO... to current nprims and nmo to avoid potential problems
@@ -114,9 +114,15 @@ do while(.true.)
 		write(*,*) "Wavefunction has been outputted to new.wfn in current folder"
 	
 	else if (isel==1) then
+		GTFlarge=0
 		do i=1,nprims
 			write(*,"(i6,' Center:',i5,'(',a2,')','   Type: ',a,'   Exponent:',E16.7)") i,b(i)%center,a(b(i)%center)%name,GTFtype2name(b(i)%type),b(i)%exp
+            if (b(i)%exp>GTFlarge) then
+				ilarge=i
+                GTFlarge=b(i)%exp
+            end if
 		end do
+        write(*,"(/,' Largest exponent is',E16.7,' of GTF',i6)") GTFlarge,ilarge
 	
 	else if (isel==2) then
 		do i=1,nbasis
@@ -1001,10 +1007,6 @@ do while(.true.)
         write(*,*) "Finished!"
 	end if
     
-    !These operations may changed coefficients or GTFs, so unique GTF information should be updated
-    if (isel==11.or.isel==21.or.isel==22.or.isel==23.or.isel==24.or.isel==25.or.isel==32.or.isel==33.or.isel==36.or.isel==37) then
-		call gen_GTFuniq(1)
-    end if
 end do
 end subroutine
 
@@ -1133,7 +1135,6 @@ else
     nbelec=(nint(nelec)-1)/2
     naelec=nbelec+1
 end if
-
 end subroutine
 			
 			
@@ -1287,53 +1288,84 @@ end subroutine
 
 
 !!----- Use Lowdin orthogonalization method to transform density matrix and coefficient matrix &
-!!----- to orthonormal basis, meanwhile update Sbas to identity matrix
+!to orthonormal basis, meanwhile update Sbas to identity matrix
 !See Szabo p143 for details
+!NOTICE that in this routine Xmat=S^(1/2), in contrast to the definition of matrix X in 3.167 of Szabo
 subroutine symmortho
 use defvar
 use util
 implicit real*8 (a-h,o-z)
-real*8 Umat(nbasis,nbasis),svalvec(nbasis),Xmat(nbasis,nbasis) !workvec(3*nbasis-1)
-! call DSYEV('V','U',nbasis,sbas,nbasis,svalvec,workvec,3*nbasis-1,ierror) !lapack, the resultant sbas is eigenvector matrix
+real*8 Umat(nbasis,nbasis),svalvec(nbasis),Xmat(nbasis,nbasis),tmpmat(nbasis,nbasis)
+
+!call walltime(iwalltime1)
 call diagsymat(Sbas,Umat,svalvec,ierror)
 if (ierror/=0) write(*,*) "Error: Diagonalization of overlap matrix failed!"
+!call walltime(iwalltime2)
+!write(*,"(' Time cost for diagonalizing overlap matrix',i10,' s')") iwalltime2-iwalltime1
+
 !Now Sbas is already diagonalized
 forall (i=1:nbasis) Sbas(i,i)=dsqrt(svalvec(i)) !Use Sbas as temporary matrix here
-Xmat=matmul(matmul(Umat,Sbas),transpose(Umat)) !Then Xmat is S^0.5
-Ptot=matmul(matmul(Xmat,Ptot),Xmat)
+
+!call walltime(iwalltime1)
+!Xmat=matmul(matmul(Umat,Sbas),transpose(Umat)) !Then Xmat is S^0.5. Slow version
+tmpmat=matmul_blas(Umat,Sbas,nbasis,nbasis)
+Xmat=matmul_blas(tmpmat,Umat,nbasis,nbasis,0,1)
+!call walltime(iwalltime2)
+!write(*,"(' Time cost for constructing X matrix',i10,' s')") iwalltime2-iwalltime1
+
+!call walltime(iwalltime1)
+!Ptot=matmul(matmul(Xmat,Ptot),Xmat)
+tmpmat=matmul_blas(Xmat,Ptot,nbasis,nbasis)
+Ptot=matmul_blas(tmpmat,Xmat,nbasis,nbasis)
 if (allocated(Palpha)) then
-	Palpha=matmul(matmul(Xmat,Palpha),Xmat)
+	!Palpha=matmul(matmul(Xmat,Palpha),Xmat)
+	tmpmat=matmul_blas(Xmat,Palpha,nbasis,nbasis)
+	Palpha=matmul_blas(tmpmat,Xmat,nbasis,nbasis)
 	Pbeta=Ptot-Palpha
 end if
-Cobasa=matmul(Xmat,Cobasa)
-if (allocated(Cobasb)) Cobasb=matmul(Xmat,Cobasb)
-forall(i=1:nbasis) Sbas(i,i)=1D0 !Reconstruct overlap matrix in orthonormal basis function
+!call walltime(iwalltime2)
+!write(*,"(' Time cost for transforming density matrix',i10,' s')") iwalltime2-iwalltime1
+
+!call walltime(iwalltime1)
+CObasa=matmul_blas(Xmat,CObasa,nbasis,nbasis)
+if (allocated(CObasb)) CObasb=matmul_blas(Xmat,CObasb,nbasis,nbasis)
+!call walltime(iwalltime2)
+!write(*,"(' Time cost for transforming coefficient matrix',i10,' s')") iwalltime2-iwalltime1
+
+forall(i=1:nbasis) Sbas(i,i)=1D0 !Set overlap matrix to identity matrix as expected
 end subroutine
 
-!!--- Input overlap matrix and return Lowdin orthogonalization transformation matrix Xmat=S^0.5 and Xmatinv=S^-0.5
-! Smatin is inputted overlap matrix, which will not be modified
+
+!!----- Input overlap matrix and return Lowdin orthogonalization transformation matrix Xmat=S^0.5 and Xmatinv=S^-0.5
+!Smatin is inputted overlap matrix, which will not be modified
+!NOTICE that the definition of matrix X is inverse of that of p143 of Szabo bok
 subroutine symmorthomat(Smatin,Xmat,Xmatinv)
 use defvar
 use util
-real*8 Umat(nbasis,nbasis),svalvec(nbasis),Smatin(nbasis,nbasis),Smat(nbasis,nbasis),Xmat(nbasis,nbasis),Xmatinv(nbasis,nbasis)
+real*8 Umat(nbasis,nbasis),svalvec(nbasis),Smatin(nbasis,nbasis),Smat(nbasis,nbasis),Xmat(nbasis,nbasis),Xmatinv(nbasis,nbasis),tmpmat(nbasis,nbasis)
 Smat=Smatin
 call diagsymat(Smat,Umat,svalvec,ierror)
 if (ierror/=0) write(*,*) "Error: Diagonalization of overlap matrix is fail!"
 forall (i=1:nbasis) Smat(i,i)=dsqrt(svalvec(i))
-Xmat=matmul(matmul(Umat,Smat),transpose(Umat))
+!Xmat=matmul(matmul(Umat,Smat),transpose(Umat))
+tmpmat=matmul_blas(Umat,Smat,nbasis,nbasis)
+Xmat=matmul_blas(tmpmat,Umat,nbasis,nbasis,0,1)
 forall (i=1:nbasis) Smat(i,i)=1D0/Smat(i,i)
-Xmatinv=matmul(matmul(Umat,Smat),transpose(Umat))
+!Xmatinv=matmul(matmul(Umat,Smat),transpose(Umat))
+tmpmat=matmul_blas(Umat,Smat,nbasis,nbasis)
+Xmatinv=matmul_blas(tmpmat,Umat,nbasis,nbasis,0,1)
 end subroutine
 
 
+
 !!!------------------ Generate distance matrix between atoms (in Bohr)
-!To avoid complicate thing, PBC is not taken into account
+!To avoid complicating thing, PBC is not taken into account
 subroutine gendistmat
 use defvar
 implicit real*8 (a-h,o-z)
 if (allocated(distmat)) deallocate(distmat)
 allocate(distmat(ncenter,ncenter))
-distmat=0.0D0
+distmat=0D0
 !if (ifPBC==0) then
 	!$OMP PARALLEL DO SHARED(distmat) PRIVATE(i,j,tmp) schedule(dynamic) NUM_THREADS(nthreads)
 	do i=1,ncenter
@@ -1354,8 +1386,8 @@ distmat=0.0D0
 !	end do
 !	!$OMP END PARALLEL DO
 !end if
-
 end subroutine
+
 
 
 !!!------------ Return the number of inner-core orbitals
@@ -1376,6 +1408,7 @@ do i=1,ncenter
 	if (a(i)%index>86) ninnerele=ninnerele+86
 end do
 end subroutine
+
 
 
 !!!------------------------- Swap two GTF
@@ -1411,6 +1444,7 @@ end if
 end subroutine
 
 
+
 !!!---- Rotate(exchange) GTF and basis function coefficients within all shell in different direction of specific orbital
 ! If using this three times, namely XYZ->ZXY->YZX->XYZ, the original coefficient will be recovered
 ! In detail, for example, for d-type will lead to such coefficient exchange: XX to YY, YY to ZZ, ZZ to XX, XY to YZ, XZ to XY, YZ to XZ
@@ -1439,6 +1473,7 @@ if (allocated(CObasa)) then
         CObasb_tmp=CObasb(:,orb-nbasis)
     end if
 	do iatm=1,ncenter
+		if (basstart(iatm)==0) cycle
 		do ibas=basstart(iatm),basend(iatm)
 			ityp=bastype(ibas)
 			ixtmp=type2iz(ityp)
@@ -1513,6 +1548,7 @@ deallocate(CO_bk,MOene_bk,MOocc_bk,MOtype_bk)
 end subroutine
 
 
+
 !!!------------ Generate gjf of atoms in molecule, and invoke Gaussian to get .wfn, then input them into custom list
 subroutine setpromol
 use defvar
@@ -1529,7 +1565,7 @@ if (iwfntmptype==1) then
 	if (isys==1) tmpdir="wfntmp\"
 	if (isys==2) tmpdir="wfntmp/"
 	c80tmp="wfntmp"
-	inquire(directory="wfntmp",exist=alivewfntmp)
+    call inquire_dir("wfntmp",alivewfntmp)
 	if (isys==1.and.alivewfntmp) then !Delete old wfntmp folder
 		write(*,*) "Running: rmdir /S /Q wfntmp"
 		call system("rmdir /S /Q wfntmp")
@@ -1540,7 +1576,7 @@ if (iwfntmptype==1) then
 else if (iwfntmptype==2) then
 	do i=1,9999 !Find a proper name of temporary folder
 		write(c80tmp,"('wfntmp',i4.4)") i
-		inquire(directory=c80tmp,exist=alivewfntmp)
+		call inquire_dir(c80tmp,alivewfntmp)
 		if (.not.alivewfntmp) exit
 	end do
 	if (isys==1) write(tmpdir,"('wfntmp',i4.4,'\')") i
@@ -1548,7 +1584,7 @@ else if (iwfntmptype==2) then
 end if
 write(*,*) "Running: mkdir "//trim(c80tmp) !Build new temporary folder
 call system("mkdir "//trim(c80tmp))
-inquire(directory="atomwfn",exist=aliveatomwfn)
+call inquire_dir("atomwfn",aliveatomwfn)
 if (isys==1.and.aliveatomwfn) then
 	write(*,*) "Running: copy atomwfn\*.wfn "//trim(tmpdir)
 	call system("copy atomwfn\*.wfn "//trim(tmpdir))
@@ -1573,7 +1609,7 @@ else if (noatmwfn==1) then !Some or all atomic wfn don't exist, calc them
 	!Select calculation level
 	write(*,"(a)") " Note: Some or all atom .wfn files needed are not present in ""atomwfn"" folder, they must be calculated now. See Section 3.7.3 of the manual for detail."
 	write(*,"(a)") " Now please input the level for calculating atom wfn files, theoretical method is optional."
-	write(*,"(a)") " For example: 6-31G* or B3LYP/def2SVP    You can also add other keywords at the same time, e.g. M062X/6-311G(2d,p) scf=xqc int=ultrafine"
+	write(*,"(a)") " For example: B3LYP/6-31G*    You can also add other keywords at the same time, e.g. wB97XD/def2TZVP scf=xqc int=ultrafine"
 	read(*,"(a)") basisset !Note: 6d 10f is not required for generating wfn files, since the work has been done in L607 internally
 	!Check Gaussian path
 	inquire(file=gaupath,exist=alive)
@@ -1690,10 +1726,10 @@ else if (noatmwfn==1) then !Some wfn needs to be genereated by Gaussian and sphe
 	
 		!Load and sphericalize electron density for the just generated wfn, and then save
 		if (ispheratm==1.and.igaunormal==1) then
-			call dealloall
+			call dealloall(1)
 			call readwfn(trim(tmpdir)//nametmp//".wfn",1)
 			!Main group, restrict open-shell
-			if (nametmp=="H ".or.nametmp=="Li".or.nametmp=="Na".or.nametmp=="K") MOocc(nmo)=1.0D0
+			if (nametmp=="H ".or.nametmp=="Li".or.nametmp=="Na".or.nametmp=="K") MOocc(nmo)=1D0
 			if (nametmp=="B ".or.nametmp=="Al".or.nametmp=="Ga") then
 				nmo=nmo+2
 				call resizebynmo(nmo,nprims) !Enlarge nmo by 2, but don't interfere nprims
@@ -1709,7 +1745,7 @@ else if (noatmwfn==1) then !Some wfn needs to be genereated by Gaussian and sphe
 			end if
 			if (nametmp=="C ".or.nametmp=="Si".or.nametmp=="Ge") then
 				if (SpherIVgroup==0) then
-					MOocc(nmo-3:nmo)=1.0D0
+					MOocc(nmo-3:nmo)=1D0
 				else if (SpherIVgroup==1) then
 					nmo=nmo+1
 					call resizebynmo(nmo,nprims)
@@ -1724,7 +1760,7 @@ else if (noatmwfn==1) then !Some wfn needs to be genereated by Gaussian and sphe
 					call orbcoeffrotate(nmo-2) !YZX->XYZ, namely recovered
 				end if
 			end if
-			if (nametmp=="N ".or.nametmp=="P ".or.nametmp=="As") MOocc(nmo-2:nmo)=1.0D0
+			if (nametmp=="N ".or.nametmp=="P ".or.nametmp=="As") MOocc(nmo-2:nmo)=1D0
 			if (nametmp=="O ".or.nametmp=="S ".or.nametmp=="Se") MOocc(nmo-2:nmo)=4D0/3D0
 			if (nametmp=="F ".or.nametmp=="Cl".or.nametmp=="Br") MOocc(nmo-2:nmo)=5D0/3D0
 			!Transition metals, unrestrict open-shell, find boundary of alpha and beta first
@@ -1785,7 +1821,7 @@ allocate(customop(ncustommap))
 
 !Generate atomic wfn file from element wfn file, meanwhile take them into custom operation list
 do i=1,itype !Scan each atomtype in current system
-	call dealloall
+	call dealloall(1)
 	call readwfn(trim(tmpdir)//typename(i)//".wfn",1)
 	do j=1,nfragatm_org
 		if (a_org(fragatm_org(j))%name==typename(i)) then !Find atoms attributed to current element
@@ -1799,7 +1835,7 @@ do i=1,itype !Scan each atomtype in current system
 	end do
 end do
 
-call dealloall
+call dealloall(1)
 call readinfile(firstfilename,1)
 end subroutine
 
@@ -1829,7 +1865,7 @@ CO_pmol=0
 iGTF=1
 imo_pmol=1
 do iatm=1,ncustommap
-    call dealloall
+    call dealloall(0)
     write(*,"(a)") " Dealing with "//trim(custommapname(iatm))
     call readinfile(custommapname(iatm),1)
     if (iGTF+nprims-1>nprims_org) then
@@ -1849,7 +1885,7 @@ nmo_pmol=imo_pmol-1
 
 write(*,*) "Done! Promolecular wavefunction has been successfully generated!"
 write(*,"(a)") " Reloading "//trim(firstfilename)
-call dealloall
+call dealloall(1)
 call readinfile(firstfilename,1)
 
 !Test if rho can be correctly calculated
@@ -1918,7 +1954,6 @@ else if (wfntype==4.or.(wfntype==1.and.imodwfn==1)) then !Unrestricted post-HF
 	end do
 	Ptot=Palpha+Pbeta
 end if
-
 end subroutine
 
 
@@ -2030,8 +2065,8 @@ end subroutine
 subroutine showptprop(inx,iny,inz,ifuncsel,ifileid)
 use util
 use defvar
-use function
-implicit real*8(a-h,o-z)
+use functions
+implicit real*8 (a-h,o-z)
 real*8 inx,iny,inz
 real*8 eigvecmat(3,3),eigval(3),elegrad(3),elehess(3,3),funcgrad(3),funchess(3,3),tmparr(3,1),tmpmat(3,3),tmpgrad1(3),tmpgrad2(3)
 integer ifuncsel,ifileid
@@ -2056,7 +2091,7 @@ if (allocated(b)) then !If loaded file contains wavefuntion information
 	write(ifileid,"(' Hamiltonian kinetic energy K(r):',E18.10)") valK
 ! 	valKx=Hamkin(inx,iny,inz,1);valKy=Hamkin(inx,iny,inz,2);valKz=Hamkin(inx,iny,inz,3)
 ! 	write(ifileid,"(' K(r) in X,Y,Z:',3E18.10)") valKx,valKy,valKz
-	write(ifileid,"(' Potential energy density V(r):',E18.10)") -valK-valG !When without EDF, also equals to flapl(inx,iny,inz,'t')/4.0D0-2*valG
+	write(ifileid,"(' Potential energy density V(r):',E18.10)") -valK-valG !When without EDF, also equals to flapl(inx,iny,inz,'t')/4D0-2*valG
 	write(ifileid,"(' Energy density E(r) or H(r):',E18.10)") -valK
 	write(ifileid,"(' Laplacian of electron density:',E18.10)") laplfac*(elehess(1,1)+elehess(2,2)+elehess(3,3))
 	write(ifileid,"(' Electron localization function (ELF):',E18.10)") ELF_LOL(inx,iny,inz,"ELF")
@@ -2190,8 +2225,8 @@ end subroutine
 subroutine decompptprop(x,y,z)
 use defvar
 use util
-use function
-implicit real*8(a-h,o-z)
+use functions
+implicit real*8 (a-h,o-z)
 character c2000tmp*2000
 real*8 MOocctmp(nmo)
 real*8,allocatable :: valarr(:)
@@ -2272,11 +2307,9 @@ if (wfntype==3.or.wfntype==4) return !This routine doesn't work for post-HF case
 if (ifdelvirorb==1) return !This routine has already been called while delvirorb_back was not used after that
 
 if (allocated(CO_back)) deallocate(CO_back,MOene_back,MOocc_back,MOtype_back)
-if (allocated(CO_uniq_back)) deallocate(CO_uniq_back)
 allocate(CO_back(nmo,nprims),MOene_back(nmo),MOocc_back(nmo),MOtype_back(nmo))
 nmo_back=nmo
 CO_back=CO
-CO_uniq_back=CO_uniq
 MOene_back=MOene
 MOocc_back=MOocc
 MOtype_back=MOtype
@@ -2290,7 +2323,6 @@ else if (wfntype==1) then !Reserve up to LUMO+10 for alpha, and same number of o
 	nperserve=idxHOMO+nvirsave !Number of lowest preserved alpha orbitals
 	!CObasa and CObasb needn't to be modified, because they are not directly involved in real space function calculation
 	CO(nperserve+1:2*nperserve,:)=CO(nmo/2+1:nmo/2+nperserve,:)
-	CO_uniq(nperserve+1:2*nperserve,:)=CO_uniq(nmo/2+1:nmo/2+nperserve,:)
 	MOene(nperserve+1:2*nperserve)=MOene(nmo/2+1:nmo/2+nperserve)
 	MOocc(nperserve+1:2*nperserve)=MOocc(nmo/2+1:nmo/2+nperserve)
 	MOtype(nperserve+1:2*nperserve)=MOtype(nmo/2+1:nmo/2+nperserve)
@@ -2304,7 +2336,7 @@ end subroutine
 
 
 !!!------------------- Recover status prior to calling delvirorb
-!infomode=1 means show prompt
+!infomode=1 means show prompt, =0 means do not show
 subroutine delvirorb_back(infomode)
 use defvar
 implicit real*8 (a-h,o-z)
@@ -2312,7 +2344,6 @@ integer infomode
 if (ifdelvirorb==1) then
     nmo=nmo_back
     CO=CO_back
-    if (allocated(CO_uniq_back)) CO_uniq=CO_uniq_back
     MOene=MOene_back
     MOocc=MOocc_back
     MOtype=MOtype_back
@@ -2320,6 +2351,54 @@ if (ifdelvirorb==1) then
     ifdelvirorb=0 !Has been restored
     if (infomode==1) write(*,"(a)") " Note: Previous orbital information has been restored"
 end if
+end subroutine
+
+
+
+!!----------- Generate unique GTF information (b_uniq, CO_uniq)
+!This reduce number of GTFs if generally contracted basis set is used, then cost in subroutine "orbserv" can be lowered
+!infomode=0: Print number of unique GTFs. =1: Do not print
+!Note that after using it, del_GTFuniq should be invoked as early as possible, otherwise when CO is changed due to some reasons, CO_uniq will be out-of-dated
+subroutine gen_GTFuniq(infomode)
+use defvar
+integer ifcombined(nprims)
+
+if (.not.allocated(b)) return
+if (allocated(b_uniq)) deallocate(b_uniq)
+if (allocated(CO_uniq)) deallocate(CO_uniq)
+
+do itime=1,2
+	nprims_uniq=0
+	ifcombined=0
+	do iGTF=1,nprims
+		if (ifcombined(iGTF)==0) then
+			nprims_uniq=nprims_uniq+1
+            if (itime==2) then
+				b_uniq(nprims_uniq)=b(iGTF)
+				CO_uniq(:,nprims_uniq)=CO(:,iGTF)
+            end if
+			do jGTF=iGTF+1,nprims
+				if (b(jGTF)%center==b(iGTF)%center.and.b(jGTF)%type==b(iGTF)%type.and.b(jGTF)%exp==b(iGTF)%exp) then
+					if (itime==2) CO_uniq(:,nprims_uniq)=CO_uniq(:,nprims_uniq)+CO(:,jGTF)
+					ifcombined(jGTF)=1
+				end if
+			end do
+        end if
+	end do
+    if (itime==1) allocate(b_uniq(nprims_uniq),CO_uniq(nmo,nprims_uniq))
+end do
+
+if (infomode==0) write(*,"(' Unique GTFs have been constructed. Number of unique GTFs:',i8)") nprims_uniq
+end subroutine
+
+
+
+!!----------- Destory unique GTF information (b_uniq, CO_uniq)
+subroutine del_GTFuniq
+use defvar
+nprims_uniq=0
+if (allocated(b_uniq)) deallocate(b_uniq)
+if (allocated(CO_uniq)) deallocate(CO_uniq)
 end subroutine
 
 
@@ -2366,26 +2445,22 @@ end subroutine
 
 
 !!-------- Deallocate all arrays about wavefunction except for the _org ones, and re-initialize some variables
-subroutine dealloall
+!imode=0: Deallocate all global arrays
+!imode=1: Same as 1 but do not deallocate frag1, frag2 and fragatm, which may be used later
+subroutine dealloall(imode)
 use defvar
+integer imode
 
 call delvirorb_back(0) !If delvirorb has taken effect, use this routine to deallocate relevant arrays
+call del_GTFuniq
+call dealloEDF
 if (allocated(a)) deallocate(a)
 if (allocated(b)) deallocate(b)
-if (allocated(b_uniq)) then
-	nprims_uniq=0
-	deallocate(b_uniq,CO_uniq)
-end if
 if (allocated(CO)) deallocate(CO)
 if (allocated(MOocc)) deallocate(MOocc)
 if (allocated(MOsym)) deallocate(MOsym)
 if (allocated(MOene)) deallocate(MOene)
 if (allocated(MOtype)) deallocate(MOtype)
-if (allocated(b_EDF)) then
-	deallocate(CO_EDF,b_EDF)
-	nEDFprims=0
-	nEDFelec=0
-end if
 if (allocated(connmat)) deallocate(connmat)
 !Related to basis functions
 if (allocated(shtype)) deallocate(shtype,shcen,shcon,primshexp,primshcoeff)
@@ -2401,6 +2476,8 @@ if (allocated(Dbas)) deallocate(Dbas)
 if (allocated(DorbA)) deallocate(DorbA)
 if (allocated(DorbB)) deallocate(DorbB)
 if (allocated(Magbas)) deallocate(Magbas)
+if (allocated(MagorbA)) deallocate(MagorbA)
+if (allocated(MagorbB)) deallocate(MagorbB)
 if (allocated(Quadbas)) deallocate(Quadbas)
 if (allocated(Octobas)) deallocate(Octobas)
 
@@ -2411,9 +2488,11 @@ if (allocated(Dprim)) deallocate(Dprim)
 if (allocated(Quadprim)) deallocate(Quadprim)
 if (allocated(Octoprim)) deallocate(Octoprim)
 
-if (allocated(frag1)) deallocate(frag1)
-if (allocated(frag2)) deallocate(frag2)
-if (allocated(fragatm)) deallocate(fragatm)
+if (imode==0) then
+	if (allocated(frag1)) deallocate(frag1)
+	if (allocated(frag2)) deallocate(frag2)
+	if (allocated(fragatm)) deallocate(fragatm)
+end if
 
 !Arrays used by delvirorb for backing up original MO information
 if (allocated(CO_back)) deallocate(CO_back,MOene_back,MOocc_back,MOtype_back)
@@ -2465,14 +2544,24 @@ cellv3_org=0
 end subroutine
 
 
+!!-------- Deallocate EDF related information
+subroutine dealloEDF
+use defvar
+if (allocated(b_EDF)) then
+	deallocate(CO_EDF,b_EDF)
+	nEDFprims=0
+	nEDFelec=0
+end if
+end subroutine
 
 
-!!------- Generate atomic/fragmental Hirshfeld weight and store it to planemat, calculate free-atom/fragmental density and store it to planemattmp
+
+!!------- Generate fragment Hirshfeld weighting function (based on atomic .wfn) and store it to planemat, calculate free-atom/fragmental density and store it to planemattmp
 !The atoms in the fragment is inputted as "selatm" array, nselatm is the number of its elements
 !if itype=1, use atomic wavefunction to calculate Hirshfeld weight, and setpromol must have been invoked; if =2, use built-in atomic density to generate it
 subroutine genHirshplanewei(selatm,nselatm,itype)
 use defvar
-use function
+use functions
 implicit real*8 (a-h,o-z)
 integer selatm(nselatm),nselatm,itype
 if (allocated(planemat)) deallocate(planemat)
@@ -2484,7 +2573,7 @@ do iatm=1,ncenter_org !Calc free atomic density of each atom, get promolecular d
 	iyes=0
 	if (any(selatm==iatm)) iyes=1
 	if (itype==1) then
-		call dealloall
+		call dealloall(0)
 		call readwfn(custommapname(iatm),1)
 	end if
 	!$OMP PARALLEL DO private(i,j,rnowx,rnowy,rnowz,tmpval) shared(planemat) schedule(dynamic) NUM_THREADS(nthreads)
@@ -2505,7 +2594,7 @@ do iatm=1,ncenter_org !Calc free atomic density of each atom, get promolecular d
 	!$OMP END PARALLEL DO
 end do
 if (itype==1) then
-	call dealloall
+	call dealloall(0)
 	call readinfile(firstfilename,1) !Retrieve the first loaded file(whole molecule)
 end if
 
@@ -2522,12 +2611,12 @@ end subroutine
 
 
 
-!!----- Generate atomic Hirshfeld weight and store it to cubmat
+!!----- Generate fragment Hirshfeld weighting function (based on atomic .wfn) and store it to cubmat
 !The atoms in the fragment is inputted as "selatm" array, nselatm is the number of its elements
 !if itype=1, use atomic wavefunction to calculate Hirshfeld weight, and setpromol must have been invoked; if =2, use built-in atomic density to generate it
 subroutine genHirshcubewei(selatm,nselatm,itype)
 use defvar
-use function
+use functions
 implicit real*8 (a-h,o-z)
 integer selatm(nselatm),nselatm,itype
 if (allocated(cubmat)) deallocate(cubmat)
@@ -2538,7 +2627,7 @@ cubmattmp=0D0
 do iatm=1,ncenter_org
 	write(*,"(' Finished',i6,'  /',i6)") iatm,ncenter_org
 	if (itype==1) then
-		call dealloall
+		call dealloall(0)
 		call readwfn(custommapname(iatm),1)
 	end if
 	!$OMP PARALLEL DO SHARED(cubmat,cubmattmp,ifinish) PRIVATE(i,j,k,tmpx,tmpy,tmpz,tmpval) schedule(dynamic) NUM_THREADS(nthreads)
@@ -2559,7 +2648,7 @@ do iatm=1,ncenter_org
 	!$OMP END PARALLEL DO
 end do
 if (itype==1) then
-	call dealloall
+	call dealloall(0)
 	call readinfile(firstfilename,1) !Retrieve the first loaded file(whole molecule)
 end if
 
@@ -2578,16 +2667,17 @@ end subroutine
 
 
 
-!!--- Generate single-center integration grid for Becke's integration. Not adapted according to element. Return iradcut and gridatm
+!!--- Generate single-center integration grid. Return iradcut and gridatm
 subroutine gen1cintgrid(gridatm,iradcut)
 use defvar
 implicit real*8 (a-h,o-z)
 integer iradcut
 real*8 potx(sphpot),poty(sphpot),potz(sphpot),potw(sphpot)
 type(content) gridatm(radpot*sphpot)
+
 call Lebedevgen(sphpot,potx,poty,potz,potw)
 iradcut=0 !Before where the radial points will be cut
-parm=1D0
+parm=1D0 !Not adapted according to element, for balance description for all cases
 do i=1,radpot !Combine spherical point&weights with second kind Gauss-Chebyshev method for radial part
 	radx=cos(i*pi/(radpot+1))
 	radr=(1+radx)/(1-radx)*parm !Becke transform
@@ -2599,49 +2689,259 @@ do i=1,radpot !Combine spherical point&weights with second kind Gauss-Chebyshev 
 	if (radcut/=0D0.and.iradcut==0.and.radr<radcut) iradcut=i-1
 end do
 end subroutine
-!!--- Generate Becke weight for a batch of points around iatm, sharpness parameter=3
-!!--- Input: iatm, iradcut, gridatm   Return: beckeweigrid
-subroutine gen1cbeckewei(iatm,iradcut,gridatm,beckeweigrid)
+
+
+
+!!----- A general interface for generating weighting function value of an atom at its single-center integration grids
+!iweitype=1: Hirshfeld atom weighting function
+!iweitype=2: Becke atom weighting function with covr_tianlu radii
+!iweitype=3: Becke atom weighting function with covr radii
+!iweitype=4: Tian lu error function type atom weighting function
+!iweitype=5: Tian lu Gaussian function type atom weighting function
+subroutine gen1catmwei(iatm,iradcut,gridatm,weigrid,iweitype)
 use defvar
 implicit real*8 (a-h,o-z)
 integer iatm,iradcut
-real*8 beckeweigrid(radpot*sphpot),smat(ncenter,ncenter),Pvec(ncenter)
+real*8 weigrid(radpot*sphpot)
 type(content) gridatm(radpot*sphpot)
-!$OMP parallel do shared(beckeweigrid) private(i,rnowx,rnowy,rnowz,smat,ii,ri,jj,rj,rmiu,chi,uij,aij,tmps,Pvec) num_threads(nthreads) schedule(dynamic)
+if (ifPBC>0.and.(iweitype==2.or.iweitype==3)) then
+	write(*,*) "Error: Becke atom weighting function does not support periodic system!"
+    write(*,*) "Press ENTER button to exit program"
+    read(*,*)
+    stop
+end if
+!$OMP parallel do shared(weigrid) private(i,rnowx,rnowy,rnowz) num_threads(nthreads) schedule(dynamic)
 do i=1+iradcut*sphpot,radpot*sphpot
-	smat=1D0
 	rnowx=gridatm(i)%x
 	rnowy=gridatm(i)%y
 	rnowz=gridatm(i)%z
-	do ii=1,ncenter
-		ri=dsqrt( (rnowx-a(ii)%x)**2+(rnowy-a(ii)%y)**2+(rnowz-a(ii)%z)**2 )
-		do jj=1,ncenter
-			if (ii==jj) cycle
-            !if (distmat(ii,jj)>12) cycle !This is found to be quite safe, the error is negligible, and the cost can be modestly reduced
-			rj=dsqrt( (rnowx-a(jj)%x)**2+(rnowy-a(jj)%y)**2+(rnowz-a(jj)%z)**2 )
-			rmiu=(ri-rj)/distmat(ii,jj)
- 			!Adjust for heteronuclear
-			chi=covr_tianlu(a(ii)%index)/covr_tianlu(a(jj)%index)
-			uij=(chi-1)/(chi+1)
-			aij=uij/(uij**2-1)
-			if (aij>0.5D0) aij=0.5D0
-			if (aij<-0.5D0) aij=-0.5D0
-			rmiu=rmiu+aij*(1-rmiu**2)
-			tmps=rmiu
-			do iter=1,3
-				tmps=1.5D0*(tmps)-0.5D0*(tmps)**3
-			end do
-			smat(ii,jj)=0.5D0*(1-tmps)
-		end do
-	end do
-	Pvec=1D0
-	do ii=1,ncenter
-		Pvec=Pvec*smat(:,ii)
-	end do
-	beckeweigrid(i)=Pvec(iatm)/sum(Pvec)
-    !write(12,"(2i6,4f12.6)") iatm,i,rnowx,rnowy,rnowz,beckeweigrid(i)
+    if (iweitype==1) then
+		call Hirshatmwei(iatm,rnowx,rnowy,rnowz,weigrid(i))
+    else if (iweitype==2) then
+		call Beckeatmwei(iatm,rnowx,rnowy,rnowz,weigrid(i),covr_tianlu,3)
+    else if (iweitype==3) then
+		call Beckeatmwei(iatm,rnowx,rnowy,rnowz,weigrid(i),covr,3)
+    else if (iweitype==4) then
+		call TLatmwei(iatm,rnowx,rnowy,rnowz,weigrid(i),1)
+    else if (iweitype==5) then
+		call TLatmwei(iatm,rnowx,rnowy,rnowz,weigrid(i),2)
+    end if
 end do
 !$OMP end parallel do
+end subroutine
+
+
+
+!!------ Generate Becke weight for a batch of points around iatm
+!Input: iatm, iradcut, gridatm, radinp, nbeckeiter   Return: beckeweigrid
+!  radinp(1:nsuppele) are radii used for determining Becke atomic weights. In principle, using covr_tianlu seems reasonable, &
+!compared to using covr, this allows larger space for more electronegative atoms and thus covering their rich electron distribution. &
+!However using covr is frequently found to result in better accuracy.
+!  nbeckeiter is sharpness parameter, without special reason is should be 3
+!In fact, this routine is equivalent to "call gen1catmwei(iatm,iradcut,gridatm,weigrid,2)", but present function allows to directly set the radii used
+subroutine gen1cbeckewei(iatm,iradcut,gridatm,beckeweigrid,radinp,nbeckeiter)
+use defvar
+implicit real*8 (a-h,o-z)
+integer iatm,iradcut,nbeckeiter
+real*8 beckeweigrid(radpot*sphpot),radinp(0:nelesupp)
+type(content) gridatm(radpot*sphpot)
+
+!$OMP parallel do shared(beckeweigrid) private(i) num_threads(nthreads) schedule(dynamic)
+do i=1+iradcut*sphpot,radpot*sphpot
+	call Beckeatmwei(iatm,gridatm(i)%x,gridatm(i)%y,gridatm(i)%z,beckeweigrid(i),radinp,nbeckeiter)
+end do
+!$OMP end parallel do
+end subroutine
+
+
+
+!!------- Calculate Becke weighting function of iatm at (x,y,z). Does not support PBC
+subroutine Beckeatmwei(iatm,x,y,z,weight,radinp,nbeckeiter)
+use defvar
+integer iatm,nbeckeiter
+real*8 x,y,z,weight,radinp(0:nelesupp),Pvec(ncenter)
+call BeckePvec(x,y,z,Pvec,radinp,nbeckeiter)
+weight=Pvec(iatm)
+end subroutine
+!!------- Calculate Becke weighting function of all atoms at (x,y,z), storing to Pvec(:). Does not support PBC
+subroutine BeckePvec(x,y,z,Pvec,radinp,nbeckeiter)
+use defvar
+implicit real*8 (a-h,o-z)
+integer nbeckeiter
+real*8 x,y,z,Pvec(ncenter)
+real*8 smat(ncenter,ncenter),rdist(ncenter),atmrad(ncenter),radinp(0:nelesupp)
+
+do i=1,ncenter
+	atmrad(i)=radinp(a(i)%index) !Set actually used radii
+	rdist(i)=dsqrt( (x-a(i)%x)**2+(y-a(i)%y)**2+(z-a(i)%z)**2 ) !Distance between current point to every atom
+end do
+
+smat(:,:)=1D0
+    
+!Calculate weight for atom pair (ii,jj). smat(ii,jj) is weight of ii, smat(jj,ii) is weight of jj, they sum to 1
+do ii=1,ncenter
+	do jj=ii+1,ncenter
+        dist=distmat(jj,ii)
+        diff=rdist(ii)-rdist(jj)
+            
+        !Quick determination. If difference of distance between current point to ii and to jj is longer than their distance, atom of distant side should have weight of zero
+        !However, practical tested showed that this doesn't accelerate computation
+        if (diff>dist) then
+			smat(ii,jj)=0
+            cycle
+        else if (-diff>dist) then
+			smat(jj,ii)=0
+            cycle
+        end if
+            
+		rmiu=diff/dist
+            
+ 		!Adjust for heteronuclear, if their distance is close. In principle this adjustment should apply to all atomic pairs,
+        !however this will cause computational burden if the system is large. In fact, adjusting this for two distant atoms is basically meaningless
+        if (dist<8.and.a(ii)%index/=a(jj)%index) then
+			chi=atmrad(ii)/atmrad(jj)
+			uij=(chi-1)/(chi+1)
+			aij=uij/(uij*uij-1)
+			if (aij>0.5D0) then
+				aij=0.5D0
+			else if (aij<-0.5D0) then
+				aij=-0.5D0
+			end if
+			rmiu=rmiu+aij*(1-rmiu**2)
+        end if
+            
+        !Sharpness parameter. This is major overhead
+        if (nbeckeiter==3) then !Common case, faster than using small loop
+			tmps=1.5D0*rmiu-0.5D0*rmiu**3
+			tmps=1.5D0*tmps-0.5D0*tmps**3
+			tmps=1.5D0*tmps-0.5D0*tmps**3
+        else
+			tmps=rmiu
+			do iter=1,nbeckeiter
+				tmps=1.5D0*tmps-0.5D0*tmps**3
+			end do
+        end if
+            
+		smat(ii,jj)=0.5D0*(1-tmps)
+        smat(jj,ii)=1-smat(ii,jj)
+	end do
+end do
+    
+!Pvec(i) is unnormalized weight of atom i at this point
+Pvec=1D0
+do i=1,ncenter
+	Pvec(:)=Pvec(:)*smat(:,i)
+end do
+!Normalize weights
+tmp=sum(Pvec)
+Pvec(:)=Pvec(:)/tmp
+end subroutine
+
+
+
+!!------- Calculate Hirshfeld weighting function of iatm at (x,y,z)
+!PBC is taken into account because function "calcatmdens" considers PBC
+subroutine Hirshatmwei(iatm,x,y,z,weight)
+use defvar
+use functions
+implicit real*8 (a-h,o-z)
+integer iatm
+real*8 x,y,z,weight
+
+promol=0
+do jatm=1,ncenter
+	tmpdens=calcatmdens(jatm,x,y,z,0)
+	promol=promol+tmpdens
+	if (jatm==iatm) selfdens=tmpdens
+end do
+
+!ifPBC=0
+!selfdens=calcatmdens(iatm,x,y,z,0)
+!ifPBC=3
+
+if (promol==0) then
+	weight=0
+	!Unable to determine atomic weights at this point because promol is zero, mostly becaues this point is too far from any atom
+    !In this case, find the atom closest to this point, make its weight to 1. However this makes sharp change of weighting function at boundary, so not employed
+	!call closest_atm_pt(x,y,z,iatmclose,r)
+ !   if (iatmclose==iatm) weight=1
+else
+	weight=selfdens/promol
+end if
+end subroutine
+
+
+
+!!------- Calculate Tian Lu weighting function of iatm at (x,y,z). PBC is taken into account
+!Calculate value of simple atomic decaying function for all atoms, and finally calculate weight of iatm using Hirshfeld-like manner
+!itype=1: Error function type. xscale = 0.85, leading to modest sharpness. Weight of 0.5 equals to CSD covalent radii
+!itype=2: Gaussian function type. FWHM is CSD covalent radii
+!itype=3: Becke function type. Weight of 0.5 equals to CSD covalent radii. This is poor, because this function decays quickly to zero, making weighting function at distant region cannot be calculated
+!See http://sobereva.com/539 for illustration of different weighting functions
+!
+!All the functions have deficiency, namely they become exactly zero at distant region, &
+!in this case weight cannot be determined and will be default to zero, if they used in multi-center integration purpose, very distant regions will be omitted
+!I found none 
+subroutine TLatmwei(iatm,x,y,z,weight,itype)
+use defvar
+use util
+use functions
+implicit real*8 (a-h,o-z)
+integer iatm,itype
+real*8 x,y,z,weight,tvec(3)
+
+promol=0
+selfdens=0
+xscale=0.85D0
+
+if (ifPBC==0) then
+    do jatm=1,ncenter
+		r=dsqrt( (a(jatm)%x-x)**2 + (a(jatm)%y-y)**2 + (a(jatm)%z-z)**2 )
+		if (itype==1) then
+			tmpval=switch_erf(r,covr(a(jatm)%index),xscale)
+		else if (itype==2) then
+			tmpval=switch_Gauss(r,2*covr(a(jatm)%index))
+		else if (itype==3) then
+			tmpval=switch_Becke(r,covr(a(jatm)%index),3)
+		end if
+		promol=promol+tmpval
+		if (jatm==iatm) selfdens=tmpval
+	end do
+else !Periodic case
+	call getpointcell(x,y,z,ic,jc,kc)
+	do icell=ic-PBCnx,ic+PBCnx
+		do jcell=jc-PBCny,jc+PBCny
+			do kcell=kc-PBCnz,kc+PBCnz
+				call tvec_PBC(icell,jcell,kcell,tvec)
+				do jatm=1,ncenter
+					atmx=a(jatm)%x+tvec(1)
+					atmy=a(jatm)%y+tvec(2)
+					atmz=a(jatm)%z+tvec(3)
+					r=dsqrt( (atmx-x)**2 + (atmy-y)**2 + (atmz-z)**2 )
+					if (itype==1) then
+						tmpval=switch_erf(r,covr(a(jatm)%index),xscale)
+					else if (itype==2) then
+						tmpval=switch_Gauss(r,2*covr(a(jatm)%index))
+					else if (itype==3) then
+						tmpval=switch_Becke(r,covr(a(jatm)%index),3)
+					end if
+					promol=promol+tmpval
+					if (jatm==iatm) selfdens=selfdens+tmpval
+				end do
+			end do
+		end do
+	end do
+end if
+
+if (promol==0) then
+	weight=0
+	!Unable to determine atomic weights at this point because promol is zero, mostly becaues this point is too far from any atom
+    !In this case, find the atom closest to this point, make its weight to 1. However this makes sharp change of weighting function at boundary, so not employed
+	call closest_atm_pt(x,y,z,iatmclose,r)
+    if (iatmclose==iatm) weight=1
+else
+	weight=selfdens/promol
+end if
 end subroutine
 
 
@@ -2652,7 +2952,7 @@ end subroutine
 !ifunc: The function to be evaluated
 subroutine atmcontrifunc(iparttype,atmcontri,ifunc)
 use defvar
-use function
+use functions
 implicit real*8 (a-h,o-z)
 integer ifunc
 type(content) gridatm(radpot*sphpot),gridatmorg(radpot*sphpot)
@@ -2668,7 +2968,7 @@ if (iparttype==1) then !Becke partition
 		gridatm%x=gridatmorg%x+a(iatm)%x !Move quadrature point to actual position in molecule
 		gridatm%y=gridatmorg%y+a(iatm)%y
 		gridatm%z=gridatmorg%z+a(iatm)%z
-		call gen1cbeckewei(iatm,iradcut,gridatm,beckeweigrid)
+		call gen1cbeckewei(iatm,iradcut,gridatm,beckeweigrid,covr_tianlu,3)
 		do ipt=1+iradcut*sphpot,radpot*sphpot
 			funcval=calcfuncall(ifunc,gridatm(ipt)%x,gridatm(ipt)%y,gridatm(ipt)%z)
 			atmcontri(iatm)=atmcontri(iatm)+funcval*gridatmorg(ipt)%value*beckeweigrid(ipt)
@@ -2710,7 +3010,7 @@ do iatm=1,ncenter
             write(10,"(i6,4E16.8)") iatm,gridatm(ipt)%x,gridatm(ipt)%y,gridatm(ipt)%z,gridatmorg(ipt)%value
         end do
     else
-	    call gen1cbeckewei(iatm,iradcut,gridatm,beckeweigrid)
+	    call gen1cbeckewei(iatm,iradcut,gridatm,beckeweigrid,covr_tianlu,3)
         do ipt=1+iradcut*sphpot,radpot*sphpot
             write(10,"(i6,5E16.8)") iatm,gridatm(ipt)%x,gridatm(ipt)%y,gridatm(ipt)%z,gridatmorg(ipt)%value,beckeweigrid(ipt)
         end do
@@ -2863,7 +3163,7 @@ call outmwfn(outname,10,0)
 write(*,"(/,a)") " All natural orbitals has been exported to "//trim(outname)//" in current folder"
 write(*,"(a)") " Do you want to load it now so that you can perform wavefunction analysis based on the natural orbitals at the corresponding level? (y/n)"
 read(*,*) selectyn
-call dealloall
+call dealloall(0)
 if (selectyn=='y'.or.selectyn=='Y') then
     write(*,*) "Loading "//trim(outname)
     call readinfile(outname,1)
@@ -3229,7 +3529,7 @@ end subroutine
 
 !!-------- Randomly generate name of Sobereva's lover
 subroutine mylover(outname)
-integer,parameter :: nlovers=59
+integer,parameter :: nlovers=60
 character(len=80) lovername(nlovers),outname
 CALL RANDOM_SEED()
 CALL RANDOM_NUMBER(tmp)
@@ -3293,6 +3593,7 @@ lovername(56)="Don't_Toy_with_Me,_Miss_Nagatoro\Hayase_Nagatoro"
 lovername(57)="Super_Cub\Reiko"
 lovername(58)="LoveLive!_Superstar!!\Sumire_Heanna"
 lovername(59)="Jahy-sama_wa_Kujikenai!\Jahy"
+lovername(60)="Kawaii Dake ja Nai Shikimori-san\Shikimori"
 
 !Dear Kanan,
 !
@@ -3381,6 +3682,7 @@ do imo=1,nbasis
         end if
     end do
 end do
+
 end subroutine
 
 
@@ -3466,7 +3768,7 @@ if (allocated(a)) then
 			if (iallowPBC==1.and.ifPBC>0) then
 				call nearest_atmdistxyz(iatm,jatm,tmpdist,atmx,atmy,atmz)
             else	
-				tmpdist=atomdist(iatm,jatm)
+				tmpdist=atomdist(iatm,jatm,0)
             end if
 			covrj=covr(a(jatm)%index)
             if ( tmpdist < bondcrit*(covri+covrj) ) connmat(iatm,jatm)=1
@@ -3494,6 +3796,7 @@ end subroutine
 !!--------- Generate neighbouring list of each atom
 !itype=1: Based on existing connectivity matrix "connmat"
 !itype=2: Directly based on interatomic distance
+!iallowPBC=1: Consider PBC =0: Do not
 subroutine genneighlist(itype,iallowPBC,neigh,nneigh)
 use defvar
 use util
@@ -3526,7 +3829,7 @@ else if (itype==2) then
 			if (iallowPBC==1.and.ifPBC>0) then
 				call nearest_atmdistxyz(iatm,jatm,tmpdist,atmx,atmy,atmz)
             else	
-				tmpdist=atomdist(iatm,jatm)
+				tmpdist=atomdist(iatm,jatm,0)
             end if
 			covrj=covr(a(jatm)%index)
             if ( tmpdist < bondcrit*(covri+covrj) ) then
@@ -3916,7 +4219,7 @@ if (if_initlibreta==0) then
 end if
 if (info==1) then
 	write(*,"(/,a)") " NOTE: The ESP evaluation code based on LIBRETA library is being used. &
-	Please not only cite Multiwfn original paper in your work, but also cite the paper describing the efficient ESP evaluation algorithm adopted by Multiwfn:"
+	Please *NOT ONLY* cite Multiwfn original paper (J. Comput. Chem., 33, 580-592 (2012)) in your work, *BUT ALSO* cite the paper describing the efficient ESP evaluation algorithm adopted by Multiwfn:"
 	write(*,"(a)") " Jun Zhang, Tian Lu, Phys. Chem. Chem. Phys., 23, 20323 (2021) DOI: 10.1039/D1CP02805G"
 	if (isys==1.and.nthreads>10) then
 		write(*,"(a,/)") " Warning!!! In Windows system, it is found that the performance of ESP evaluation code may &
@@ -3928,7 +4231,7 @@ end subroutine
 
 
 
-!!--------- Initialize for some special functions
+!!--------- Initialize for some special functions, needed after loading some files
 subroutine init_func
 use defvar
 !Local Hartree-Fock exchange energy involves Coulomb matrix generated by libreta and density matrix, so initialize
@@ -3941,7 +4244,7 @@ if (iuserfunc==999.and.allocated(b)) then
     end if
     call doinitlibreta(0)
     write(*,"(/,a)") " Note: If local Hartree-Fock exchange energy will be studied using Multiwfn, &
-    please note only cite original paper of Multiwfn but also cite Libreta library: J. Chem. Theory Comput., 14, 572 (2018)"
+    please note only cite original paper of Multiwfn but also cite LIBRETA library: Jun Zhang, J. Chem. Theory Comput., 14, 572 (2018)"
     write(*,*)
     write(*,*) "Generating density matrix between GTFs..."
     call genPprim
@@ -4000,7 +4303,7 @@ end subroutine
 !!--------- Generate atomic overlap matrix of basis functions for every atom
 subroutine genAOMbas(AOMbas)
 use defvar
-use function
+use functions
 use util
 implicit real*8 (a-h,o-z)
 real*8 AOMbas(nbasis,nbasis,ncenter),AOMtmp(nbasis,nbasis),basval(nbasis)
@@ -4041,7 +4344,7 @@ do iatm=1,ncenter
 	gridatm%y=gridatmorg%y+a(iatm)%y
 	gridatm%z=gridatmorg%z+a(iatm)%z
     gridatm%value=gridatmorg%value
-	call gen1cbeckewei(iatm,iradcut,gridatm,atmspcweight)
+	call gen1cbeckewei(iatm,iradcut,gridatm,atmspcweight,covr_tianlu,3)
     
     !$OMP parallel shared(AOMbas) private(ipt,ibas,jbas,AOMtmp,basval,weitmp,weitmp2) num_threads(nthreads)
     AOMtmp=0D0
@@ -4104,7 +4407,6 @@ end subroutine
 
 
 
-
 !!---- Return electric dipole moment vector, wavefunction information must be available in either b or CObasa
 subroutine get_dipole_moment(vec)
 use defvar
@@ -4139,6 +4441,7 @@ vec(3)=zeledip+znucdip
 end subroutine
 
 
+
 !!------ Generate "fragatm" array containing all atoms in the present system
 subroutine genfragatm
 use defvar
@@ -4151,10 +4454,11 @@ end subroutine
 
 
 !!-------- Export all internal geometry parameters to int_coord.txt in current folder
-subroutine showgeomparam(outname)
+subroutine showgeomparam(outname,iallowPBC)
 use defvar
 use util
 character(len=*) outname
+integer iallowPBC
 integer nneigh(ncenter) !Number of neighbours (the number of atoms connect to this atom)
 integer neigh(maxneigh,ncenter) !neigh(1:nneigh(i),i) is list of neighbouring atom indices of atom i
 integer nbond !Number of bonds
@@ -4171,7 +4475,7 @@ nneigh=0
 do iatm=1,ncenter
     do jatm=1,ncenter
         if (jatm==iatm) cycle
-        if (distmat(iatm,jatm)<( covr(a(iatm)%index)+covr(a(jatm)%index) )*bondcrit) then
+        if (atomdist(iatm,jatm,iallowPBC)<( covr(a(iatm)%index)+covr(a(jatm)%index) )*bondcrit) then
             nneigh(iatm)=nneigh(iatm)+1
             neigh(nneigh(iatm),iatm)=jatm
         end if
@@ -4198,7 +4502,7 @@ write(10,"(' Number of bonds:',i8)") nbond
 do ibond=1,nbond
     iatm=bond(1,ibond)
     jatm=bond(2,ibond)
-    write(10,"(' #',i5,'      Atoms:',2i5,'    Distance:',f12.6,' Angstrom')") ibond,iatm,jatm,distmat(iatm,jatm)*b2a
+    write(10,"(' #',i5,'      Atoms:',2i5,'    Distance:',f12.6,' Angstrom')") ibond,iatm,jatm,atomdist(iatm,jatm,iallowPBC)*b2a
 end do
 
 !Determining angle list
@@ -4229,7 +4533,7 @@ do iangle=1,nangle
     iatm=angle(1,iangle)
     jatm=angle(2,iangle)
     katm=angle(3,iangle)
-    angval=xyz2angle(a(iatm)%x,a(iatm)%y,a(iatm)%z,a(jatm)%x,a(jatm)%y,a(jatm)%z,a(katm)%x,a(katm)%y,a(katm)%z)
+    angval=atomang(iatm,jatm,katm,iallowPBC)
     write(10,"(' #',i5,'      Atoms:',3i5,'    Angle:',f12.6,' degree')") iangle,iatm,jatm,katm,angval
 end do
 
@@ -4250,9 +4554,9 @@ do itime=1,2
                 jatm=neigh(jdx,jcen)
                 if (jatm==icen) cycle
                 if (iatm==jatm) cycle
-                angdev1=180-atomang(iatm,icen,jcen)
-                angdev2=180-atomang(icen,jcen,jatm)
-                if (angdev1<1.or.angdev2<1) then
+                angdev1=180-atomang(iatm,icen,jcen,iallowPBC)
+                angdev2=180-atomang(icen,jcen,jatm,iallowPBC)
+                if (angdev1<0.5D0.or.angdev2<0.5D0) then
                     nlinear=nlinear+1
                     cycle
                 end if
@@ -4276,7 +4580,7 @@ do itime=1,2
     if (itime==1) allocate(dih(4,ndih))
 end do
 if (nlinear>0) then
-    write(*,"(a,i5,a)") " Note:",nlinear," dihedrals deviate from linear less than 1 degree, they are ignored"
+    write(*,"(a,i5,a)") " Note:",nlinear," dihedrals deviate from linear less than 0.5 degree, they are ignored"
 end if
 
 !Sort dih array, making index from small to large, from left to right
@@ -4288,7 +4592,7 @@ do idih=1,ndih
     jatm=dih(2,idih)
     katm=dih(3,idih)
     latm=dih(4,idih)
-    dihval=xyz2dih(a(iatm)%x,a(iatm)%y,a(iatm)%z,a(jatm)%x,a(jatm)%y,a(jatm)%z,a(katm)%x,a(katm)%y,a(katm)%z,a(latm)%x,a(latm)%y,a(latm)%z)
+    dihval=atomdih(iatm,jatm,katm,latm,iallowPBC)
     write(10,"(' #',i5,'      Atoms:',4i5,'    Dihedral:',f12.6,' degree')") idih,iatm,jatm,katm,latm,dihval
 end do
 
@@ -4329,7 +4633,7 @@ do iatm=2,ncenter
     if (jatm==iatm) then !No atom connected to iatm, find the atom nearest to the current one
         distmin=1E10
         do jatm=1,iatm-1
-            dist=atomdist(iatm,jatm)
+            dist=atomdist(iatm,jatm,0)
             if (dist<distmin) then
                 i1=jatm
                 distmin=dist
@@ -4343,7 +4647,7 @@ do iatm=2,ncenter
             if (jatm==i1) cycle
             if (any(neigh(1:nneigh(i1),i1)==jatm)) then
 				if (ncenter>3) then
-					tmpang=xyz2angle(a(iatm)%x,a(iatm)%y,a(iatm)%z,a(i1)%x,a(i1)%y,a(i1)%z,a(jatm)%x,a(jatm)%y,a(jatm)%z)
+					tmpang=atomang(iatm,i1,jatm,0)
 					if (tmpang<0.5D0.or.tmpang>179.5D0) cycle
                 end if
                 i2=jatm
@@ -4354,10 +4658,10 @@ do iatm=2,ncenter
             distmin=1E10
             do jatm=1,iatm-1
                 if (jatm==i1) cycle
-                dist=atomdist(i1,jatm)
+                dist=atomdist(i1,jatm,0)
                 if (dist<distmin) then
 					if (ncenter>3) then
-						tmpang=xyz2angle(a(iatm)%x,a(iatm)%y,a(iatm)%z,a(i1)%x,a(i1)%y,a(i1)%z,a(jatm)%x,a(jatm)%y,a(jatm)%z)
+						tmpang=atomang(iatm,i1,jatm,0)
 						if (tmpang<0.5D0.or.tmpang>179.5D0) cycle
                     end if
                     i2=jatm
@@ -4375,7 +4679,7 @@ do iatm=2,ncenter
             do jatm=1,iatm-1 !If an atom has index less than iatm, use it
                 if (jatm==i1.or.jatm==i2) cycle
                 if (any(neigh(1:nneigh(i2),i2)==jatm)) then
-					tmpang=xyz2angle(a(i1)%x,a(i1)%y,a(i1)%z,a(i2)%x,a(i2)%y,a(i2)%z,a(jatm)%x,a(jatm)%y,a(jatm)%z)
+					tmpang=atomang(i1,i2,jatm,0)
 					if (tmpang<0.5D0.or.tmpang>179.5D0) cycle
 					i3=jatm
 					exit
@@ -4385,9 +4689,9 @@ do iatm=2,ncenter
                 distmin=1E10
                 do jatm=1,iatm-1
                     if (jatm==i1.or.jatm==i2) cycle
-                    dist=atomdist(i2,jatm)
+                    dist=atomdist(i2,jatm,0)
                     if (dist<distmin) then
-						tmpang=xyz2angle(a(i1)%x,a(i1)%y,a(i1)%z,a(i2)%x,a(i2)%y,a(i2)%z,a(jatm)%x,a(jatm)%y,a(jatm)%z)
+						tmpang=atomang(i1,i2,jatm,0)
 						if (tmpang<0.5D0.or.tmpang>179.5D0) cycle
                         i3=jatm
                         distmin=dist
@@ -4401,7 +4705,6 @@ do iatm=2,ncenter
             Zmat(iatm,3)=i3
         end if
     end if
-	!write(*,*) iatm,Zmat(iatm,1:3)
 end do
 end subroutine
 
@@ -4472,7 +4775,6 @@ else
 end if
 if (iorb<1.or.iorb>nmo) iorb=0
 end subroutine
-
 
 
 
@@ -4567,34 +4869,178 @@ end subroutine
 
 
 
-!!----------- Generate unique GTF information
-!infomode=0: Print number of unique GTFs. =1: Do not print
-subroutine gen_GTFuniq(infomode)
-use defvar
-integer ifcombined(nprims)
-if (allocated(b_uniq)) deallocate(b_uniq)
-if (allocated(CO_uniq)) deallocate(CO_uniq)
+!!--------- Show menu title with center alignment, e.g.          ------ ltwd ------
+!str is the string of title, nsymbol_in is number - to be shown at each side. If it is 0, then print - as much as possible to fill all blank spaces
+!itype=1: Show -   itype=2: Show =
+!Example: call menutitle("Post-processing menu",10,1)
+subroutine menutitle(str,nsymbol_in,itype)
+implicit real*8 (a-h,o-z)
+integer nsymbol,strlen,itype
+character(len=*) str
+character c80tmp*80
 
-do itime=1,2
-	nprims_uniq=0
-	ifcombined=0
-	do iGTF=1,nprims
-		if (ifcombined(iGTF)==0) then
-			nprims_uniq=nprims_uniq+1
-            if (itime==2) then
-				b_uniq(nprims_uniq)=b(iGTF)
-				CO_uniq(:,nprims_uniq)=CO(:,iGTF)
-            end if
-			do jGTF=iGTF+1,nprims
-				if (b(jGTF)%center==b(iGTF)%center.and.b(jGTF)%type==b(iGTF)%type.and.b(jGTF)%exp==b(iGTF)%exp) then
-					if (itime==2) CO_uniq(:,nprims_uniq)=CO_uniq(:,nprims_uniq)+CO(:,jGTF)
-					ifcombined(jGTF)=1
-				end if
+strlen=len_trim(str)
+maxnsym=(80-(strlen+4))/2
+if (nsymbol_in>maxnsym) then
+	nsymbol=maxnsym
+else
+	nsymbol=nsymbol_in
+end if
+nchar=nsymbol*2+2+strlen !Number of characters to print without spaces at two sides
+nspace=int((80-nchar)/2)
+c80tmp=" "
+do i=nspace+1,nspace+nsymbol
+	if (itype==1) then
+		c80tmp(i:i)='-'
+    else
+		c80tmp(i:i)='='
+    end if
+end do
+c80tmp(nspace+nsymbol+2:nspace+nsymbol+1+strlen)=str
+itmp=nspace+nsymbol+1+strlen
+do i=itmp+2,itmp+1+nsymbol
+	if (itype==1) then
+		c80tmp(i:i)='-'
+    else
+		c80tmp(i:i)='='
+    end if
+end do
+write(*,"(a)") trim(c80tmp)
+end subroutine
+
+
+
+!!--------- Find the atom (iatmclose) closest to a given point and return the distance (r)
+!PBC is considered
+subroutine closest_atm_pt(x,y,z,iatmclose,r)
+use defvar
+implicit real*8 (a-h,o-z)
+real*8 x,y,z,r,tvec(3)
+integer iatmclose
+
+r2close=1D100
+if (ifPBC>0) then
+	call getpointcell(x,y,z,ic,jc,kc)
+	do icell=ic-PBCnx,ic+PBCnx
+		do jcell=jc-PBCny,jc+PBCny
+			do kcell=kc-PBCnz,kc+PBCnz
+				call tvec_PBC(icell,jcell,kcell,tvec)
+				do jatm=1,ncenter
+					atmx=a(jatm)%x+tvec(1)
+					atmy=a(jatm)%y+tvec(2)
+					atmz=a(jatm)%z+tvec(3)
+					r2=(atmx-x)**2 + (atmy-y)**2 + (atmz-z)**2
+                    if (r2<r2close) then
+						r2close=r2
+                        iatmclose=jatm
+                    end if
+				end do
 			end do
+		end do
+	end do
+else
+	do jatm=1,ncenter
+		r2=(a(jatm)%x-x)**2+(a(jatm)%y-y)**2+(a(jatm)%z-z)**2
+        if (r2<r2close) then
+			r2close=r2
+            iatmclose=jatm
         end if
 	end do
-    if (itime==1) allocate(b_uniq(nprims_uniq),CO_uniq(nmo,nprims_uniq))
-end do
+end if
+r=dsqrt(r2close)
+end subroutine
 
-if (infomode==0) write(*,"(' Number of unique GTFs:',i6)") nprims_uniq
+
+
+!!---- Setup move vectors and move lengths towards 26 neighbouring grid. Used in basin generation and domain analysis
+!vec26x/y/z(i) is change of grid index in directions 1/2/3 of movement mode i
+!len26(i) is move distance (Bohr) of movement mode i, will be used to determine gradient of corresponding movement
+subroutine setupmovevec
+use defvar
+use basinintmod
+real*8 vec(3)
+vec26x=0
+vec26y=0
+vec26z=0
+!The nearest neighbours:
+vec26x(1)=1
+vec26x(2)=-1
+vec26y(3)=1
+vec26y(4)=-1
+vec26z(5)=1
+vec26z(6)=-1
+!On the edges:
+vec26x(7)=1
+vec26y(7)=1
+vec26x(8)=-1
+vec26y(8)=1
+vec26x(9)=-1
+vec26y(9)=-1
+vec26x(10)=1
+vec26y(10)=-1
+vec26x(11)=1
+vec26z(11)=1
+vec26x(12)=-1
+vec26z(12)=1
+vec26x(13)=-1
+vec26z(13)=-1
+vec26x(14)=1
+vec26z(14)=-1
+vec26y(15)=1
+vec26z(15)=1
+vec26y(16)=1
+vec26z(16)=-1
+vec26y(17)=-1
+vec26z(17)=-1
+vec26y(18)=-1
+vec26z(18)=1
+!At the vertices:
+vec26z(19:22)=1
+vec26x(19)=1
+vec26y(19)=1
+vec26x(20)=-1
+vec26y(20)=1
+vec26x(21)=-1
+vec26y(21)=-1
+vec26x(22)=1
+vec26y(22)=-1
+vec26z(23:26)=-1
+vec26x(23)=1
+vec26y(23)=-1
+vec26x(24)=1
+vec26y(24)=1
+vec26x(25)=-1
+vec26y(25)=1
+vec26x(26)=-1
+vec26y(26)=-1
+do i=1,26
+	vec=vec26x(i)*gridv1+vec26y(i)*gridv2+vec26z(i)*gridv3
+    len26(i)=dsqrt(sum(vec**2))
+	!write(*,"(i3,3i5,f12.6)") i,vec26x(i),vec26y(i),vec26z(i),len26(i)
+end do
+end subroutine
+
+
+
+!!------ Convert bascen to basstart and basend
+!basstart and basend should have been allocated
+subroutine bascen2basstart_end
+use defvar
+implicit real*8 (a-h,o-z)
+nowcen=0
+indcen=0
+basstart=0 !Bq atom without basis function will have 0 for basstart and basend
+basend=0
+do ibasis=1,nbasis
+	if (bascen(ibasis)/=nowcen) then
+		nowcen=bascen(ibasis)
+		indcen=indcen+1
+		basstart(indcen)=ibasis
+		if (indcen/=1) basend(indcen-1)=ibasis-1
+	end if
+end do
+basend(indcen)=nbasis
+!do iatm=1,ncenter
+!	write(*,*) iatm,basstart(iatm),basend(iatm)
+!end do
 end subroutine

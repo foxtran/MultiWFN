@@ -1078,7 +1078,7 @@ end subroutine
 subroutine calcmultibndord(nbndcen,cenind,PSmat,matdim,result)
 use defvar
 use util
-implicit real*8(a-h,o-z)
+implicit real*8 (a-h,o-z)
 integer nbndcen,cenind(2000),cenindtmp(2000),matdim
 real*8 PSmat(matdim,matdim),result
 integer,allocatable :: allperm(:,:)
@@ -1115,7 +1115,7 @@ end subroutine
 !!------- Actual working horse for multi-center index calculation
 subroutine calcmultibndord_do(nbndcen,cenind,PSmat,matdim,result)
 use defvar
-implicit real*8(a-h,o-z)
+implicit real*8 (a-h,o-z)
 integer nbndcen,cenind(2000),matdim !Can maximally deal with 2000 centers
 real*8 PSmat(matdim,matdim),result
 real*8,allocatable :: mat1(:,:),mat2(:,:)
@@ -1184,7 +1184,7 @@ end subroutine
 !!---- The actual working horse for multi-center bond order calculation
 !subroutine calcmultibndord_do(nbndcen,cenind,PSmat,matdim,result)
 !use defvar
-!implicit real*8(a-h,o-z)
+!implicit real*8 (a-h,o-z)
 !integer nbndcen,cenind(12),matdim
 !real*8 PSmat(matdim,matdim),result
 !

@@ -18,19 +18,21 @@ character(len=80),allocatable :: mollegend(:)
 real*8,allocatable :: linexall(:,:),lineyall(:,:) !Array used to draw discrete lines for all systems. The first index corresponds to system index
 real*8,allocatable :: curveyall(:,:) !The first index corresponds to system index. curvey in global array is used to record weighted curve
 integer,allocatable :: tmparr(:),tmparr2(:)
+real*8,allocatable :: tmpmat(:,:)
 real*8,allocatable :: indcurve(:,:) !Y value of curve of each individual band
 real*8,allocatable :: indcontri(:) !Contribution of various transitions to a given X position
 integer,allocatable :: indband2idx(:),idx2indband(:) !Used to map individual band index
 character c80tmp*80,c200tmp*200,c200tmp2*200,strfmt*10,selectyn,graphformat_old*4,c2000tmp*2000
 character clegend*2000 !Buffer for showing legends
 integer :: icurveclr=1,ilineclr=5 !Default: Red for curve, black for discrete lines
-integer :: thk_curve=3,thk_weighted=8,thk_legend=2,thk_discrete=1,thk_axis=1,thk_grid=1 !thickness
+integer :: thk_curve=3,thk_weighted=8,thk_Yeq0=2,thk_discrete=1,thk_axis=1,thk_grid=1,thk_PVS=3,thk_OPVS=3 !thickness
 integer :: ishowlabelleft=1,ishowlabelright=1 !If showing labels on left and right Y-axes
 integer :: ndecimalX=-1,ndecimalYleft=-1,ndecimalYright=-1 !Number of decimal places in axes, use auto by default
 integer :: height_axis=36,ticksize=36,legtextsize=36,labtype_Yleft=1,ilegendpos=7
 integer,parameter :: ncurrclr=15 !At most 15 individual colors. For more curves/lines, always use color of last one (8)
 integer :: currclr(ncurrclr)=(/ 12,3,10,1,14,5,9,13,11,6,7,15,16,2,8 /) !Color index of current curve/line colors
 integer :: iYeq0=1 !If drawing line corresponding to Y=0
+real*8 :: degencrit=0.05D0,xlow=0,xhigh=1000,stepx=100
 !Used for drawing spikes for indicating position of levels
 integer,parameter :: maxspike=10
 real*8,allocatable :: spikey(:) !Temporarily used for plotting spikes
@@ -43,13 +45,32 @@ integer :: ishowextrema=0 !0=Do not show, 1=show maxima, 2= show minima, 3= show
 integer minlabX(num1Dpoints),maxlabX(num1Dpoints) !Record the point index of the extrema in the curve
 integer :: iextlabelrot=1,extlabeldecimal=1,extlabelsize=30,extlabelcontent=1,extlabelclr=3 !Blue
 integer :: extmaxlabelshiftX=-16,extmaxlabelshiftY=20,extminlabelshiftX=20,extminlabelshiftY=-15 !Default label shifts, corresponding to rotated 90 degree case
+!Partial vibrational spectrum (PVS) and overlap vibrational spectrum (OPVS) related arrays
+integer :: iPVStype=1 !Which terms constitute fragments. 1=Atoms   2=(Redundant) internal coordinates
+integer :: OPVSidx1=0,OPVSidx2=0  !Indices of two PVS fragments for which OPVS will be plotted. 0,0 means do not plot OPVS
+integer,parameter :: maxPVSfrag=10
+integer :: PVScolor(maxPVSfrag)=(/ 1,3,14,9,13,15,16,11,7,8 /)
+integer :: OPVScolor=12
+real*8,allocatable :: PVScomp(:,:) !PVScomp(k,i) is composition of PVS fragment k in vibrational mode i
+integer PVSnterm(maxPVSfrag) !Number of terms (atoms or internal coordinates) of each PVS fragment
+integer,allocatable :: PVSterm(:,:) !PVSterm(k,i) is index of term k in PVS fragment i
+real*8,allocatable :: normmat_atm(:,:,:) !Temporarily record X/Y/Z component of all atoms in all normal vectors, normmat_atm(1:3,1:ncenter,1:numdata)
+real*8 PVScurve(maxPVSfrag,num1Dpoints),OPVScurve(num1Dpoints)
+integer :: iPVSshow(maxPVSfrag)=1,iOPVSshow=1
+integer PVScart(maxPVSfrag)
+integer :: nRIC=0
+integer,allocatable :: RICatm(:,:) !RICatm(1:RICnatm(i),i) is the atom indices of the ith RIC loaded from Gaussian output
+integer,allocatable :: RICnatm(:) !Number of atoms of various RIC
+character,allocatable :: RICname(:)*6,RICdefname(:)*30 !Name and definition of RIC
+character(len=80) PVSlegend(maxPVSfrag)
 
-if (ifiletype/=0) then !Foolish users always do foolish things
+
+if (ifiletype/=0) then
 	if (ifiletype==1) then
 		write(*,"(a)") " Error: As a Gaussian user, you must use output file (.out/.log) as input file for this function! &
-		The .fch does not contain information needed for plotting spectrum"
+		.fch/fchk does not contain information needed for plotting spectrum"
 	else
-		write(*,*) " Error: The type of input file is wrong for plotting spectrum purpose!"
+		write(*,"(a)") " Error: The type of input file is wrong for plotting spectrum purpose! See Section 3.13.2 of manual for details"
 	end if
 	write(*,*) "Press ENTER button to return"
 	read(*,*)
@@ -87,8 +108,9 @@ shiftx=0D0   !Shift value in X direction
 iramantype=1 !1=Raman activities  2=Raman intensities
 iROAtype=2   !1=Raman SCP(180)  2=ROA SCP(180)  3=Raman SCP(90)  4=ROA SCP(90)  5=Raman DCP(180)  6=ROA DCP(180)
 graphformat_old=graphformat  !User may change format, backup the old
+PVSnterm(:)=0
 
-write(*,*) "Select type of the spectrum"
+write(*,*) "Select type of the spectrum to plot"
 write(*,*) "1:IR  2:Raman (or pre-resonance Raman)  3:UV-Vis  4:ECD  5:VCD  6:ROA  7:NMR"
 read(*,*) ispectrum
 if (ispectrum==7) then
@@ -127,21 +149,22 @@ if (index(filename,"multiple.txt")/=0) then !Multiple file list with weights is 
 	!Count total number of entries, find maximum number of data
     maxdata=0
 	do while(.true.)
-		read(11,*,iostat=ierror) c200tmp
+		read(11,"(a)",iostat=ierror) c200tmp
 		if (ierror/=0.or.c200tmp==" ") exit
+		read(c200tmp,*,iostat=ierror) c200tmp2
 		nsystem=nsystem+1
         
-		inquire(file=c200tmp,exist=alive)
+		inquire(file=c200tmp2,exist=alive)
 		if (.not.alive) then
-			write(*,"(' Error: Cannot find ',a)") trim(c200tmp)
+			write(*,"(' Error: Cannot find ',a)") trim(c200tmp2)
 			if (index(c200tmp,'/')/=0) then
-				write(*,*) "Reminder: Since the file path contains / symbol, you should add "" at the two ends of the path, so that the file can be properly loaded"
+				write(*,"(a)") " Reminder: Since the file path contains / symbol, you should add "" at the two ends of the path, so that the file can be properly loaded"
 			end if
 			write(*,*) "Press ENTER button to exit program"
 			read(*,*)
 			stop
         else !Obtain number of data
-    			call loadtransdata(1,ispectrum,trim(c200tmp),numdata)
+    			call loadtransdata(1,ispectrum,c200tmp2,numdata)
             if (numdata>maxdata) maxdata=numdata
 		end if
 	end do
@@ -153,13 +176,14 @@ if (index(filename,"multiple.txt")/=0) then !Multiple file list with weights is 
     !Actually load data
 	rewind(11)
 	do i=1,nsystem
-		read(11,"(a)") c200tmp
-		c200tmp2=c200tmp
+		read(11,"(a)") c200tmp2
 		read(c200tmp2,*,iostat=ierror) c200tmp,weight(i)
 		if (ierror==0) then !The second field is weight
 			write(mollegend(i),"(i3,' (',f5.1,'%)')") i,weight(i)*100
 		else !The second field is legend rather than weight value
-			ispc=index(c200tmp," ")
+			ispc=index(c200tmp2," ")
+            write(*,"(a)") trim(c200tmp2(:ispc-1))
+            write(*,"(a)") trim(c200tmp2(ispc+1:))
 			read(c200tmp2(:ispc-1),*) c200tmp
 			read(c200tmp2(ispc+1:),"(a)") mollegend(i)
 			weight(i)=1
@@ -171,7 +195,7 @@ if (index(filename,"multiple.txt")/=0) then !Multiple file list with weights is 
 		else
 			write(*,"(' Loading ',a,'    Weight:',f7.4)") trim(c200tmp),weight(i)
 		end if
-		call loadtransdata(0,ispectrum,trim(c200tmp),numdata) !Data are loaded into datax,str,FWHM in global memory
+		call loadtransdata(0,ispectrum,c200tmp,numdata) !Data are loaded into datax,str,FWHM in global memory
 		if (numdata>size(dataxall,2)) then !Very rare case, maxdata is still insufficiently large, user has to change order
 			write(*,*)
 			write(*,"(' The number of transitions in this file:',i6)") numdata
@@ -304,6 +328,9 @@ do while(.true.)
 	if (any(weight/=1)) write(*,*) "21 Set status of showing weighted curve and curves of individual systems"
 	write(*,*) "22 Set thickness of curves/lines/texts/axes/grid"
     if (nsystem==1) write(*,*) "23 Set status of showing spikes to indicate transition levels"
+    if (ispectrum==1.or.ispectrum==2.or.ispectrum==5.or.ispectrum==6) then !IR, Raman, VCD, ROA
+		write(*,*) "24 Set partial and overlap vibrational spectra (PVS, OPVS)"
+    end if
 	read(*,"(a)") c80tmp
     
     if (index(c80tmp,'s')/=0) then
@@ -316,7 +343,7 @@ do while(.true.)
         write(10,*) ilineclr
         write(10,*) thk_curve
         write(10,*) thk_weighted
-        write(10,*) thk_legend
+        write(10,*) thk_Yeq0
         write(10,*) thk_discrete
         write(10,*) thk_axis
         write(10,*) thk_grid
@@ -371,6 +398,8 @@ do while(.true.)
         write(10,"('legtextsize',i5)") legtextsize
         write(10,"('ilegendpos',i5)") ilegendpos
         write(10,"('iYeq0',i5)") iYeq0
+        write(10,"('thk_PVS',i5)") thk_PVS
+        write(10,"('thk_OPVS',i5)") thk_OPVS
         close(10)
         write(*,*) "Done!"
         cycle
@@ -390,7 +419,7 @@ do while(.true.)
         read(10,*) ilineclr
         read(10,*) thk_curve
         read(10,*) thk_weighted
-        read(10,*) thk_legend
+        read(10,*) thk_Yeq0
         read(10,*) thk_discrete
         read(10,*) thk_axis
         read(10,*) thk_grid
@@ -445,9 +474,13 @@ do while(.true.)
         call readoption_int(10,"legtextsize",' ',legtextsize)
         call readoption_int(10,"ilegendpos",' ',ilegendpos)
         call readoption_int(10,"iYeq0",' ',iYeq0)
+        call readoption_int(10,"thk_PVS",' ',thk_PVS)
+        call readoption_int(10,"thk_OPVS",' ',thk_OPVS)
         close(10)
         write(*,*) "Loading finished!"
         cycle
+    else if (c80tmp==" ") then
+		cycle
     else
         read(c80tmp,*) isel
     end if
@@ -894,7 +927,7 @@ do while(.true.)
             if (labtype_Yleft==1) write(*,"(a)") " 9 Set type of labels in left Y-axis, current: Float"
             if (labtype_Yleft==2) write(*,"(a)") " 9 Set type of labels in left Y-axis, current: Exponent"
             if (labtype_Yleft==3) write(*,"(a)") " 9 Set type of labels in left Y-axis, current: Scientific"
-            if (nsystem>1) then
+            if (nsystem>1.or.any(PVSnterm/=0)) then
                 write(*,"(a,i3)") " 10 Set text size of legend, current:",legtextsize
                 write(*,*) "11 Set position of legends"
             end if
@@ -997,8 +1030,9 @@ do while(.true.)
 			read(c200tmp(:ipos-1),*) v0
 			v0=1239.842D0/v0*8065.5447D0 !Convert nm to cm-1
 		end if
-		write(*,*) "Input temperature in K (Input 0 means ignoring the Boltzmann term)"
-		write(*,*) "Note: If press ENTER button directly, 298.15 K will be used"
+		write(*,*) "Input temperature in K, e.g. 320"
+		write(*,*) "Note: If pressing ENTER button directly, 298.15 K will be used"
+        write(*,*) "      Inputting 0 will ignore the Boltzmann term"
 		read(*,"(a)") c200tmp
 		if (c200tmp==" ") then
 			temper=298.15D0
@@ -1039,18 +1073,24 @@ do while(.true.)
 			write(*,"(' 1 Set thickness of curves, current:',i3)") thk_curve
 			write(*,"(' 2 Set thickness of weighted curves, current:',i3)") thk_weighted
 			write(*,"(' 3 Set thickness of discrete lines, current:',i3)") thk_discrete
-			write(*,"(' 4 Set thickness of legend texts, current:',i3)") thk_legend
+			if (iYeq0==1) write(*,"(' 4 Set thickness of Y=0 line, current:',i3)") thk_Yeq0
 			write(*,"(' 5 Set thickness of axes, current:',i3)") thk_axis
 			write(*,"(' 6 Set thickness of grid, current:',i3)") thk_grid
+            if (any(PVSnterm/=0)) then
+				write(*,"(' 7 Set thickness of PVS curves, current:',i3)") thk_PVS
+				write(*,"(' 8 Set thickness of OPVS curves, current:',i3)") thk_OPVS
+            end if
 			read(*,*) isel2
 			if (isel2==0) exit
 			write(*,*) "Input the thickness, e.g. 3"
 			if (isel2==1) read(*,*) thk_curve
 			if (isel2==2) read(*,*) thk_weighted
 			if (isel2==3) read(*,*) thk_discrete
-			if (isel2==4) read(*,*) thk_legend
+			if (isel2==4) read(*,*) thk_Yeq0
 			if (isel2==5) read(*,*) thk_axis
 			if (isel2==6) read(*,*) thk_grid
+			if (isel2==7) read(*,*) thk_PVS
+			if (isel2==8) read(*,*) thk_OPVS
 			write(*,*) "Done!"
 		end do
         
@@ -1151,8 +1191,482 @@ do while(.true.)
                 if (nold==0.and.any(spikenum>0)) ishowlevel=1
             end if
         end do
-    
-	end if
+        
+    else if (isel==24) then !Set partial and overlap vibrational spectra (PVS and OPVS)
+		if (nsystem>1) then
+			write(*,*) "Error: This function is only available for single system!"
+            write(*,*) "Press ENTER button to return"
+			read(*,*)
+            cycle
+        end if
+        if (ncenter==0) then !For xTB and CP2K cases, number of atoms has not been loaded from input file, guess it now so that arrays can be allocated
+			if (mod((numdata+6),3)==0) then !Satisfy 3N-6
+				ncenter=(numdata+6)/3
+            else
+				ncenter=(numdata+5)/3
+            end if
+			write(*,"(' Number of atoms is guessed to be',i8)") ncenter
+        end if
+        if (.not.allocated(PVSterm)) then
+			allocate(PVScomp(maxPVSfrag,numdata))
+			allocate(PVSterm(10*ncenter,numdata)) !10*ncenter is large enough
+            do ifrag=1,maxPVSfrag
+                write(PVSlegend(ifrag),"('Fragment',i3)") ifrag
+            end do
+		end if
+		do while(.true.)
+			write(*,*)
+            call menutitle("Partial and overlap partial vibrational spectra (PVS and OPVS)",10,1)
+            if (any(PVSnterm/=0)) then
+				write(*,*) " q Generate data and return"
+            else
+				write(*,*) " q Return"
+            end if
+            if (iPVStype==1) write(*,*) " t Switch type of PVS/OPVS, current: Atoms"
+            if (iPVStype==2) write(*,*) " t Switch type of PVS/OPVS, current: Redundant internal coordinates"
+            write(*,*) " d Set display status of PVS/OPVS curves"
+            write(*,*) " c Set color of PVS/OPVS curves"
+            write(*,*) " l Set legends of PVS curves"
+            if (OPVSidx1==0.and.OPVSidx2==0) then
+				write(*,*) " 0 Set OPVS, current: Undefined"
+            else
+				write(*,"(a,i3,a,i3)") "  0 Set OPVS, current: Between fragments",OPVSidx1," and",OPVSidx2
+            end if
+            do iPVSfrag=1,maxPVSfrag
+				if (PVSnterm(iPVSfrag)==0) then
+					write(*,"(i3,' Define PVS fragment  ',i3,', current: Undefined')") iPVSfrag,iPVSfrag
+                else
+					write(*,"(i3,' Redefine PVS fragment',i3,', current:',i5,' terms, color: ',a)") iPVSfrag,iPVSfrag,PVSnterm(iPVSfrag),trim(colorname(PVScolor(iPVSfrag)))
+                end if
+            end do
+            write(*,*) "Input e.g. -3 can unset fragment 3"
+            read(*,"(a)") c80tmp
+            if (index(c80tmp,'q')/=0) then !Load data, generate PVS fragment information and then quit
+				if (any(PVSnterm/=0)) then
+                    open(10,file=filename,status="old")
+                    call outputprog(10,iprog)
+                    if (iprog==0) then
+						call loclabel(10,"$vibrational spectrum",ixtb,maxline=100)
+                        if (ixtb==1) then
+							close(10)
+							write(*,*) "Input path of the g98.out file outputted by xTB, e.g. D:\g98.out"
+							do while(.true.)
+								read(*,"(a)") c200tmp
+								inquire(file=c200tmp,exist=alive)
+								if (alive) exit
+								write(*,*) "Cannot find the file, input again!"
+							end do
+                            open(10,file=c200tmp,status="old")
+                        end if
+                    end if
+                    write(*,*) "Loading normal vectors..."
+                    if (iPVStype==1) then !PVS based on atoms
+                        if (iprog==1.or.iprog==5.or.ixtb==1) then !Gaussian, CP2K, xTB (at least compatible with xTB 6.5)
+							allocate(normmat_atm(3,ncenter,numdata))
+							normmat_atm=0 !Note that vector of fixed atoms are not printed by Gaussian, so default to be zero
+							ilackdata=numdata
+							inow=1 !Normal mode index
+							do while(.true.)
+								if (ilackdata>3) then
+									iread=3
+								else
+									iread=ilackdata
+								end if
+								if (iprog==1) then
+									call loclabel(10,"Atom  AN",ifound,0)
+                                else if (iprog==5) then
+									call loclabel(10,"ATOM  EL",ifound,0)
+								else if (ixtb==1) then
+									call loclabel(10,"Atom AN",ifound,0)
+								end if
+								read(10,*)
+								do while(.true.)
+									read(10,"(a)",iostat=ierror) c80tmp
+									if (ierror/=0.or.c80tmp(1:6)==" ") exit
+									read(c80tmp,"(i6)") iatm
+									if (iread==1) read(c80tmp,*) itmp,c200tmp,normmat_atm(1:3,iatm,inow)
+									if (iread==2) read(c80tmp,*) itmp,c200tmp,normmat_atm(1:3,iatm,inow),normmat_atm(1:3,iatm,inow+1)
+									if (iread==3) read(c80tmp,*) itmp,c200tmp,normmat_atm(1:3,iatm,inow),normmat_atm(1:3,iatm,inow+1),normmat_atm(1:3,iatm,inow+2)
+								end do
+								if (ilackdata<=3) exit
+								ilackdata=ilackdata-3
+								inow=inow+3
+							end do
+                        else if (iprog==2) then !ORCA. Note that ORCA outputs vectors of all normal modes including translations and rotations
+							allocate(normmat_atm(3,ncenter,numdata))
+							normmat_atm=0
+                            call loclabel(10,"The first frequency considered to be a vibration is")
+                            read(10,"(a)") c80tmp
+                            read(c80tmp(53:),*) itmp
+							allocate(tmpmat(3*ncenter,numdata+itmp))
+                            call loclabel(10,"Thus, these vectors are normalized but",ierror)
+                            read(10,*)
+							call readmatgau(10,tmpmat,inform="f11.6",inskipcol=11,inncol=6,iostat=ierror)
+                            if (ierror/=0) then
+								write(*,*) "Error: Loading normal mode vectors was failed!"
+                                write(*,*) "Press ENTER button to exit program"
+								read(*,*)
+                                stop
+                            end if
+                            do idata=1,numdata
+								do iatm=1,ncenter
+									do idir=1,3
+										normmat_atm(idir,iatm,idata)=tmpmat(3*(iatm-1)+idir,itmp+idata)
+									end do
+                                end do
+                            end do
+                            deallocate(tmpmat)
+                        end if
+		  !              do imode=1,numdata !Check loaded normal mode
+							!write(*,"(' Mode',i5)") imode
+		  !                  do iatm=1,ncenter
+							!	write(*,"(i5,3f12.6)") iatm,normmat_atm(1:3,iatm,imode)
+		  !                  end do
+		  !              end do
+						!Generate compositions of fragments in various normal modes
+						do idata=1,numdata !Cycle all vibrational modes
+							facnorm=sum(normmat_atm(:,:,idata)**2)
+							do ifrag=1,maxPVSfrag !Cycle all fragments
+								if (PVSnterm(ifrag)/=0) then
+									tmpval=0
+									do idx=1,PVSnterm(ifrag)
+										iatm=PVSterm(idx,ifrag)
+                                        if (PVScart(ifrag)==0) then
+											tmpval=tmpval+sum(normmat_atm(1:3,iatm,idata)**2)
+                                        else if (PVScart(ifrag)==1) then
+											tmpval=tmpval+normmat_atm(1,iatm,idata)**2
+                                        else if (PVScart(ifrag)==2) then
+											tmpval=tmpval+normmat_atm(2,iatm,idata)**2
+                                        else if (PVScart(ifrag)==3) then
+											tmpval=tmpval+normmat_atm(3,iatm,idata)**2
+                                        else if (PVScart(ifrag)==4) then !XY
+											tmpval=tmpval+normmat_atm(1,iatm,idata)**2+normmat_atm(2,iatm,idata)**2
+                                        else if (PVScart(ifrag)==5) then !XZ
+											tmpval=tmpval+normmat_atm(1,iatm,idata)**2+normmat_atm(3,iatm,idata)**2
+                                        else if (PVScart(ifrag)==6) then !YZ
+											tmpval=tmpval+normmat_atm(2,iatm,idata)**2+normmat_atm(3,iatm,idata)**2
+                                        end if
+									end do
+									PVScomp(ifrag,idata)=tmpval/facnorm
+								end if
+							end do
+						end do
+						deallocate(normmat_atm)
+                    else if (iPVStype==2) then !PVS based on redundant internal coordinates
+                        PVScomp(:,:)=0D0
+						do idata=1,numdata !Cycle all vibrational modes
+                            write(c80tmp,"('Normal Mode',i6)") idata
+							call loclabel(10,trim(c80tmp),ifound)
+                            if (ifound==0) then
+								write(*,"(a)") " Error: Unable to find """//trim(c80tmp)//""" in from the Gaussian output file!"
+                                write(*,"(a)") " Probably you forgot to add ""intmodes"" in ""freq"" keyword of your Gaussian input file"
+                                write(*,*) "Press ENTER button to exit program"
+                                read(*,*)
+                                stop
+                            end if
+                            call skiplines(10,4)
+                            do while(.true.)
+								read(10,"(a)") c200tmp
+                                if (index(c200tmp,'!')==0) exit
+								do ifrag=1,maxPVSfrag !Cycle all fragments
+									do iterm=1,PVSnterm(ifrag)
+										if (index(c200tmp,RICname(PVSterm(iterm,ifrag)))/=0) then
+											read(c200tmp(54:60),*) tmpval
+                                            PVScomp(ifrag,idata)=PVScomp(ifrag,idata)+tmpval/100D0
+                                        end if
+                                    end do
+                                end do
+                            end do
+						end do
+                    end if
+                    close(10)
+		            do imode=1,numdata !Check loaded composition of various fragments in various normal modes
+						write(*,"(' Vibrational mode',i6)") imode
+		                do ifrag=1,maxPVSfrag
+							if (PVSnterm(ifrag)/=0) write(*,"('   Fragment',i3,'   Composition:',f10.4,' %')") ifrag,PVScomp(ifrag,imode)*100
+		                end do
+		            end do
+					icurveclr=5 !Use black for total spectrum
+					ishowline=0 !Do not show lines for clarity
+                end if
+				exit
+            else if (index(c80tmp,'0')/=0) then
+				if (all(PVSnterm==0)) then
+					write(*,*) "Error: You should define PVS fragments first!"
+                    cycle
+                end if
+				write(*,"(a)") " Input indices of the two PVS fragments for which overlap vibrational spectrum will be plotted, e.g. 1,3"
+                write(*,*) "Note: If you input 0,0, then overlap vibrational spectrum will not be plotted"
+                read(*,*) OPVSidx1,OPVSidx2
+                if (OPVSidx1==0.and.OPVSidx2==0) cycle
+            else if (index(c80tmp,'c')/=0) then
+				do while(.true.)
+					write(*,*)
+					write(*,*) " q Return"
+					write(*,*) " 0 Set color for OPVS, current: "//trim(colorname(OPVScolor))
+					do ifrag=1,maxPVSfrag
+						if (PVSnterm(ifrag)/=0) then
+							write(*,"(i3,a,i3,a)") ifrag," Set color for PVS",ifrag,", current: "//trim(colorname(PVScolor(ifrag)))
+						end if
+					end do
+					read(*,*) c80tmp
+					if (index(c80tmp,'q')/=0) then
+						exit
+					else if (c80tmp(1:1)=='0') then
+						write(*,*) "Use which color?"
+						call selcolor(OPVScolor)
+                    else
+						read(c80tmp,*) ifrag
+						write(*,*) "Use which color?"
+						call selcolor(PVScolor(ifrag))
+                    end if
+                end do
+            else if (index(c80tmp,'l')/=0) then
+				do while(.true.)
+					write(*,*)
+					write(*,*) " q Return"
+					do ifrag=1,maxPVSfrag
+						if (PVSnterm(ifrag)/=0) then
+							write(*,"(i3,a,i3,a)") ifrag," Set legend for PVS",ifrag,", current: "//trim(PVSlegend(ifrag))
+						end if
+					end do
+					read(*,*) c80tmp
+					if (index(c80tmp,'q')/=0) then
+						exit
+                    else
+						read(c80tmp,*) ifrag
+						write(*,*) "Input legend texts"
+						read(*,"(a)") PVSlegend(ifrag)
+                    end if
+                end do
+            else if (index(c80tmp,'t')/=0) then
+				if (any(PVSnterm/=0)) then
+					write(*,*) "All fragments will be cleaned, OK? (y/n)"
+                    read(*,*) selectyn
+                    if (selectyn=='n') cycle
+                    PVSnterm(:)=0
+                end if
+                if (iPVStype==1) then
+					!Load RIC from Gaussian output file
+					if (nRIC==0) then
+						open(10,file=filename,status="old")
+						call outputprog(10,iprog)
+                        if (iprog/=1) then
+							close(10)
+							write(*,"(a)") " Error: This feature is only available for output file of Gaussian!"
+							write(*,*) "Press ENTER button to return"
+							read(*,*)
+							cycle
+                        end if
+						write(*,*) "Loading redundant internal coordinates..."
+						call loclabel(10,"! Name  Definition",ifound)
+						if (ifound==0) then
+							close(10)
+							write(*,"(a)") " Error: Unable to find definition of redundant internal coordinates!"
+							write(*,*) "To guarantee that this information is always printed by Gaussian, the input file should contain ""freq=modr"" keyword"
+							write(*,*) "Press ENTER button to return"
+							read(*,*)
+							cycle
+						end if
+						read(10,*);read(10,*)
+						nRIC=0
+						do while(.true.)
+							read(10,"(a)") c200tmp
+							if (index(c200tmp,"----")/=0) exit
+							nRIC=nRIC+1
+						end do
+						allocate(RICatm(5,nRIC),RICnatm(nRIC),RICname(nRIC),RICdefname(nRIC)) !RIC may be linear bend, there involves five atoms
+						do i=1,nRIC+1
+							backspace(10)
+						end do
+                        do iRIC=1,nRIC
+							read(10,"(a)") c200tmp
+                            RICname(iRIC)=c200tmp(4:9)
+                            RICdefname(iRIC)=c200tmp(10:30)
+							ntmp=strcharnum(c200tmp,',')
+							RICnatm(iRIC)=ntmp+1
+							itmp=index(c200tmp,'(')
+							jtmp=index(c200tmp,')')
+							read(c200tmp(itmp+1:jtmp-1),*) RICatm(1:RICnatm(iRIC),iRIC)
+                            !write(*,*) iRIC,RICname(iRIC),RICatm(1:RICnatm(iRIC),iRIC)
+						end do
+						close(10)
+                        write(*,"(i6,' Redundant internal coordinates have been successfully loaded!')") nRIC
+                    end if
+					iPVStype=2
+                else if (iPVStype==2) then
+					iPVStype=1
+                end if
+            else if (index(c80tmp,'d')/=0) then
+				do while(.true.)
+					write(*,*) "q Return"
+					if (iOPVSshow==0) write(*,*) "0 Switch display status of OPVS, current: Do not show"
+					if (iOPVSshow==1) write(*,*) "0 Switch display status of OPVS, current: Show"
+                    do ifrag=1,maxPVSfrag
+						if (PVSnterm(ifrag)/=0) then
+							if (iPVSshow(ifrag)==0) write(*,"(i2,a,i3,a)") ifrag," Switch display status of PVS of fragment",ifrag,", current: Do not show"
+							if (iPVSshow(ifrag)==1) write(*,"(i2,a,i3,a)") ifrag," Switch display status of PVS of fragment",ifrag,", current: Show"
+                        end if
+                    end do
+					read(*,*) c80tmp
+					if (c80tmp=="q") then
+						exit
+					else if (c80tmp=="0") then
+						if (iOPVSshow==0) then
+							iOPVSshow=1
+                        else
+							iOPVSshow=0
+                        end if
+					else
+						read(c80tmp,*) ifrag
+						if (iPVSshow(ifrag)==0) then
+							iPVSshow(ifrag)=1
+                        else
+							iPVSshow(ifrag)=0
+                        end if
+					end if
+                end do
+            else !Define PVS fragment
+				read(c80tmp,*) ifrag
+				if (ifrag<0) then !Reset
+					PVSnterm(abs(ifrag))=0
+				else !Set fragment
+					if (iPVStype==1) then !PVS based on atoms
+						write(*,"(a,i3,a)") " Input indices of the atoms in fragment",ifrag,", e.g. 2,3,7-10"
+                        write(*,"(a)") " By default all Cartesian components are taken into account. You can also specify Cartesian component(s) as suffix, including X Y Z XY XZ YZ. &
+                        For example, inputting ""2-4,9 XY"" will only define X and Y components of atoms 2,3,4,9 as the fragment"
+						read(*,"(a)") c2000tmp
+                        itmp=index(c2000tmp,' ')
+						call str2arr(c2000tmp(1:itmp-1),PVSnterm(ifrag),PVSterm(:,ifrag))
+                        if (c2000tmp(itmp+1:itmp+2)=="  ") then
+							PVScart(ifrag)=0
+                        else if (c2000tmp(itmp+1:itmp+2)=="X ") then
+							PVScart(ifrag)=1
+                        else if (c2000tmp(itmp+1:itmp+2)=="Y ") then
+							PVScart(ifrag)=2
+                        else if (c2000tmp(itmp+1:itmp+2)=="Z ") then
+							PVScart(ifrag)=3
+                        else if (c2000tmp(itmp+1:itmp+2)=="XY") then
+							PVScart(ifrag)=4
+                        else if (c2000tmp(itmp+1:itmp+2)=="XZ") then
+							PVScart(ifrag)=5
+                        else if (c2000tmp(itmp+1:itmp+2)=="YZ") then
+							PVScart(ifrag)=6
+                        end if
+                    else if (iPVStype==2) then !PVS based on RIC
+						do while(.true.)
+							write(*,*)
+							if (PVSnterm(ifrag)/=0) then
+								write(*,"(' There are',i6' redundant internal coordinates in this fragment')") PVSnterm(ifrag)
+                            else
+								write(*,*) "This fragment is empty currently"
+                            end if
+							write(*,*) "q Save and return"
+                            write(*,*) "e Clean this fragment"
+                            write(*,*) "p Print redundant internal coordinates in this fragment"
+                            write(*,*) "c Add redundant internal coordinates to this fragment by conditions"
+							write(*,"(a)") " Inputting 2/3/4 atoms can add corresponding bond/angle/dihedral coordinate"
+                            write(*,*) "e.g. Inputting 5,8 will add bond (5,8) or (8,5)"
+                            write(*,*) "     Inputting 5,8,1 will add angle (1,5,8) or (8,5,1)"
+                            write(*,*) "     Inputting 5,8,1,2 will add angle (2,1,5,8) or (8,5,1,2)"
+                            read(*,"(a)") c80tmp
+                            if (index(c80tmp,'q')/=0) then
+								exit
+                            else if (index(c80tmp,'e')/=0) then
+								PVSnterm(ifrag)=0
+                                write(*,*) "This fragment has been cleaned"
+                            else if (index(c80tmp,'p')/=0) then !Print RIC in current fragment
+								do iterm=1,PVSnterm(ifrag)
+									iRIC=PVSterm(iterm,ifrag)
+									write(*,"(' Term',i6,':',2x,a,a)") iterm,RICname(iRIC),RICdefname(iRIC)
+                                end do
+                            else if (index(c80tmp,'c')/=0) then !Add RIC by conditions
+								write(*,"(a)") " You will be asked to input conditions, the redundant internal coordinates (RICs) simultaneously satifying them will be added to this fragment"
+                                write(*,*) "Which type of RICs may be added?"
+                                write(*,*) "B: Bond    A: Angle   D: Dihedral   *: All"
+                                read(*,*) c80tmp
+                                if (c80tmp/='B'.and.c80tmp/='A'.and.c80tmp/='D'.and.c80tmp/='*') then
+									write(*,*) "Error: Unable to recognize the type! It must be one of B A D *"
+									cycle
+                                end if
+                                write(*,"(a)") " 1 RIC will be added if all its constituent atoms are in the inputted range"
+                                write(*,"(a)") " 2 RIC will be added if any its constituent atom is in the inputted range"
+                                read(*,*) icrit
+                                write(*,"(a)") " Input the range of the atoms that make up the RICs, e.g. 3,9-12,18"
+                                write(*,*) "If you press ENTER button directly, all atoms will be considered"
+                                read(*,"(a)") c2000tmp
+                                if (c2000tmp==" ") then
+									allocate(tmparr(ncenter))
+                                    forall(iatm=1:ncenter) tmparr(iatm)=iatm
+                                else
+									call str2arr(c2000tmp,ntmp)
+									allocate(tmparr(ntmp))
+									call str2arr(c2000tmp,ntmp,tmparr)
+                                end if
+                                numadd=0
+                                do iRIC=1,nRIC
+									iadd=0
+									if (c80tmp=='B'.or.c80tmp=='*'.and.RICnatm(iRIC)==2) then
+										if (icrit==1) then
+											if (any(tmparr==RICatm(1,iRIC)).and.any(tmparr==RICatm(2,iRIC))) iadd=1
+										else if (icrit==2) then
+											if (any(tmparr==RICatm(1,iRIC)).or.any(tmparr==RICatm(2,iRIC))) iadd=1
+                                        end if
+                                    end if
+									if (c80tmp=='A'.or.c80tmp=='*'.and.RICnatm(iRIC)==3) then
+										if (icrit==1) then
+											if (any(tmparr==RICatm(1,iRIC)).and.any(tmparr==RICatm(2,iRIC)).and.any(tmparr==RICatm(3,iRIC))) iadd=1
+										else if (icrit==2) then
+											if (any(tmparr==RICatm(1,iRIC)).or.any(tmparr==RICatm(2,iRIC)).or.any(tmparr==RICatm(3,iRIC))) iadd=1
+                                        end if
+                                    end if
+									if (c80tmp=='D'.or.c80tmp=='*'.and.RICnatm(iRIC)==4) then
+										if (icrit==1) then
+											if (any(tmparr==RICatm(1,iRIC)).and.any(tmparr==RICatm(2,iRIC)).and.any(tmparr==RICatm(3,iRIC)).and.any(tmparr==RICatm(4,iRIC))) iadd=1
+										else if (icrit==2) then
+											if (any(tmparr==RICatm(1,iRIC)).or.any(tmparr==RICatm(2,iRIC)).or.any(tmparr==RICatm(3,iRIC)).or.any(tmparr==RICatm(4,iRIC))) iadd=1
+                                        end if
+									end if
+                                    if (iadd==1) then
+										if (any(PVSterm(1:PVSnterm(ifrag),ifrag)==iRIC)) cycle
+										PVSnterm(ifrag)=PVSnterm(ifrag)+1
+                                        PVSterm(PVSnterm(ifrag),ifrag)=iRIC
+                                        numadd=numadd+1
+                                    end if
+                                end do
+								deallocate(tmparr)
+                                write(*,"(i6,' RICs have been added')") numadd
+                            else !Add RIC by directly inputting atoms
+                                ntmp=strcharnum(c80tmp,',')
+                                if (ntmp==1) read(c80tmp,*) iatm,jatm
+                                if (ntmp==2) read(c80tmp,*) iatm,jatm,katm
+                                if (ntmp==3) read(c80tmp,*) iatm,jatm,katm,latm
+                                do iRIC=1,nRIC
+									i1=RICatm(1,iRIC);i2=RICatm(2,iRIC);i3=RICatm(3,iRIC);i4=RICatm(4,iRIC)
+                                    iadd=0
+									if (ntmp==1.and.RICnatm(iRIC)==2) then
+										if ( (i1==iatm.and.i2==jatm).or.(i2==iatm.and.i1==jatm) ) iadd=1
+									else if (ntmp==2.and.RICnatm(iRIC)==3) then
+										if ( (i1==iatm.and.i2==jatm.and.i3==katm).or.(i3==iatm.and.i2==jatm.and.i1==katm) ) iadd=1
+									else if (ntmp==3.and.RICnatm(iRIC)==4) then
+										if ( (i1==iatm.and.i2==jatm.and.i3==katm.and.i4==latm).or.(i4==iatm.and.i3==jatm.and.i2==katm.and.i1==latm) ) iadd=1
+                                    end if
+                                    if (iadd==1) then
+										PVSnterm(ifrag)=PVSnterm(ifrag)+1
+                                        PVSterm(PVSnterm(ifrag),ifrag)=iRIC
+                                        write(*,"(1x,a,' has been added to this fragment')") trim(RICname(iRIC))//' '//trim(RICdefname(iRIC))
+										exit
+                                    end if
+                                end do
+                                if (iRIC==nRIC+1) write(*,*) "No redundant internal coordinate was added"
+                            end if
+                        end do
+                    end if
+				end if
+            end if
+		end do
+        
+    end if
 	
 	if (isel==15.and.nsystem>1) then !Showing individual transition contribution is not possible when multiple files are involved
 		write(*,*) "Error: This function is not available when multiple files are involved!"
@@ -1175,9 +1689,9 @@ do while(.true.)
 		!====== Construct correspondence array if outputting individual bands. Only available when one file is loaded
 		!This function is not available when multiple systems are considered
 		if (isel==15) then
-			write(*,"(a)") " Input criterion of strength, e.g. 0.2, the contribution of the transitions &
-            whose absolute value of strength larger than this value will be outputted"
-            write(*,"(a)") " If you input 0, then ten maximal percentage contributions to the inputted X-position will be shown"
+			write(*,"(a)") " Input criterion of strength, e.g. 0.2, then the contribution curves of the transitions &
+            whose absolute strength larger than it will be exported to plain text files"
+            write(*,"(a)") " If you input 0 now, then 10 maximum contributions to an inputted X position will be shown on screen"
 			read(*,*) critindband
             if (critindband==0) then
                 write(*,*) "Input the X position in current unit, e.g. 435.9"
@@ -1205,7 +1719,7 @@ do while(.true.)
 		!====== Determine upper and lower limit of X axis =======
 		if (iusersetx==0) then !Automatical scale, if user has not manually set the range
 			tmpmin=minval(dataxall(1,1:numdataall(1)))
-			tmphigh=maxval(dataxall(1,1:numdataall(1)))
+			tmpmax=maxval(dataxall(1,1:numdataall(1)))
 			if (nsystem>1) then !Find upper and lower values for all systems
 				do imol=2,nsystem
 					tmpa=minval(dataxall(imol,1:numdataall(imol)))
@@ -1219,12 +1733,12 @@ do while(.true.)
 				xhigh=0D0
 			else if (iunitx==2) then !nm for UV-Vis, ECD, generate proper range in eV
 				xhigh=1239.842D0/ (1239.842D0/tmpmin+40) !Note that when nm is used, in common spectrum the energy is from high to low, so we invert xlow and xhigh
-				xlow=1239.842D0/ (1239.842D0/tmphigh-40)
+				xlow=1239.842D0/ (1239.842D0/tmpmax-40)
 			else
-				rangetmp=tmphigh-tmpmin
+				rangetmp=tmpmax-tmpmin
 				if (rangetmp==0) rangetmp=abs(dataxall(1,1)) !Only one data
 				xlow=tmpmin-0.3D0*rangetmp
-				xhigh=tmphigh+0.3D0*rangetmp
+				xhigh=tmpmax+0.3D0*rangetmp
 			end if
 		else if (iusersetx==1) then !The range was defined by user
 			!nm is selected unit, however we still using eV during broadening, so we convert user inputted range from nm to eV, after broadening then convert back
@@ -1262,6 +1776,7 @@ do while(.true.)
 		!===============================================
 		!Under current X and Y axes units, below code guarantees that the integral of the peak broadened by one unit of strength is 1
 		curveyall=0D0
+        PVScurve=0D0
 		if (ibroadfunc==1.or.ibroadfunc==3) then !Lorentzian function or Pseudo-Voigt function, see http://mathworld.wolfram.com/LorentzianFunction.html
 			do imol=1,nsystem
 				do idata=1,numdataall(imol) !Cycle each transition
@@ -1269,7 +1784,11 @@ do while(.true.)
 					do ipoint=1,num1Dpoints
 						curveytmp(ipoint)=preterm/( (curvex(ipoint)-dataxall(imol,idata))**2+0.25D0*FWHMall(imol,idata)**2 )
 					end do
-					curveyall(imol,:)=curveyall(imol,:)+curveytmp !*dataxall(imol,idata)
+					curveyall(imol,:)=curveyall(imol,:)+curveytmp(:)
+                    !Partial vibrational spectrum
+                    do ifrag=1,maxPVSfrag
+						if (PVSnterm(ifrag)/=0) PVScurve(ifrag,:)=PVScurve(ifrag,:)+curveytmp(:)*PVScomp(ifrag,idata)
+                    end do
 					if (isel==15) then !Individual contribution
                         if (critindband==0) then
                             indcontri(idata)=preterm/( (decompXpos-dataxall(imol,idata))**2+0.25D0*FWHMall(imol,idata)**2 )
@@ -1293,8 +1812,12 @@ do while(.true.)
 					do ipoint=1,num1Dpoints
 						curveytmp(ipoint)=gauss_a*dexp( -(curvex(ipoint)-dataxall(imol,idata))**2/(2*gauss_c**2) )
 					end do
-					if (ibroadfunc==3) curveytmp=gauweigh*curveytmp !Scale Gaussian function part of Pseudo-Voigt
-					curveyall(imol,:)=curveyall(imol,:)+curveytmp
+					if (ibroadfunc==3) curveytmp(:)=gauweigh*curveytmp(:) !Scale Gaussian function part of Pseudo-Voigt
+					curveyall(imol,:)=curveyall(imol,:)+curveytmp(:)
+                    !Partial vibrational spectrum
+                    do ifrag=1,maxPVSfrag
+						if (PVSnterm(ifrag)/=0) PVScurve(ifrag,:)=PVScurve(ifrag,:)+curveytmp(:)*PVScomp(ifrag,idata)
+                    end do
 					if (isel==15) then !Individual contribution
                         if (critindband==0) then
                             !write(*,*) gauss_a*dexp( -(decompXpos-dataxall(imol,idata))**2/(2*gauss_c**2) )
@@ -1315,22 +1838,23 @@ do while(.true.)
 			xlow=1239.842D0/xlow
 			xhigh=1239.842D0/xhigh
 		end if
-		curveyall=scalecurve*curveyall
+		curveyall(:,:)=scalecurve*curveyall(:,:)
+        PVScurve(:,:)=scalecurve*PVScurve(:,:)
 		if (isel==15) then !Scale individual contributions
             if (critindband==0) then
-                indcontri=scalecurve*indcontri
+                indcontri(:)=scalecurve*indcontri(:)
             else
-                indcurve=scalecurve*indcurve
+                indcurve(:,:)=scalecurve*indcurve(:,:)
             end if
         end if
-		curvex=curvex+shiftx
-		linexall=linexall+shiftx
+		curvex(:)=curvex(:)+shiftx
+		linexall(:,:)=linexall(:,:)+shiftx
 		if (iusersetx==0) stepx=(xhigh-xlow)/10
 		
 		!Generate weighted curve from multiple curves
 		curvey=0
 		do imol=1,nsystem
-			curvey=curvey+weight(imol)*curveyall(imol,:)
+			curvey(:)=curvey(:)+weight(imol)*curveyall(imol,:)
 		end do
 		!Weighting spectrum of each system
 		if (iweisyscurve==1) then
@@ -1338,6 +1862,18 @@ do while(.true.)
 				curveyall(imol,:)=weight(imol)*curveyall(imol,:)
 			end do
 		end if
+        !Generate overlap partial vibrational spectrum
+        if (OPVSidx1/=0.and.OPVSidx2/=0) then
+			if (PVSnterm(OPVSidx1)==0) then
+				write(*,"(' PVS fragment',i3,' was not defined, so OPVS cannot be plotted')") OPVSidx1
+			else if (PVSnterm(OPVSidx2)==0) then
+				write(*,"(' PVS fragment',i3,' was not defined, so OPVS cannot be plotted')") OPVSidx2
+            else
+				do ipt=1,num1Dpoints
+					OPVScurve(ipt)=2*min(PVScurve(OPVSidx1,ipt),PVScurve(OPVSidx2,ipt))
+                end do
+            end if
+        end if
 	end if
 
 	!================================================
@@ -1353,7 +1889,7 @@ do while(.true.)
         write(*,"(a,f20.5)") " Sum of absolute values of all transitions:",totval
         write(*,*) "The individual terms are ranked by magnitude of contribution:"
         write(*,*) "  #Transition     Contribution      %"
-        do itmp=1,10
+        do itmp=1,min(10,numdata)
             write(*,"(i10,f20.5,f11.3)") tmparr(itmp),indcontri(itmp),indcontri(itmp)/totval*100
         end do
         if (ispectrum==4.or.ispectrum==5.or.ispectrum==6) then
@@ -1393,6 +1929,37 @@ do while(.true.)
 				close(10)
 				write(*,"(a)") " Curve data of all systems have been exported to curveall.txt in current folder as different columns"
 			end if
+            if (any(PVSnterm/=0)) then
+				!Output PVS curve
+				open(10,file="PVScurve.txt",status="replace")
+                write(10,"(a)",advance="no") "#      X     "
+				do ifrag=1,maxPVSfrag !Write header
+					if (PVSnterm(ifrag)/=0) then
+						write(c80tmp,"(i3)") ifrag
+                        c80tmp=adjustl(c80tmp)
+                        write(10,"('      Frag',a,'      ')",advance="no") c80tmp(1:2)
+                    end if
+				end do
+                write(10,*)
+                do ipt=1,num1Dpoints
+                    write(10,"(f13.5)",advance="no") curvex(ipt)
+					do ifrag=1,maxPVSfrag
+						if (PVSnterm(ifrag)/=0) write(10,"(1PE18.8E3)",advance="no") PVScurve(ifrag,ipt)
+					end do
+                    write(10,*)
+                end do
+                close(10)
+                write(*,"(a)") " Curves of PVS spectra have been exported to PVScurve.txt in current folder, see first line of this file for meaning"
+				!Output OPVS curve
+				if (OPVSidx1/=0.and.PVSnterm(OPVSidx1)/=0.and.OPVSidx2/=0.and.PVSnterm(OPVSidx2)/=0) then
+					open(10,file="OPVScurve.txt",status="replace")
+					do ipt=1,num1Dpoints
+						write(10,"(f13.5,1PE18.8E3)") curvex(ipt),OPVScurve(ipt)
+					end do
+					close(10)
+					write(*,"(a)") " Curve of OPVS has been exported to OPVScurve.txt in current folder"
+				end if
+            end if
 		else if (isel==15) then !Output individual band contributions
 			open(10,file="spectrum_curve.txt",status="replace")
 			do ipt=1,num1Dpoints
@@ -1500,33 +2067,33 @@ do while(.true.)
 	end if	
 	
     !Find and print minimum/maximum positions
-    if (isel==0) then
-        if (nsystem==1.or.any(weight/=1)) then !If simply plot multiple systems, extrema are meaningless
-            write(*,*) "Extrema on the spectrum curve:"
-	        numlocmax=0
-	        do ipoint=2,num1Dpoints-1
-		        gradold=curvey(ipoint)-curvey(ipoint-1)
-		        gradnew=curvey(ipoint+1)-curvey(ipoint)
-		        if (gradold*gradnew<0D0.and.gradold>gradnew) then
-			        numlocmax=numlocmax+1
-                    maxlabX(numlocmax)=ipoint
-			        write(*,"(' Maximum',i5,'   X:',f15.4,'   Value:',f15.4)") numlocmax,curvex(ipoint),curvey(ipoint)
-		        end if
-	        end do
-	        numlocmin=0
-	        do ipoint=2,num1Dpoints-1
-		        gradold=curvey(ipoint)-curvey(ipoint-1)
-		        gradnew=curvey(ipoint+1)-curvey(ipoint)
-		        if (gradold*gradnew<0D0.and.gradold<gradnew) then
-			        numlocmin=numlocmin+1
-                    minlabX(numlocmin)=ipoint
-                    if (ispectrum>2) then !UV-Vis, ECD, VCD, ROA
-			            write(*,"(' Minimum',i5,'   X:',f15.3,'   Value:',f15.4)") numlocmin,curvex(ipoint),curvey(ipoint)
-                    end if
-		        end if
-	        end do
-            if (ispectrum<=2) write(*,"(a)") " Position of minima are not reported since they are commonly not of interest for this kind of spectrum"
-	        if (nsystem>1) write(*,*) "Note: The extrema reported above correspond to weighted spectrum"
+    if (nsystem==1.or.any(weight/=1)) then !If simply plot multiple systems, extrema are meaningless
+        if (isel==0) write(*,*) "Extrema on the spectrum curve:"
+	    numlocmax=0
+	    do ipoint=2,num1Dpoints-1
+		    gradold=curvey(ipoint)-curvey(ipoint-1)
+		    gradnew=curvey(ipoint+1)-curvey(ipoint)
+		    if (gradold*gradnew<0D0.and.gradold>gradnew) then
+			    numlocmax=numlocmax+1
+                maxlabX(numlocmax)=ipoint
+			    if (isel==0) write(*,"(' Maximum',i5,'   X:',f15.4,'   Value:',f15.4)") numlocmax,curvex(ipoint),curvey(ipoint)
+		    end if
+	    end do
+	    numlocmin=0
+	    do ipoint=2,num1Dpoints-1
+		    gradold=curvey(ipoint)-curvey(ipoint-1)
+		    gradnew=curvey(ipoint+1)-curvey(ipoint)
+		    if (gradold*gradnew<0D0.and.gradold<gradnew) then
+			    numlocmin=numlocmin+1
+                minlabX(numlocmin)=ipoint
+                if (ispectrum>2.and.isel==0) then !UV-Vis, ECD, VCD, ROA
+			        write(*,"(' Minimum',i5,'   X:',f15.3,'   Value:',f15.4)") numlocmin,curvex(ipoint),curvey(ipoint)
+                end if
+		    end if
+	    end do
+        if (isel==0) then
+			if (ispectrum<=2) write(*,"(a)") " Position of minima are not reported since they are commonly not of interest for this kind of spectrum"
+			if (nsystem>1) write(*,*) "Note: The extrema reported above correspond to weighted spectrum"
         end if
     end if
     
@@ -1597,6 +2164,7 @@ do while(.true.)
     		    CALL LABDIG(ndecimalX,"X")
             end if
         end if
+        
 		!Set name of X-axis
         if (ishowlevel==0) then !Do not use spikes at bottom to show specific levels, so show axis name here
 		    if (ispectrum==1.or.ispectrum==2.or.ispectrum==5.or.ispectrum==6) then
@@ -1607,6 +2175,7 @@ do while(.true.)
 		    if (iunitx==2) CALL NAME('Wavelength (nm)','X')
 		    if (iunitx==3) CALL NAME('Wavenumber (1000 cm$^{-1}$)','X')
         end if
+        
 		!Set name of Y-axis
 		call TEXMOD("ON")
 		if (ispectrum==1.or.ispectrum==3) then
@@ -1622,6 +2191,7 @@ do while(.true.)
 				CALL NAME('$I_R-I_L$','Y')
 			end if
 		end if
+        
 		!Set plotting parameters of axes and legends
 		tmprange1=abs(endy1-orgy1)
         if (ndecimalYleft==-1) then
@@ -1656,8 +2226,16 @@ do while(.true.)
             if (labtype_Yleft==2) call labels("XEXP","Y")
             if (labtype_Yleft==3) call labels("FEXP","Y")
         end if
-		ileg=0
-		numleg=1+nsystem
+		ileg=0 !Initialize legend information
+        numleg=1
+        if (nsystem>1) then
+			numleg=1+nsystem
+        else if (any(PVSnterm/=0)) then
+			do ifrag=1,maxPVSfrag
+				if (PVSnterm(ifrag)>0.and.iPVSshow(ifrag)==1) numleg=numleg+1
+            end do
+            if (OPVSidx1/=0.and.OPVSidx2/=0.and.iOPVSshow==1) numleg=numleg+1
+        end if
 		call legini(clegend,numleg,50)
 		call legtit(' ')
 		call frame(0) !No box around legend
@@ -1672,15 +2250,18 @@ do while(.true.)
 			call grid(1,1)
 		end if
 		call solid
-		if (ishowweicurve==1.or.ishowweicurve==2) then !Draw weighted curve
+		if (ishowweicurve==1.or.ishowweicurve==2) then !Draw weighted curve (including only one system case) or total curve of PVS
 			ileg=ileg+1
 			call setcolor(icurveclr)
 			CALL LINWID(thk_weighted) !Use very thick line for weighted curve when there are multiple systems
 			if (nsystem==1) CALL LINWID(thk_curve)
 			CALL CURVE(curvex,curvey,num1Dpoints)
 			call legpat(0,1,-1,-1,-1,ileg)
-			CALL LINWID(thk_legend)
-			CALL LEGLIN(clegend," Weighted",ileg)
+            if (any(PVSnterm/=0)) then
+				CALL LEGLIN(clegend,"Total",ileg)
+            else
+				CALL LEGLIN(clegend," Weighted",ileg)
+            end if
 		end if
 		if (nsystem>1.and.ishowweicurve/=2) then !Draw curve for each system, and meantime set corresponding legend
 			do imol=1,nsystem
@@ -1701,16 +2282,40 @@ do while(.true.)
 				CALL CURVE(curvex,curveyall(imol,:),num1Dpoints)
 				ileg=ileg+1
 				call legpat(0,1,-1,-1,-1,ileg)
-				CALL LINWID(thk_legend)
 				CALL LEGLIN(clegend,trim(mollegend(imol)),ileg)
 			end do
 		end if
+        
+        !Draw (overlap) partial vibrational spectra
+		do ifrag=1,maxPVSfrag
+			if (PVSnterm(ifrag)>0.and.iPVSshow(ifrag)==1) then
+				call setcolor(PVScolor(ifrag))
+				CALL LINWID(thk_PVS)
+				CALL CURVE(curvex,PVScurve(ifrag,:),num1Dpoints)
+				ileg=ileg+1
+				call legpat(0,1,-1,-1,-1,ileg)
+				CALL LEGLIN(clegend,trim(PVSlegend(ifrag)),ileg)
+            end if
+        end do
+        if (OPVSidx1/=0.and.OPVSidx2/=0.and.iOPVSshow==1) then
+			call setcolor(OPVScolor)
+            CALL LINWID(thk_OPVS)
+			CALL CURVE(curvex,OPVScurve(:),num1Dpoints)
+			ileg=ileg+1
+			call legpat(0,1,-1,-1,-1,ileg)
+			CALL LEGLIN(clegend,"OPVS",ileg)
+        end if
+        
 		call color("WHITE")
-		if (iYeq0==1) call xaxgit !Draw a line corresponding to Y=0
+		if (iYeq0==1) then
+            CALL LINWID(thk_Yeq0)
+			call xaxgit !Draw a line corresponding to Y=0
+        end if
 		call box2d !The dashed line of "call grid" overlaied frame of axis, so redraw frame
 		call legopt(2.5D0,0.5D0,1D0) !Decrease the length of legend color line
         call height(legtextsize) !Define legend text size
 		if (nsystem>1.and.ishowweicurve/=2) call legend(clegend,ilegendpos)
+		if (any(PVSnterm/=0)) call legend(clegend,ilegendpos)
         call height(ticksize) !Size of ticks
 		call endgrf
         call labels("FLOAT","Y") !Restore to default
@@ -1793,7 +2398,7 @@ do while(.true.)
 			    end do
             end if
 			call color("WHITE")
-			call xaxgit !Draw a line corresponding to Y=0. This is important, otherwise the bottom line at the left side of the first spike will be invisible
+			call xaxgit !Draw a line corresponding to Y=0 using same thick as lines. This is important, otherwise the bottom line at the left side of the first spike will be invisible
             call endgrf
 		end if
         
@@ -1916,7 +2521,7 @@ do while(.true.)
         end if
         
 		call disfin
-		if (isavepic==1) write(*,*) "Graphical file has been saved to current folder with ""DISLIN"" prefix"
+		if (isavepic==1) write(*,*) "Graphical file has been saved to current folder with ""dislin"" prefix"
 	end if
 
 end do
@@ -2116,9 +2721,19 @@ if (igauout==1) then
 				call loclabel(10,trim(c200tmp),ifound,0)
 			end if
 			read(10,"(16x)",advance="no")
-			if (iread==1) read(10,*) str(inow)
-			if (iread==2) read(10,*) str(inow),str(inow+1)
-			if (iread==3) read(10,*) str(inow),str(inow+1),str(inow+2)
+			if (iread==1) read(10,*,iostat=ierror) str(inow)
+			if (iread==2) read(10,*,iostat=ierror) str(inow),str(inow+1)
+			if (iread==3) read(10,*,iostat=ierror) str(inow),str(inow+1),str(inow+2)
+            if (ierror/=0) then
+				backspace(10)
+                read(10,"(a)") c80tmp
+                write(*,*) "Error: Unable to load data successfully from this line:"
+                write(*,*) trim(c80tmp)
+                if (index(c80tmp,'*')/=0) write(*,"(a)") " Probably corresponding incident frequency is too close to an electron excitation energy, causing extremely large Raman activity"
+                write(*,*) "Press ENTER button to exit"
+                read(*,*)
+                stop
+            end if
 			if (ilackdata<=3) exit
 			ilackdata=ilackdata-3
 			inow=inow+3
@@ -2357,8 +2972,12 @@ if (iORCAout==1) then
 				if (ispectrum==3) call loclabel(10,"ABSORPTION SPECTRUM VIA TRANSITION ELECTRIC DIPOLE MOMENTS",ifound,0)
 				if (ispectrum==4) call loclabel(10,"CD SPECTRUM",ifound,0)
 				call skiplines(10,5)
+                datax=0;str=0
 				do i=1,numdata
-					read(10,*) rnouse,datax(i),rnouse,str(i)
+					read(10,*,iostat=ierror) itmp,t1,rnouse,t2
+                    if (ierror/=0) exit !For SF-TDDFT, number of states recorded in this field is less than nstates by 1, because one of SF-TDDFT states is viewed as ground state
+                    datax(itmp)=t1
+                    str(itmp)=t2
 				end do
 				call loclabel(10,"SOC CORRECTED ABSORPTION",ifound,0)
 				if (ifound==1) then
@@ -2454,67 +3073,31 @@ if (iORCAout==1) then
     return
 end if
 
-!Check if is xtb output file
-call loclabel(10,"GFN-xTB",ixtb,maxline=200)
-if (ixtb==0) call loclabel(10,"x T B",ixtb,maxline=200)
+call loclabel(10,"$vibrational spectrum",ixtb,maxline=100)
 if (ixtb==1) then
     if (imode==0) then
-	    write(*,*) "Recognized as a Grimme's xtb program output file"
+	    write(*,*) "Recognized as a vibspectrum file generated by Grimme's xtb program"
 	    write(*,*)
     end if
-	call loclabel(10,"number of atoms")
-	read(10,"(a)") c80tmp
-	isep=index(c80tmp,':')
-	read(c80tmp(isep+1:),*) natm
-	numdata=natm*3
-    if (imode==1) then !Have obtained number of data, return
-        close(10)
-        return
-    end if
-	allocate(datax(numdata),str(numdata))
-	call loclabel(10,"projected vibrational frequencies",ifound,0)
-    if (ifound==0) then
-		write(*,*) "Error: Unable to find projected vibrational frequencies from this file!"
-        write(*,*) "Press ENTER button to return"
-        read(*,*)
-    end if
-	read(10,*)
-	read(10,"(12x,6f9.2)") datax
-	call loclabel(10,"IR intensities ",ifound,0)
-    if (ifound==0) then
-		write(*,*) "Error: Unable to find IR intensities from this file!"
-        write(*,*) "Press ENTER button to return"
-        read(*,*)
-    end if
-	read(10,*)
-	read(10,"(8(5x,f6.2))") str
-	!  write(*,"(a)") " Note: The IR intensities printed by xtb are in ""amu"", but Multiwfn does not convert the unit automatically"
-	!  From Gaussian manual one can find 1 Debye^2*angstrom^-2*amu^-1 = 42.2561 km*mol^-1, &
-	!  however I don't know if Debye^2*angstrom-2*amu-1 is just the "amu" used in xtb output, therefore I decide not to convert the unit
-    !Since xtb 6.4, the unit has been given in km/mol
-	write(*,*)
-	write(*,"(a)") " xtb program outputs all frequencies including overall rotation and translation modes. Now remove how many lowest modes to discard these modes? e.g. 6"
-	write(*,*) "If pressing ENTER button directly, 6 lowest modes will be discarded"
-	read(*,"(a)") c80tmp
-	if (c80tmp==" ") then
-		nremove=6
-	else
-		read(c80tmp,*) nremove
-	end if
-	numdata=numdata-nremove
-	!Resize datax and str arrays
-	allocate(tmparr(3*natm))
-	tmparr=datax
-	deallocate(datax)
-	allocate(datax(numdata))
-	datax=tmparr(nremove+1:)
-	tmparr=str
-	deallocate(str)
-	allocate(str(numdata))
-	str=tmparr(nremove+1:)
-	deallocate(tmparr)
-	allocate(FWHM(numdata))
+    rewind(10)
+    numdata=0
+    do while(.true.)
+		read(10,"(a)",iostat=ierror) c80tmp
+        if (ierror/=0) exit
+        if (index(c80tmp,'#')==0.and.index(c80tmp,'$')==0.and.index(c80tmp,' - ')==0) numdata=numdata+1
+    end do
+	allocate(FWHM(numdata),datax(numdata),str(numdata))
 	FWHM=8D0
+    rewind(10)
+    itmp=0
+    do while(.true.)
+		read(10,"(a)",iostat=ierror) c80tmp
+        if (ierror/=0.or.c80tmp==" ") exit
+        if (index(c80tmp,'#')==0.and.index(c80tmp,'$')==0.and.index(c80tmp,' - ')==0) then
+			itmp=itmp+1
+			read(c80tmp,*) inouse,c200tmp,datax(itmp),str(itmp)
+        end if
+    end do
 	close(10)
 	return
 end if
@@ -2671,7 +3254,7 @@ integer :: nticksX=2,nticksY=2 !Number of ticks in X-axis, in signal strength ax
 integer,allocatable :: line_clr(:),curve_clr(:) !Color list for discrete lines and curves. 0 corresponds to weighted data, 1/2/3... corresponds to 1/2/3th system
 integer :: legposx=2200,legposy=155 !Legend positions in X and Y
 integer :: ishowlegend=1 !Show legends when nsystem>1
-integer :: ishowlabel=1,ilabelele=0,labelsize=50,legendsize=40,ilabelclr=3,labelshiftX=-14,labelshiftY=0,ionlyatmlabwei=1,ialllabtop=0 !Parameters of showing atomic labels
+integer :: ishowlabel=1,ilabelele=0,labelsize=45,legendsize=40,ilabelclr=3,labelshiftX=-14,labelshiftY=0,ionlyatmlabwei=1,ialllabtop=0 !Parameters of showing atomic labels
 integer :: ishowdataright=1 !If show number on the Y-axis corresponding to NMR signal strength
 !System information
 real*8,allocatable :: weight(:) !Weight of various system for plotting mixed spectrum
@@ -3008,7 +3591,8 @@ do while(.true.)
     end if
     
     if (isel==-10) then
-        deallocate(atmshd,atmshdall)
+		if (allocated(atmshd)) deallocate(atmshd)
+		if (allocated(atmshdall)) deallocate(atmshdall)
         return
         
     else if (isel==-3) then
@@ -3328,7 +3912,6 @@ do while(.true.)
 			if (any(weight/=1)) write(*,"(' 2 Set thickness of weighted curve, current:',i3)") thk_weicurve
 			write(*,"(' 3 Set thickness of spikes, current:',i3)") thk_line
 			if (any(weight/=1)) write(*,"(' 4 Set thickness of weighted spike, current:',i3)") thk_weiline
-			write(*,"(' 5 Set thickness of legend texts, current:',i3)") thk_legend
 			write(*,"(' 6 Set thickness of axes, current:',i3)") thk_axis
 			write(*,"(' 7 Set thickness of grid, current:',i3)") thk_grid
 			read(*,*) isel2
@@ -3338,7 +3921,6 @@ do while(.true.)
 			if (isel2==2) read(*,*) thk_weicurve
 			if (isel2==3) read(*,*) thk_line
 			if (isel2==4) read(*,*) thk_weiline
-			if (isel2==5) read(*,*) thk_legend
 			if (isel2==6) read(*,*) thk_axis
 			if (isel2==7) read(*,*) thk_grid
 			write(*,*) "Done!"
@@ -3411,6 +3993,7 @@ do while(.true.)
     
     else if (isel==18) then
         do while(.true.)
+			write(*,*)
             write(*,*) "0 Return"
             write(*,"(a,i3)") " 1 Set number of ticks in X-axis, current:",nticksX
             write(*,"(a,i3)") " 2 Set number of ticks in the axis of signal strength, current:",nticksY
@@ -3651,7 +4234,6 @@ do while(.true.)
                 xhigh=tmp
                 stepx=-stepx
             end if
-            !write(*,*) xlow,xhigh,stepx,tmpmin,tmpmax
 		end if
         
 		!====== Set x positions of curves
@@ -3673,7 +4255,9 @@ do while(.true.)
 			do iterm=1,shdnumwei
 				inow=3*(iterm-1)
 				linexwei(inow+1:inow+3)=shdvalwei(iterm)
+                lineywei(inow+1)=0D0
 				lineywei(inow+2)=shdeffnatmwei(iterm)
+                lineywei(inow+3)=0D0
 			end do
         end if
         
@@ -3841,6 +4425,7 @@ do while(.true.)
 			        end do
                 end if
 			    call xaxgit !Draw a line corresponding to Y=0
+		        call LINWID(thk_axis)
                 call endgrf !End of plotting discrete lines
 			    call color("WHITE")
 		    end if
@@ -3861,7 +4446,6 @@ do while(.true.)
                 call namdis(60,'Y')
                 CALL HNAME(40)
 			    CALL NAME('Signal strength','Y')
-		        call LINWID(thk_axis)
 			    CALL GRAF(xlow,xhigh,xlow,stepx, orgy2,endy2,orgy2,stepy2)
 		        !Draw weighted curves
                 if (ishowweighted/=0) then
@@ -3877,6 +4461,7 @@ do while(.true.)
 				        CALL CURVE(curvex(:),curveyall(imol,:),num1Dpoints)
 			        end do
                 end if
+		        call LINWID(thk_axis)
                 call endgrf
 			    call color("WHITE")
             end if
@@ -3954,7 +4539,6 @@ do while(.true.)
 		        call legini(clegend,numleg,50)
 		        call legtit(' ')
 		        call frame(0) !No box around legend
-                CALL LINWID(thk_legend)
                 call height(legendsize)
                 !Set legend position
                 legposxtmp=legposx
@@ -3990,7 +4574,7 @@ do while(.true.)
             call setcolor(5) !Recover to black
             call height(36) !Recover to default
 		    call disfin
-		    if (isavepic==1) write(*,*) "Graphical file has been saved to current folder with ""DISLIN"" prefix"
+		    if (isavepic==1) write(*,*) "Graphical file has been saved to current folder with ""dislin"" prefix"
             
         end if
         
@@ -4006,7 +4590,7 @@ use defvar
 use util
 use NMRmod
 implicit real*8 (a-h,o-z)
-character c80tmp*80
+character c80tmp*80,c80tmp2*80
 character(len=*) infilename
 
 open(10,file=infilename,status="old")
@@ -4032,20 +4616,31 @@ if (iprog==1) then !Gaussian
         read(10,*);read(10,*);read(10,*);read(10,*)
     end do
 else if (iprog==2) then !ORCA
+	!Note that ORCA allows to only print shielding for user-specific atoms, so we have to load both atom index and value
+	!Number of centers is determined when loading ORCA output file after Multiwfn just boots up
+	if (ncenter==0) then
+		call loclabel(10,"CARTESIAN COORDINATES (ANGSTROEM)",ifound)
+		call skiplines(10,2)
+		ncenter=0
+		do while(.true.)
+			read(10,"(a)") c80tmp
+			if (c80tmp==" ") exit
+			ncenter=ncenter+1
+		end do
+        allocate(a(ncenter))
+        a%name=" "
+    end if
+    allocate(atmshd(ncenter))
+    atmshd=0
     call loclabelfinal(10,"  Nucleus  Element",ifound)
-    read(10,*);read(10,*)
-    ncenter=0
+    call skiplines(10,2)
     do while(.true.)
-        read(10,"(a)") c80tmp
+		read(10,"(a)") c80tmp
         if (c80tmp==" ") exit
-        ncenter=ncenter+1
-    end do
-    deallocate(a)
-    allocate(a(ncenter),atmshd(ncenter))
-    call loclabelfinal(10,"  Nucleus  Element",ifound)
-    read(10,*);read(10,*)
-    do iatm=1,ncenter
-        read(10,*) inouse,a(iatm)%name,atmshd(iatm)
+        read(c80tmp,*) idx,c80tmp2,tmpshd
+        iatm=idx+1
+        a(iatm)%name=trim(c80tmp2)
+        atmshd(iatm)=tmpshd
     end do
 else if (iprog==0) then !Undetermined, viewed as plain text file
     ncenter=totlinenum(10,1)

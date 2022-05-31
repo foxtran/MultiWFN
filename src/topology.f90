@@ -4,10 +4,10 @@ use topo
 use defvar
 use util
 use GUI
-use function
+use functions
 use plot
-implicit real*8(a-h,o-z)
-character selectyn,c200*200,c1000*1000,c2000tmp*2000,ctmp1*20,ctmp2*20,ctmp3*20,ctmp4*20,icp1text*12,icp2text*12
+implicit real*8 (a-h,o-z)
+character selectyn,c80tmp*80,c200*200,c1000*1000,c2000tmp*2000,ctmp1*20,ctmp2*20,ctmp3*20,ctmp4*20,icp1text*12,icp2text*12
 real*8,allocatable :: randptx(:),randpty(:),randptz(:) !x,y,z of the points in the sphere
 real*8,allocatable :: bassurpathtmp(:,:,:,:) !Used for temporary store bassurpath
 real*8,allocatable :: shanCPrho(:) !For calculate Shannon aromaticity
@@ -21,7 +21,8 @@ real*8 :: hesstmp(3,3),gradtmp(3) !Temporarily used for calculating curvature
 integer :: ishowsearchpath=0
 
 !Don't need virtual orbitals (though some real space functions do need virtual orbitals), delete them for faster calculation
-call delvirorb(1)
+if (iuserfunc/=27) call delvirorb(1) !Local electron affinity is related to virtual orbitals
+call gen_GTFuniq(0) !Generate unique GTFs, for faster evaluation in orbderv
 
 !Initialize searching and plotting parameters
 toposphrad=3D0 !Radius of searching sphere is 3 Bohr
@@ -30,7 +31,7 @@ sphcenx=0D0 !Position of the sphere center
 sphceny=0D0
 sphcenz=0D0
 !Initialize plot parameter
-ZVU=5.0D0 !Closer than other case
+ZVU=5D0 !Closer than other case
 idrawisosur=0
 ishow3n3=1
 ishow3n1=1
@@ -46,6 +47,7 @@ ishowpathlab=0
 ishowsearchlevel=0
 
 call deallo_basinana(1) !If basin analysis has been performed, information should be dellocated otherwise attractors will be shown when visualizing CPs
+write(*,*)
 write(*,*) "         !!! Note: All length units in this module are Bohr !!!"
 
 do while(.true.)
@@ -59,7 +61,12 @@ do while(.true.)
 	write(*,*) "-3 Set interbasin surface generating parameters"
 	write(*,*) "-2 Set path generating parameters"
 	write(*,*) "-1 Set CP searching parameters"
-	write(*,*) "0 Print and visualize all generated CPs, paths and interbasin surfaces"
+    if (numcp<500.and.numpath<500) then
+		write(*,*) "0 Print and visualize all generated CPs, paths and interbasin surfaces"
+    else
+		write(*,*) "0 Visualize all generated CPs, paths and interbasin surfaces"
+		write(*,*) "00 Print information of all generated CPs and paths"
+    end if
 	write(*,*) "1 Search CPs from given starting points"
 	write(*,*) "2 Search CPs from nuclear positions"
 	write(*,*) "3 Search CPs from midpoint of atomic pairs"
@@ -72,7 +79,14 @@ do while(.true.)
 	write(*,*) "10 Add or delete interbasin surfaces"
 	if (ifunctopo==1) write(*,*) "20 Calculate Shannon aromaticity index"
 	write(*,*) "21 Calculate density curvature perpendicular to a specific plane at a point"
-	read(*,*) isel
+    
+    read(*,"(a)") c80tmp
+    if (c80tmp=="00") then !Special case
+		call showtoposummary
+        cycle
+    else
+		read(c80tmp,*) isel
+    end if
 
 	if (isel==-11) then
         write(*,"(a)") " Note: The following functions support both analytical gradient and Hessian:"
@@ -132,11 +146,25 @@ do while(.true.)
 				nsurfpt=100
 				surfpathstpsiz=0.008D0
 			end if
+            !For topology analysis of IRI-pi, IRI_rhocut should be set to zero to avoid automatically setting it to 5 in low rho region, which will lead to huge number of artificial extrema
+            ichange_IRI_rhocut=0
+            if (ifunctopo==100.and.iuserfunc==99.and.IRI_rhocut/=0) then
+				write(*,"(a)") " Note: IRI_rhocut parameter has been temporarily set to 0 during calculation"
+				tmp_IRI_rhocut=IRI_rhocut
+				IRI_rhocut=0
+                ichange_IRI_rhocut=1
+            end if
 		end if
         
 	else if (isel==-10) then
+		call del_GTFuniq !Destory unique GTF informtaion
         call delvirorb_back(1)
+        if (ichange_IRI_rhocut==1) then
+			write(*,*) "Note: Original IRI_rhocut parameter has been restored"
+			IRI_rhocut=tmp_IRI_rhocut
+        end if
 		exit
+        
 !-9 -9 -9 -9 -9 -9 -9
 	else if (isel==-9) then
 		write(*,*) "q = quit"
@@ -213,7 +241,7 @@ do while(.true.)
 						tmpy4=CPpos(2,icp)
 						tmpz4=CPpos(3,icp)
 					end if
-					write(*,"(' The dihedral angle is',f12.6,' degree')") xyz2dih(tmpx1,tmpy1,tmpz1,tmpx2,tmpy2,tmpz2,tmpx3,tmpy3,tmpz3,tmpx4,tmpy4,tmpz4)
+					write(*,"(' The dihedral angle is',f12.6,' degree')") xyz2dih_sign(tmpx1,tmpy1,tmpz1,tmpx2,tmpy2,tmpz2,tmpx3,tmpy3,tmpz3,tmpx4,tmpy4,tmpz4)
 				end if
 			else
 				write(*,*) "Input error"
@@ -350,6 +378,10 @@ do while(.true.)
 				
 			else if (isel2==6) then
 				open(10,file="paths.pdb",status="replace")
+				if (ifPBC>0) then
+					call getcellabc(asize,bsize,csize,alpha,beta,gamma)
+					write(10,"('CRYST1',3f9.3,3f7.2)") asize,bsize,csize,alpha,beta,gamma
+				end if
 				itmp=0
 				do ipath=1,numpath
 					do ipt=1,pathnumpt(ipath)
@@ -530,6 +562,11 @@ do while(.true.)
 				end if
 			else if (isel2==6) then
 				open(10,file="CPs.pdb",status="replace")
+				if (ifPBC>0) then
+					call getcellabc(asize,bsize,csize,alpha,beta,gamma)
+					write(10,"('CRYST1',3f9.3,3f7.2)") asize,bsize,csize,alpha,beta,gamma
+				end if
+				write(10,"('REMARK   C=(3,-3) N=(3,-1) O=(3,+1) F=(3,+3)')")
 				do icp=1,numcp
 					if (CPtype(icp)==1) write(10,"(a6,i5,1x,a4,1x,a3, 1x,a1,i4,4x,3f8.3,2f6.2,10x,a2)") "HETATM",icp,' '//"C "//' ',"CPS",'A',1,CPpos(:,icp)*b2a,1.0,0.0,"C "
 					if (CPtype(icp)==2) write(10,"(a6,i5,1x,a4,1x,a3, 1x,a1,i4,4x,3f8.3,2f6.2,10x,a2)") "HETATM",icp,' '//"N "//' ',"CPS",'A',1,CPpos(:,icp)*b2a,1.0,0.0,"N "
@@ -582,7 +619,7 @@ do while(.true.)
 	else if (isel==-2) then
 		do while(.true.)
 			write(*,*)
-			write(*,*) "           ------------ Set path generating parameters ------------"
+			write(*,*) "           ------------ Set path generation parameters ------------"
 			write(*,"(a)")      " 0 Return"
 			write(*,"(a,i4)")   " 1 Maximum number of points of a path, current:",maxpathpttry
 			write(*,"(a,f8.4)") " 2 Stepsize, current:",pathstepsize
@@ -599,6 +636,7 @@ do while(.true.)
 				write(*,"(' Note: The value must be smaller than',i5)") maxpathpt
 				read(*,*) maxpathpttry
 			else if (isel2==2) then
+				selectyn='y'
 				if (numpath>0) then
 					write(*,*) "Warning: All generated paths will be cleaned, OK? (y/n)"
 					read(*,*) selectyn
@@ -660,8 +698,8 @@ do while(.true.)
                 write(*,"(a,f12.6)") " 11 Set trust radius of searching, current:",topotrustrad
             end if
             if (itopomethod==1) write(*,*) "12 Choose searching algorithm, current: Newton"
-            if (itopomethod==2) write(*,*) "12 Choose searching algorithm, current: Barzilai-Borwein steep descent"
-            if (itopomethod==3) write(*,*) "12 Choose searching algorithm, current: Barzilai-Borwein steep ascent"
+            if (itopomethod==2) write(*,*) "12 Choose searching algorithm, current: Barzilai-Borwein steepest descent"
+            if (itopomethod==3) write(*,*) "12 Choose searching algorithm, current: Barzilai-Borwein steepest ascent"
 			read(*,*) isel2
 
 			if (isel2==-1) then
@@ -787,86 +825,20 @@ do while(.true.)
             else if (isel2==12) then
                 write(*,"(a)") " Choose the CP locating algorithm"
                 write(*,*) "1 Newton for searching all kinds of CPs"
-                write(*,*) "2 Barzilai-Borwein steep descent mainly for searching minima"
-                write(*,*) "3 Barzilai-Borwein steep ascent mainly for searching maxima"
+                write(*,*) "2 Barzilai-Borwein steepest descent mainly for searching minima"
+                write(*,*) "3 Barzilai-Borwein steepest ascent mainly for searching maxima"
                 read(*,*) itopomethod
 			end if
 		end do
 		
-	!0000000000000000, visualize and inspect resulting topology information
+	!0000000000000000000 Visualize and inspect resulting topology information
 	else if (isel==0) then
-		if (numpath>0) then
-			write(*,*) "Summary of generated topology paths:"
-			do i=1,numpath
-				call path_cp(i,icp1,icp2,ipathtype)
-				if (icp1==0) then
-					icp1text="   Unknown  "
-				else
-					write(icp1text,"(i5,1x,a)") icp1,CPtyp2lab(CPtype(icp1))
-				end if
-				if (icp2==0) then
-					icp2text="  Unknown   "
-				else
-					write(icp2text,"(i5,1x,a)") icp2,CPtyp2lab(CPtype(icp2))
-				end if
-                call getpathlength(i,pathlength)
-				write(*,"(' Path',i5,',',4x,'CP:',a,' -->',' CP:',a,'   Length:',f9.5,' Bohr')") i,icp1text,icp2text,pathlength
-			end do
-		else
-			write(*,*) "No path has been generated"
-		end if
-		write(*,*)
-		if (numcp>0) then
-			write(*,*) "Summary of found CPs:"
-			write(*,*) " Index            XYZ Coordinate (Bohr)            Type"
-			do icp=1,numcp
-				icptype=CPtype(icp)
-				if (ifunctopo==1.and.icptype==1) then !NCP of AIM
-					call NCP2atmidx(icp,iatm)
-					if (iatm==0) then
-						write(*,"(i6,3f14.8,3x,a,'   Nucleus: Unknown')") icp,CPpos(:,icp),CPtyp2lab(icptype)
-					else
-						write(*,"(i6,3f14.8,3x,a,'   Nucleus:',i5,'(',a')')") icp,CPpos(:,icp),CPtyp2lab(icptype),iatm,a(iatm)%name
-					end if
-				else if (ifunctopo==1.and.icptype==2) then !BCP of AIM
-					call BCP2atmidx(icp,iatm,jatm)
-					if (iatm==0.or.jatm==0) then
-						write(*,"(i6,3f14.8,3x,a)") icp,CPpos(:,icp),CPtyp2lab(icptype)
-					else
-						write(*,"(i6,3f14.8,3x,a,i5,'(',a')',' --',i5,'(',a')')") icp,CPpos(:,icp),CPtyp2lab(icptype),iatm,a(iatm)%name,jatm,a(jatm)%name
-					end if
-				else
-					write(*,"(i6,3f14.8,3x,a)") icp,CPpos(:,icp),CPtyp2lab(icptype)
-				end if
-			end do
-		    NumCPtype1=count(CPtype(1:numcp)==1)
-		    NumCPtype2=count(CPtype(1:numcp)==2)
-		    NumCPtype3=count(CPtype(1:numcp)==3)
-		    NumCPtype4=count(CPtype(1:numcp)==4)
-		    write(*,*) "The number of critical points of each type:"
-		    write(*,"(' (3,-3):',i6,',   (3,-1):',i6,',   (3,+1):',i6,',   (3,+3):',i6)") NumCPtype1,NumCPtype2,NumCPtype3,NumCPtype4
-		
-		    itestPH=NumCPtype1-NumCPtype2+NumCPtype3-NumCPtype4 !Poincare-Hopf relationship
-		    write(*,"(' Poincare-Hopf relationship verification:',i5,'  -',i5,'  +',i5,'  -',i5,'  =',i4)") NumCPtype1,NumCPtype2,NumCPtype3,NumCPtype4,itestPH
-            if (ifPBC==0) then
-		        if (itestPH==1) then
-                    write(*,*) "Fine, Poincare-Hopf relationship is satisfied, all CPs may have been found"
-                else
-                    write(*,*) "Warning: Poincare-Hopf relationship is not satisfied, some CPs may be missing"
-                end if
-            else if (ifPBC>0) then
-		        if (itestPH==0) then
-                    write(*,*) "Fine, Poincare-Hopf relationship is satisfied, all CPs may have been found"
-                else
-                    write(*,*) "Warning: Poincare-Hopf relationship is not satisfied, some CPs may be missing"
-                end if
-            end if
-		    if (numbassurf>0) write(*,"(' The number of generated interbasin surfaces:',i8)") numbassurf
-		else
-			write(*,*) "No CP has been found"
-		end if
-		
-		if (numpath>0) idrawmol=0 !Avoid atom and bond covering paths
+		if (numcp<500.and.numpath<500) then
+			call showtoposummary
+        else
+			write(*,"(a)") " Note: Since there are too many critical points and/or paths, their summary is not automatically shown. &
+            To print them, input 00 in the topology analysis menu"
+        end if
 		if (isilent==0) call drawmoltopogui
         
 	!111111111111111111111 Locate CPs from one or more given starting points
@@ -1000,15 +972,11 @@ do while(.true.)
                     if (isearch==2) then !Search will be performed between two fragments
 						if ( (inlist1(iatm).and.inlist1(jatm)).or.(inlist2(iatm).and.inlist2(jatm)) ) cycle !Two atoms are in the same fragment
                     end if
-                    if (ifPBC==0) then
-					    if ( distmat(iatm,jatm) <= vdwsumcrit*(vdwr(a(iatm)%index)+vdwr(a(jatm)%index)) ) ntime=ntime+1
-                    else if (ifPBC>0) then
-                        call nearest_atmdistxyz(iatm,jatm,disttmp,atmx,atmy,atmz)
-					    if ( disttmp <= vdwsumcrit*(vdwr(a(iatm)%index)+vdwr(a(jatm)%index)) ) ntime=ntime+1
-                    end if
+                    disttmp=atomdist(iatm,jatm,1)
+                    if ( disttmp <= vdwsumcrit*(vdwr(a(iatm)%index)+vdwr(a(jatm)%index)) ) ntime=ntime+1
 				end do
 			end do
-            write(*,"(' Number of starting points:',i6)") ntime
+            write(*,"(' Number of starting points:',i8)") ntime
 			!$OMP PARALLEL DO SHARED(itime) PRIVATE(iatm,jatm,disttmp,atmx,atmy,atmz) schedule(dynamic) NUM_THREADS(nthreads)
 			do idx=1,nsearchlist
 				iatm=searchlist(idx)
@@ -1017,15 +985,8 @@ do while(.true.)
                     if (isearch==2) then !Search will be performed between two fragments
 						if ( (inlist1(iatm).and.inlist1(jatm)).or.(inlist2(iatm).and.inlist2(jatm)) ) cycle !Two atoms are in the same fragment
                     end if
-                    if (ifPBC==0) then
-					    if ( distmat(iatm,jatm) > vdwsumcrit*(vdwr(a(iatm)%index)+vdwr(a(jatm)%index)) ) cycle
-                        atmx=a(jatm)%x
-                        atmy=a(jatm)%y
-                        atmz=a(jatm)%z
-                    else if (ifPBC>0) then
-                        call nearest_atmdistxyz(iatm,jatm,disttmp,atmx,atmy,atmz)
-					    if ( disttmp > vdwsumcrit*(vdwr(a(iatm)%index)+vdwr(a(jatm)%index)) ) cycle
-                    end if
+                    call nearest_atmdistxyz(iatm,jatm,disttmp,atmx,atmy,atmz)
+					if ( disttmp > vdwsumcrit*(vdwr(a(iatm)%index)+vdwr(a(jatm)%index)) ) cycle
 					!$OMP CRITICAL
 					itime=itime+1
 					if (ishowsearchlevel>=1) then
@@ -1059,11 +1020,7 @@ do while(.true.)
 				iatm=searchlist(idx)
 				do jdx=idx+1,nsearchlist
 					jatm=searchlist(jdx)
-                    if (ifPBC==0) then
-                        distij=distmat(iatm,jatm)
-                    else if (ifPBC>0) then
-                        call nearest_atmdistxyz(iatm,jatm,distij,atmjx,atmjy,atmjz)
-                    end if
+                    call nearest_atmdistxyz(iatm,jatm,distij,atmjx,atmjy,atmjz)
 					if ( distij > vdwsumcrit*(vdwr(a(iatm)%index)+vdwr(a(jatm)%index)) ) cycle
 					do kdx=jdx+1,nsearchlist
 						katm=searchlist(kdx)
@@ -1071,30 +1028,21 @@ do while(.true.)
 							!Three atoms are in the same fragment, skip
 							if ( (inlist1(iatm).and.inlist1(jatm).and.inlist1(katm)).or.(inlist2(iatm).and.inlist2(jatm).and.inlist2(katm)) ) cycle
 						end if
-                        if (ifPBC==0) then
-                            distki=distmat(katm,iatm)
-                            distkj=distmat(katm,jatm)
-                        else if (ifPBC>0) then
-                            call nearest_atmdistxyz(iatm,katm,distki,atmkx,atmky,atmkz)
-                            distkj=xyz2dist(atmkx,atmky,atmkz,atmjx,atmjy,atmjz)
-                        end if
+                        call nearest_atmdistxyz(iatm,katm,distki,atmkx,atmky,atmkz)
+                        distkj=xyz2dist(atmkx,atmky,atmkz,atmjx,atmjy,atmjz)
 						if ( distki > vdwsumcrit*(vdwr(a(katm)%index)+vdwr(a(iatm)%index)).or.&
 						distkj > vdwsumcrit*(vdwr(a(katm)%index)+vdwr(a(jatm)%index)) ) cycle
 						ntime=ntime+1
 					end do
 				end do
 			end do
-            write(*,"(' Number of starting points:',i6)") ntime
+            write(*,"(' Number of starting points:',i8)") ntime
 			!$OMP PARALLEL DO SHARED(itime) PRIVATE(iatm,jatm,katm,distij,distki,distkj,atmjx,atmjy,atmjz,atmkx,atmky,atmkz) schedule(dynamic) NUM_THREADS(nthreads)
 			do idx=1,nsearchlist
 				iatm=searchlist(idx)
 				do jdx=idx+1,nsearchlist
 					jatm=searchlist(jdx)
-                    if (ifPBC==0) then
-                        distij=distmat(iatm,jatm)
-                    else if (ifPBC>0) then
-                        call nearest_atmdistxyz(iatm,jatm,distij,atmjx,atmjy,atmjz)
-                    end if
+                    call nearest_atmdistxyz(iatm,jatm,distij,atmjx,atmjy,atmjz)
 					if ( distij > vdwsumcrit*(vdwr(a(iatm)%index)+vdwr(a(jatm)%index)) ) cycle
 					do kdx=jdx+1,nsearchlist
 						katm=searchlist(kdx)
@@ -1102,13 +1050,8 @@ do while(.true.)
 							!Three atoms are in the same fragment, skip
 							if ( (inlist1(iatm).and.inlist1(jatm).and.inlist1(katm)).or.(inlist2(iatm).and.inlist2(jatm).and.inlist2(katm)) ) cycle
 						end if
-                        if (ifPBC==0) then
-                            distki=distmat(katm,iatm)
-                            distkj=distmat(katm,jatm)
-                        else if (ifPBC>0) then
-                            call nearest_atmdistxyz(iatm,katm,distki,atmkx,atmky,atmkz)
-                            distkj=xyz2dist(atmkx,atmky,atmkz,atmjx,atmjy,atmjz)
-                        end if
+                        call nearest_atmdistxyz(iatm,katm,distki,atmkx,atmky,atmkz)
+                        distkj=xyz2dist(atmkx,atmky,atmkz,atmjx,atmjy,atmjz)
 						if ( distki > vdwsumcrit*(vdwr(a(katm)%index)+vdwr(a(iatm)%index)).or.&
 						distkj > vdwsumcrit*(vdwr(a(katm)%index)+vdwr(a(jatm)%index)) ) cycle
 						!$OMP CRITICAL
@@ -1144,20 +1087,12 @@ do while(.true.)
 				iatm=searchlist(idx)
 				do jdx=idx+1,nsearchlist
 					jatm=searchlist(jdx)
-                    if (ifPBC==0) then
-                        distij=distmat(iatm,jatm)
-                    else if (ifPBC>0) then
-                        call nearest_atmdistxyz(iatm,jatm,distij,atmjx,atmjy,atmjz)
-                    end if
+                    call nearest_atmdistxyz(iatm,jatm,distij,atmjx,atmjy,atmjz)
 					if ( distij > vdwsumcrit*(vdwr(a(iatm)%index)+vdwr(a(jatm)%index)) ) cycle
 					do kdx=jdx+1,nsearchlist
 						katm=searchlist(kdx)
-                        if (ifPBC==0) then
-                            distkj=distmat(katm,jatm)
-                        else if (ifPBC>0) then
-                            call nearest_atmdistxyz(iatm,katm,distik,atmkx,atmky,atmkz)
-                            distkj=xyz2dist(atmjx,atmjy,atmjz,atmkx,atmky,atmkz)
-                        end if
+                        call nearest_atmdistxyz(iatm,katm,distik,atmkx,atmky,atmkz)
+                        distkj=xyz2dist(atmjx,atmjy,atmjz,atmkx,atmky,atmkz)
 						if ( distkj > vdwsumcrit*(vdwr(a(katm)%index)+vdwr(a(jatm)%index)) ) cycle
 						do ldx=kdx+1,nsearchlist
 							latm=searchlist(ldx)
@@ -1165,16 +1100,9 @@ do while(.true.)
 								!Four atoms are in the same fragment, skip
 								if ( (inlist1(iatm).and.inlist1(jatm).and.inlist1(katm).and.inlist1(latm)).or.(inlist2(iatm).and.inlist2(jatm).and.inlist2(katm).and.inlist2(latm)) ) cycle
 							end if
-                            if (ifPBC==0) then
-                                distlk=distmat(latm,katm)
-                                distli=distmat(latm,iatm)
-                                distlj=distmat(latm,jatm)
-                                distik=distmat(iatm,katm)
-                            else if (ifPBC>0) then
-                                call nearest_atmdistxyz(iatm,latm,distli,atmlx,atmly,atmlz)
-                                distlk=xyz2dist(atmlx,atmly,atmlz,atmkx,atmky,atmkz)
-                                distlj=xyz2dist(atmlx,atmly,atmlz,atmjx,atmjy,atmjz)
-                            end if
+                            call nearest_atmdistxyz(iatm,latm,distli,atmlx,atmly,atmlz)
+                            distlk=xyz2dist(atmlx,atmly,atmlz,atmkx,atmky,atmkz)
+                            distlj=xyz2dist(atmlx,atmly,atmlz,atmjx,atmjy,atmjz)
 							if ( distlk > vdwsumcrit*(vdwr(a(latm)%index)+vdwr(a(katm)%index)).or.&
 							distli > vdwsumcrit*(vdwr(a(latm)%index)+vdwr(a(iatm)%index)).or.&
 							distlj > vdwsumcrit*(vdwr(a(latm)%index)+vdwr(a(jatm)%index)).or.&
@@ -1184,27 +1112,19 @@ do while(.true.)
 					end do
 				end do
 			end do
-            write(*,"(' Number of starting points:',i6)") ntime
+            write(*,"(' Number of starting points:',i8)") ntime
 			!$OMP PARALLEL DO SHARED(itime) PRIVATE(iatm,jatm,katm,latm,distij,distik,distkj,distli,distlk,distlj, &
             !$OMP atmjx,atmjy,atmjz,atmkx,atmky,atmkz,atmlx,atmly,atmlz) schedule(dynamic) NUM_THREADS(nthreads)
 			do idx=1,nsearchlist
 				iatm=searchlist(idx)
 				do jdx=idx+1,nsearchlist
 					jatm=searchlist(jdx)
-                    if (ifPBC==0) then
-                        distij=distmat(iatm,jatm)
-                    else if (ifPBC>0) then
-                        call nearest_atmdistxyz(iatm,jatm,distij,atmjx,atmjy,atmjz)
-                    end if
+                    call nearest_atmdistxyz(iatm,jatm,distij,atmjx,atmjy,atmjz)
 					if ( distij > vdwsumcrit*(vdwr(a(iatm)%index)+vdwr(a(jatm)%index)) ) cycle
 					do kdx=jdx+1,nsearchlist
 						katm=searchlist(kdx)
-                        if (ifPBC==0) then
-                            distkj=distmat(katm,jatm)
-                        else if (ifPBC>0) then
-                            call nearest_atmdistxyz(iatm,katm,distik,atmkx,atmky,atmkz)
-                            distkj=xyz2dist(atmjx,atmjy,atmjz,atmkx,atmky,atmkz)
-                        end if
+                        call nearest_atmdistxyz(iatm,katm,distik,atmkx,atmky,atmkz)
+                        distkj=xyz2dist(atmjx,atmjy,atmjz,atmkx,atmky,atmkz)
 						if ( distkj > vdwsumcrit*(vdwr(a(katm)%index)+vdwr(a(jatm)%index)) ) cycle
 						do ldx=kdx+1,nsearchlist
 							latm=searchlist(ldx)
@@ -1212,16 +1132,9 @@ do while(.true.)
 								!Four atoms are in the same fragment, skip
 								if ( (inlist1(iatm).and.inlist1(jatm).and.inlist1(katm).and.inlist1(latm)).or.(inlist2(iatm).and.inlist2(jatm).and.inlist2(katm).and.inlist2(latm)) ) cycle
 							end if
-                            if (ifPBC==0) then
-                                distlk=distmat(latm,katm)
-                                distli=distmat(latm,iatm)
-                                distlj=distmat(latm,jatm)
-                                distik=distmat(iatm,katm)
-                            else if (ifPBC>0) then
-                                call nearest_atmdistxyz(iatm,latm,distli,atmlx,atmly,atmlz)
-                                distlk=xyz2dist(atmlx,atmly,atmlz,atmkx,atmky,atmkz)
-                                distlj=xyz2dist(atmlx,atmly,atmlz,atmjx,atmjy,atmjz)
-                            end if
+                            call nearest_atmdistxyz(iatm,latm,distli,atmlx,atmly,atmlz)
+                            distlk=xyz2dist(atmlx,atmly,atmlz,atmkx,atmky,atmkz)
+                            distlj=xyz2dist(atmlx,atmly,atmlz,atmjx,atmjy,atmjz)
 							if ( distlk > vdwsumcrit*(vdwr(a(latm)%index)+vdwr(a(katm)%index)).or.&
 							distli > vdwsumcrit*(vdwr(a(latm)%index)+vdwr(a(iatm)%index)).or.&
 							distlj > vdwsumcrit*(vdwr(a(latm)%index)+vdwr(a(jatm)%index)).or.&
@@ -1497,6 +1410,7 @@ do while(.true.)
 		!$OMP END PARALLEL DO
 		call sortpath
 		write(*,"(' Totally found',i6,' new paths')") numpath-numpathold
+		if ((numpath-numpathold)>0) idrawmol=0 !Avoid atoms and bonds blocking newly generated paths
 		
 !9999999999999999999
 	else if (isel==9) then
@@ -1557,18 +1471,18 @@ do while(.true.)
 					do icp=1,numcp
 						if (cp2surf(icp)==isurf) exit
 					end do
-					write(*,"('Index of surface:',i8,'     Index of corresponding (3,-1):',i8)") isurf,icp
+					write(*,"(' Index of interbasin surface:',i8,'  Index of corresponding (3,-1):',i8)") isurf,icp
 				end do
 			else if (c200(1:1)=='o') then
 				read(c200(3:),*) icp
 				if (icp>numcp.or.icp<=0) then
-					write(*,*) "The index of the surface is nonexisted"
+					write(*,*) "Error: The index of the surface is nonexistent"
 				else if (cp2surf(icp)==0) then
-					write(*,*) "This CP is not (3,-1), input again"
+					write(*,*) "Error: This CP is not (3,-1), input again"
 				else
 					open(10,file="surpath.txt",status="replace")
 					do ipath=1,nsurfpathpercp
-						write(10,"('Path',i8)") ipath
+						write(10,"(' Path',i8)") ipath
 						do ipt=1,nsurfpt
 							write(10,"(i6,3f14.8)") ipt,bassurpath(:,ipt,ipath,cp2surf(icp))
 						end do
@@ -1724,10 +1638,10 @@ end subroutine
 !!!--------- Generate interbasin surface from (3,-1)
 subroutine genbassurf(ithisCP,ithissurf,ifunc)
 use defvar
-use function
+use functions
 use util
 use topo
-implicit real*8(a-h,o-z)
+implicit real*8 (a-h,o-z)
 integer ifunc,ithisCP,ithissurf
 real*8 initstpsize,hess(3,3),grad(3),eigvecmat(3,3),eigval(3),basvec1(3),basvec2(3),k1(3),k2(3)
 initstpsize=surfpathstpsiz/4D0 !Smaller than pathstepsize(0.02)
@@ -1778,9 +1692,9 @@ end subroutine
 subroutine gen3n1plepath(ifunc,ithisCP,ithispath)
 use defvar
 use topo
-use function
+use functions
 use util
-implicit real*8(a-h,o-z)
+implicit real*8 (a-h,o-z)
 integer ifunc,ithisCP,ithispath
 real*8 initstpsize,hess(3,3),grad(3),eigvecmat(3,3),eigval(3),initvec(3),plenormvec(3),k1(3),k2(3)
 initstpsize=ple3n1pathstpsiz/4D0 !smaller than pathstepsize(0.02)
@@ -1832,9 +1746,9 @@ end subroutine
 !If info==1, print intermediate searching information, else do not print
 subroutine findpath(ithisCP,itype,ifunc,info)
 use topo
-use function
+use functions
 use util
-implicit real*8(a-h,o-z)
+implicit real*8 (a-h,o-z)
 !Global variable "npathtry" is the maximum number of paths that can emerge from this CP
 !In each time invoking this routine, for itype=1 and 2, search two times (npathtry=2 in fact is sufficient); for itype=3, search npathtry times
 integer ifunc,info,ithisCP
@@ -1861,8 +1775,8 @@ if (itype==1.or.itype==2) then !From (3,-1) to (3,-3), or from (3,+1) to (3,+3)
 	end if
 iterdir:	do idir=1,2
 		if (info==1) then
-			if (idir==1) write(*,"(' Go forward from CP: ',i6,1x,a,' Position:',3f11.5)") ithisCP,CPtyp2lab(CPtype(ithisCP)),CPpos(1:3,ithisCP)
-			if (idir==2) write(*,"(' Go backward from CP:',i6,1x,a,' Position:',3f11.5)") ithisCP,CPtyp2lab(CPtype(ithisCP)),CPpos(1:3,ithisCP)
+			if (idir==1) write(*,"(' Go forward from CP: ',i6,1x,a,' Position:',3f11.5)") ithisCP,CPtyp2lab(CPtype(ithisCP)),CPpos(:,ithisCP)
+			if (idir==2) write(*,"(' Go backward from CP:',i6,1x,a,' Position:',3f11.5)") ithisCP,CPtyp2lab(CPtype(ithisCP)),CPpos(:,ithisCP)
 		end if
 		posvecnorm=dsqrt(sum(eigvecmat(:,iposi)**2))
 		if (idir==1) pathtmp(:,2,idir)=pathtmp(:,1,idir)+pathstepsize*eigvecmat(:,iposi)/posvecnorm !Move forwards along eigenvector with positive eigenvalue
@@ -1955,7 +1869,7 @@ end subroutine
 subroutine path_cp(ipath,icp1,icp2,ipathtype)
 use defvar
 use topo
-implicit real*8(a-h,o-z)
+implicit real*8 (a-h,o-z)
 integer ipath,icp1,icp2
 real*8 tmpvec(3)
 
@@ -2006,9 +1920,9 @@ end subroutine
 !ishowsearchlevel=0/1/2/3:  Print none/minor/some/all detail. Notice that in parallel mode, the outputted details are messed up
 subroutine findcp(x,y,z,ifunc)
 use topo
-use function
+use functions
 use util
-implicit real*8(a-h,o-z)
+implicit real*8 (a-h,o-z)
 integer ifunc
 real*8 x,y,z
 real*8 coord(3,1),grad(3,1),hess(3,3),disp(3,1),gvec(3),gvec_old(3),dvec(3),tmpvec(3)
@@ -2033,7 +1947,7 @@ do i=1,topomaxcyc
 		    exit
 	    end if
 	    disp=-matmul(invmat(hess,3),grad)
-    else if (itopomethod==2) then !Barzilai–Borwein steep descent to determine displacement vector
+    else if (itopomethod==2) then !Barzilai–Borwein steepest descent to determine displacement vector
         gvec_old=gvec
         call gencalchessmat(1,ifunc,coord(1,1),coord(2,1),coord(3,1),value,gvec(:),hess) !Obtain gradient
         if (i>1) then !Use BB2 (see "STABILIZED BARZILAI-BORWEIN METHOD") to determine stepsize, corresponding to Barzilai–Borwein in https://en.wikipedia.org/wiki/Gradient_descent
@@ -2041,12 +1955,12 @@ do i=1,topomaxcyc
             val1=sum(dvec(:)*(gvec-gvec_old))
             val2=sum((gvec-gvec_old)**2)
             disp(:,1)=-val1/val2*gvec(:)
-        else if (i==1) then !Use steep descent with fixed step
+        else if (i==1) then !Use steepest descent with fixed step
             stepinit=0.1
             disp(:,1)=-gvec(:)*stepinit/dsqrt(sum(gvec(:)**2))
         end if
         grad(:,1)=gvec(:)
-    else if (itopomethod==3) then !Barzilai–Borwein steep ascent to determine displacement vector, proposed by Tian Lu by modifying BB2
+    else if (itopomethod==3) then !Barzilai–Borwein steepest ascent to determine displacement vector, proposed by Tian Lu by modifying BB2
         gvec_old=gvec
         call gencalchessmat(1,ifunc,coord(1,1),coord(2,1),coord(3,1),value,gvec(:),hess) !Obtain gradient
         if (i>1) then
@@ -2057,7 +1971,7 @@ do i=1,topomaxcyc
             !write(*,"(/,' dvec:',3f16.10)") dvec
             !write(*,"(' gvec-gvec_old:',3f16.10)") gvec-gvec_old
             !write(*,"(' val1:',f16.10,'  val2:',f16.10)") val1,val2
-        else if (i==1) then !Use steep ascent with fixed step of 0.05 Bohr
+        else if (i==1) then !Use steepest ascent with fixed step of 0.05 Bohr
             stepinit=0.05
             disp(:,1)=gvec(:)*stepinit/dsqrt(sum(gvec(:)**2)) !Find maximum
         end if
@@ -2113,10 +2027,9 @@ do i=1,topomaxcyc
 		if (inewcp==1) then
 			numcp=numcp+1
 			CPpos(:,numcp)=coord(:,1)
-            if (itopomethod==2.or.itopomethod==3) then !When using steep descent/ascent, only gradient is calculated, here we calculate Hessian for determining CP type
+            if (itopomethod==2.or.itopomethod==3) then !When using steepest descent/ascent, only gradient is calculated, here we calculate Hessian for determining CP type
                 call gencalchessmat(2,ifunc,coord(1,1),coord(2,1),coord(3,1),value,gvec(:),hess)
             end if
-			!call diagmat(hess,eigvecmat,eigval,300,1D-15)
  			call diagsymat(hess,eigvecmat,eigval,idiagok) !More robust
  			if (idiagok/=0) write(*,*) "Note: Diagonization of Hessian matrix failed!"
 			igt0=count(eigval>0)
@@ -2130,7 +2043,7 @@ do i=1,topomaxcyc
 				if (ishowsearchlevel>1) write(*,"(' Found new (3,-1) at',3f15.10)") coord
 				CPtype(numcp)=2
 				call sort(eigval)
-				if (ishowsearchlevel>1) write(*,"(' Bond ellipticity is',f15.10)") eigval(1)/eigval(2)-1.0D0
+				if (ishowsearchlevel>1) write(*,"(' Bond ellipticity is',f15.10)") eigval(1)/eigval(2)-1D0
 			else if (igt0==0) then
 				if (ishowsearchlevel>1) write(*,"(' Found new (3,-3) at',3f15.10)") coord
 				CPtype(numcp)=1
@@ -2150,7 +2063,7 @@ end subroutine
 !numcpoldp1: The number of CPs before this search + 1
 subroutine sortCP(numcpoldp1)
 use topo
-implicit real*8(a-h,o-z)
+implicit real*8 (a-h,o-z)
 integer numcpoldp1,typetmp
 real*8 tmparr(3)
 do itmp=numcpoldp1,numcp
@@ -2173,7 +2086,7 @@ end subroutine
 !Sort newly generated paths. This is mainly used to garantee that the path indices are identical in each time of execution under parallel mode
 subroutine sortpath
 use topo
-implicit real*8(a-h,o-z)
+implicit real*8 (a-h,o-z)
 integer cp1(numpath),cp2(numpath)
 real*8 tmparr(3,maxpathpt)
 do ipath=1,numpath
@@ -2358,7 +2271,7 @@ subroutine plotpathprop
 use defvar
 use topo
 use plot
-use function
+use functions
 implicit real*8 (a-h,o-z)
 character c200*200
 
@@ -2578,4 +2491,85 @@ do ipt=2,pathnumpt(ipath)
     end if
     pathlength=pathlength+disp
 end do
+end subroutine
+
+
+
+!!---------- Show topology information summary
+subroutine showtoposummary
+use defvar
+use topo
+implicit real*8 (a-h,o-z)
+character icp1text*12,icp2text*12
+
+if (numpath>0) then
+	write(*,*) "Summary of generated topology paths:"
+	do i=1,numpath
+		call path_cp(i,icp1,icp2,ipathtype)
+		if (icp1==0) then
+			icp1text="   Unknown  "
+		else
+			write(icp1text,"(i5,1x,a)") icp1,CPtyp2lab(CPtype(icp1))
+		end if
+		if (icp2==0) then
+			icp2text="  Unknown   "
+		else
+			write(icp2text,"(i5,1x,a)") icp2,CPtyp2lab(CPtype(icp2))
+		end if
+        call getpathlength(i,pathlength)
+		write(*,"(' Path',i5,',',4x,'CP:',a,' -->',' CP:',a,'   Length:',f9.5,' Bohr')") i,icp1text,icp2text,pathlength
+	end do
+else
+	write(*,*) "No path has been generated"
+end if
+write(*,*)
+if (numcp>0) then
+	write(*,*) "Summary of found CPs:"
+	write(*,*) " Index            XYZ Coordinate (Bohr)            Type"
+	do icp=1,numcp
+		icptype=CPtype(icp)
+		if (ifunctopo==1.and.icptype==1) then !NCP of AIM
+			call NCP2atmidx(icp,iatm)
+			if (iatm==0) then
+				write(*,"(i6,3f14.8,3x,a,'   Nucleus: Unknown')") icp,CPpos(:,icp),CPtyp2lab(icptype)
+			else
+				write(*,"(i6,3f14.8,3x,a,'   Nucleus:',i5,'(',a')')") icp,CPpos(:,icp),CPtyp2lab(icptype),iatm,a(iatm)%name
+			end if
+		else if (ifunctopo==1.and.icptype==2) then !BCP of AIM
+			call BCP2atmidx(icp,iatm,jatm)
+			if (iatm==0.or.jatm==0) then
+				write(*,"(i6,3f14.8,3x,a)") icp,CPpos(:,icp),CPtyp2lab(icptype)
+			else
+				write(*,"(i6,3f14.8,3x,a,i5,'(',a')',' --',i5,'(',a')')") icp,CPpos(:,icp),CPtyp2lab(icptype),iatm,a(iatm)%name,jatm,a(jatm)%name
+			end if
+		else
+			write(*,"(i6,3f14.8,3x,a)") icp,CPpos(:,icp),CPtyp2lab(icptype)
+		end if
+	end do
+	NumCPtype1=count(CPtype(1:numcp)==1)
+	NumCPtype2=count(CPtype(1:numcp)==2)
+	NumCPtype3=count(CPtype(1:numcp)==3)
+	NumCPtype4=count(CPtype(1:numcp)==4)
+	write(*,*) "The number of critical points of each type:"
+	write(*,"(' (3,-3):',i6,',   (3,-1):',i6,',   (3,+1):',i6,',   (3,+3):',i6)") NumCPtype1,NumCPtype2,NumCPtype3,NumCPtype4
+		
+	itestPH=NumCPtype1-NumCPtype2+NumCPtype3-NumCPtype4 !Poincare-Hopf relationship
+	write(*,"(' Poincare-Hopf relationship verification:',i5,'  -',i5,'  +',i5,'  -',i5,'  =',i4)") NumCPtype1,NumCPtype2,NumCPtype3,NumCPtype4,itestPH
+    if (ifPBC==0) then
+		if (itestPH==1) then
+            write(*,*) "Fine, Poincare-Hopf relationship is satisfied, all CPs may have been found"
+        else
+            write(*,*) "Warning: Poincare-Hopf relationship is not satisfied, some CPs may be missing"
+        end if
+    else if (ifPBC>0) then
+		if (itestPH==0) then
+            write(*,*) "Fine, Poincare-Hopf relationship is satisfied, all CPs may have been found"
+        else
+            write(*,*) "Warning: Poincare-Hopf relationship is not satisfied, some CPs may be missing"
+        end if
+    end if
+	if (numbassurf>0) write(*,"(' The number of generated interbasin surfaces:',i8)") numbassurf
+else
+	write(*,*) "No CP has been found"
+end if
 end subroutine

@@ -3,6 +3,7 @@ subroutine showcellinfo
 use defvar
 implicit real*8 (a-h,o-z)
 character c200tmp*200
+
 if (ifPBC>0) then
 	write(*,*)
     write(*,*) "Cell information"
@@ -124,6 +125,20 @@ rcoord=matmul(Amat,Fcoord)
 xyzout(:)=rcoord(:,1)
 end subroutine
 
+
+!!!------- The same as move_to_cell, but input x,y,z component, then they will be updated
+subroutine move_to_cell_scalar(xin,yin,zin)
+real*8 xin,yin,zin,xyzin(3),xyzout(3)
+xyzin(1)=xin
+xyzin(2)=yin
+xyzin(3)=zin
+call move_to_cell(xyzin,xyzout)
+xin=xyzout(1)
+yin=xyzout(2)
+zin=xyzout(3)
+end subroutine
+
+
 !!!------- Used to test "move_to_cell" in interactive interface
 !subroutine test_PBC
 !use defvar
@@ -191,6 +206,7 @@ end subroutine
 
 
 !!!-------- Input indices of atoms A and B, return their nearest distance, and coordinate of B closest to A
+!For isolated system, the B closest to A is still the inputted B
 subroutine nearest_atmdistxyz(iatm,jatm,dist,atmx,atmy,atmz)
 use defvar
 integer iatm,jatm
@@ -202,11 +218,18 @@ xyzA(3)=a(iatm)%z
 xyzB(1)=a(jatm)%x
 xyzB(2)=a(jatm)%y
 xyzB(3)=a(jatm)%z
-call nearest_mirror(xyzA,xyzB,xyzB2)
-atmx=xyzB2(1)
-atmy=xyzB2(2)
-atmz=xyzB2(3)
-dist=dsqrt(sum((xyzA-xyzB2)**2))
+if (ifPBC==0) then
+    atmx=xyzB(1)
+    atmy=xyzB(2)
+    atmz=xyzB(3)
+    dist=dsqrt(sum((xyzA-xyzB)**2))
+else
+    call nearest_mirror(xyzA,xyzB,xyzB2)
+    atmx=xyzB2(1)
+    atmy=xyzB2(2)
+    atmz=xyzB2(3)
+    dist=dsqrt(sum((xyzA-xyzB2)**2))
+end if
 end subroutine
 
 
@@ -476,247 +499,8 @@ end subroutine
 
 
 
-!!!------ Ask user to set up grid and generate Sbas for wavefunction analysis 
-subroutine ask_Sbas_PBC
-use defvar
-implicit real*8 (a-h,o-z)
-character selectyn
-if (ifPBC>0) then
-    if (allocated(Sbas_PBC)) then
-        write(*,"(a)") " Overlap matrix for PBC has already been generated, generate again? (y/n)"
-        read(*,*) selectyn
-        if (selectyn=='n'.or.selectyn=='N') return
-    else
-        write(*,"(a)") " Overlap matrix between basis functions is needed to be generated for subsequent analysis"
-        allocate(Sbas_PBC(nbasis,nbasis))
-    end if
-    !call setgrid(0,igridsel)
-    write(*,*) "Now input grid spacing used to calculate overlap matrix in Bohr, e.g. 0.25"
-    write(*,"(a)") " Note: The smaller the spacing, the more accurate the result, but the higher the cost. &
-    Usually 0.25 is good balance between accuracy and cost."
-    read(*,*) grdspc
-    v1len=dsqrt(sum(cellv1**2))
-    v2len=dsqrt(sum(cellv2**2))
-    v3len=dsqrt(sum(cellv3**2))
-    nx=nint(v1len/grdspc)
-    gridv1(:)=cellv1(:)/nx
-    ny=nint(v2len/grdspc)
-    gridv2(:)=cellv2(:)/ny
-    nz=nint(v3len/grdspc)
-    gridv3(:)=cellv3(:)/nz
-    dx=gridv1(1) !Only for compatibility with old codes
-    dy=gridv2(2)
-    dz=gridv3(3)
-    call genSbas_PBC
-end if
-end subroutine
 
-
-
-!!!--------- Generate overlap matrix between all current basis functions based on uniform grids
-!The integral is limited to current cell
-subroutine genSbas_PBC
-use defvar
-use function
-use util
-implicit real*8 (a-h,o-z)
-!real*8 Sbas_PBC_cart(nbasisCar,nbasisCar),basCar(nbasisCar)
-real*8 Sbas_tmp(nbasis,nbasis),basval(nmo)
-
-!Not Finished. This part of code will calculate values of all Cartesian basis functions at every point and then evaluate Sbas_PBC
-!Sbas_PBC_cart=0
-!Sbas_PBC=0
-!do k=1,nz
-!    do j=1,ny
-!        do i=1,nx
-!            call getgridxyz(i,j,k,tmpx,tmpy,tmpz)
-!            call calcbasCar_PBC(tmpx,tmpy,tmpz,basCar)
-!            do ibas=1,nbasisCar
-!	            do jbas=ibas,nbasisCar
-!                    Sbas_PBC_cart(ibas,jbas)=Sbas_PBC_cart(ibas,jbas)+basCar(ibas)*basCar(jbas)
-!	            end do
-!            end do
-!        end do
-!    end do
-!end do
-!do ibas=1,nbasisCar
-!	do jbas=ibas+1,nbasisCar
-!        Sbas_PBC_cart(jbas,ibas)=Sbas_PBC_cart(ibas,jbas)
-!	end do
-!end do
-!call matCar2curr(Sbas_PBC_cart,Sbas_PBC)
-
-if (.not.allocated(CObasa_org)) allocate(CObasa_org(nbasis,nbasis))
-if (.not.allocated(CO_org)) allocate(CO_org(nmo,nprims))
-CObasa_org=CObasa
-CObasa=0
-do ibas=1,nbasis
-    CObasa(ibas,ibas)=1
-end do
-call CObas2CO(1)
-
-call walltime(iwalltime1)
-Sbas_PBC=0
-ifinish=0
-if (expcutoff_PBC<0) write(*,"(' Note: All exponential functions exp(x) with x<',f8.3,' will be ignored')") expcutoff_PBC
-call showprog(0,nz)
-!$OMP PARALLEL SHARED(Sbas_PBC,ifinish) PRIVATE(Sbas_tmp,i,j,k,tmpx,tmpy,tmpz,basval,ibas,jbas) NUM_THREADS(nthreads)
-Sbas_tmp=0
-!$OMP do schedule(dynamic)
-do k=1,nz
-    do j=1,ny
-        do i=1,nx
-            call getgridxyz(i,j,k,tmpx,tmpy,tmpz)
-            call orbderv_PBC(1,1,nbasis,tmpx,tmpy,tmpz,basval)
-            
-            do ibas=1,nbasis
-	            do jbas=ibas,nbasis
-                    Sbas_tmp(ibas,jbas)=Sbas_tmp(ibas,jbas)+basval(ibas)*basval(jbas)
-	            end do
-            end do
-        end do
-    end do
-    ifinish=ifinish+1
-    call showprog(ifinish,nz)
-end do
-!$OMP END DO
-!$OMP CRITICAL
-Sbas_PBC=Sbas_PBC+Sbas_tmp
-!$OMP END CRITICAL
-!$OMP END PARALLEL
-do ibas=1,nbasis
-	do jbas=ibas+1,nbasis
-        Sbas_PBC(jbas,ibas)=Sbas_PBC(ibas,jbas)
-	end do
-end do
-call calc_dvol(dvol)
-Sbas_PBC=Sbas_PBC*dvol
-Sbas=Sbas_PBC !Usually Sbas_PBC is not directly involved in practical analysis
-
-CObasa=CObasa_org
-CO=CO_org
-deallocate(CObasa_org,CO_org)
-
-write(*,"(' Quality test, Tr(P*S):',f14.8,'   (The larger the deviation to integer, the larger the integral error of overlap matrix)')") sum(Ptot*Sbas)
-call walltime(iwalltime2)
-write(*,"(' Generation of overlap matrix took up',i8,' seconds wall clock time')") iwalltime2-iwalltime1
-!open(10,file="ovlpmat.txt",status="replace")
-!call showmatgau(Sbas,"Overlap matrix",0,fileid=10)
-!close(10)
-end subroutine
-
-!---- Load overlap matrix from .csr file exported by CP2K, however I found the matrix is meaningless, it is neither identical to genSbas or to genSbas_PBC
-subroutine loadSbas_csr
-use defvar
-integer ibas,jbas
-open(10,file="a.csr",status="old")
-do ibas=1,nbasis
-    do jbas=1,nbasis
-        read(10,*) itmp,jtmp,Sbas(ibas,jbas)
-        write(*,*) itmp,jtmp,Sbas(ibas,jbas)
-        pause
-    end do
-end do
-close(10)
-end subroutine
-
-
-
-!!!----------- Calculate wavefunction value of all basis functions at a point for PBC case (not done for PBC now)
-!Clone and adapted from "calcbasval", which is used for isolated systems
-!The global COtr matrix must have been allocated and filled by using COtr=transpose(CO)
-!Before using this, one should make CO correspond to basis function expressions, namely:
-!  CObasa_org=CObasa
-!  CObasa=0
-!  do ibas=1,nbasis
-!      CObasa(ibas,ibas)=1
-!  end do
-!  call CObas2CO(1)
-!    Then after using this routine, recover to original coefficients:
-!  CObasa=CObasa_org
-!  CO=CO_org
-!In fact, using below code can realize identical purpose, but slower because not optimized for present purpose
-!  call orbderv(1,1,nbasis,gridatm(ipt)%x,gridatm(ipt)%y,gridatm(ipt)%z,basval), where basval has length of nmo
-!subroutine calcbasval_PBC(x,y,z,basval)
-!use defvar
-!implicit real*8 (a-h,o-z)
-!real*8 x,y,z,basval(nbasis),GTFvalarr(nprims)
-!
-!lastcen=-1
-!GTFvalarr=0D0
-!do j=1,nprims
-!	ix=type2ix(b(j)%type)
-!	iy=type2iy(b(j)%type)
-!	iz=type2iz(b(j)%type)
-!	ep=b(j)%exp
-!	
-!	if (b(j)%center/=lastcen) then
-!		sftx=x-a(b(j)%center)%x
-!		sfty=y-a(b(j)%center)%y
-!		sftz=z-a(b(j)%center)%z
-!		sftx2=sftx*sftx
-!		sfty2=sfty*sfty
-!		sftz2=sftz*sftz
-!		rr=sftx2+sfty2+sftz2
-!	end if
-!	if (expcutoff>0.or.-ep*rr>expcutoff) then
-!		expterm=exp(-ep*rr)
-!	else
-!		expterm=0D0
-!	end if
-!	lastcen=b(j)%center
-!	if (expterm==0D0) cycle
-!	
-!	if (b(j)%type==1) then
-!	GTFval=expterm
-!	else if (b(j)%type==2) then
-!	GTFval=sftx*expterm
-!	else if (b(j)%type==3) then
-!	GTFval=sfty*expterm
-!	else if (b(j)%type==4) then
-!	GTFval=sftz*expterm
-!	else if (b(j)%type==5) then
-!	GTFval=sftx2*expterm
-!	else if (b(j)%type==6) then
-!	GTFval=sfty2*expterm
-!	else if (b(j)%type==7) then
-!	GTFval=sftz2*expterm
-!	else
-!	GTFval=sftx**ix *sfty**iy *sftz**iz *expterm
-!	end if
-!    GTFvalarr(j)=GTFval
-!end do
-!
-!if (isphergau==1) then !For each basis function, only loops GTFs in the same shell for reducing cost
-!    ibas=0
-!    iGTF=0
-!    do ish=1,nshell
-!        nshbas=shtype2nbas(shtype(ish))
-!        nshbasCar=shtype2nbas(shtypeCar(ish))
-!        nshGTF=nshbasCar*shcon(ish)
-!        is=iGTF+1
-!        ie=iGTF+nshGTF
-!        do jbas=ibas+1,ibas+nshbas
-!            !basval(jbas)=sum( GTFvalarr(is:ie)*CO(jbas,is:ie) )
-!            basval(jbas)=sum( GTFvalarr(is:ie)*COtr(is:ie,jbas) )
-!        end do
-!        ibas=ibas+nshbas
-!        iGTF=iGTF+nshGTF
-!    end do
-!else !All basis functions are Cartesian, below code is faster than the above general code
-!    do ibas=1,nbasisCar
-!        is=primstart(ibas)
-!        ie=primend(ibas)
-!        basval(ibas)=sum( GTFvalarr(is:ie)*COtr(is:ie,ibas) )
-!    end do
-!end if
-!
-!end subroutine
-
-
-
-
-!!!--------- Construct global array a_tmp, which contains real atoms and replicated boundary atoms
+!!!--------- Construct global array a_tmp, which contains real atoms and replicated boundary atoms. Used for visualization purpose
 !ncenter_tmp is returned variable containing number of all atoms including the replicated boundary ones
 subroutine construct_atmp_withbound(ncenter_tmp)
 use defvar
@@ -791,7 +575,7 @@ end subroutine
 
 
 
-!!!-------- Save current PBC information to memory
+!!!-------- Back up current PBC information to memory
 subroutine savePBCinfo
 use defvar
 ifPBC_bk=ifPBC
@@ -800,7 +584,9 @@ cellv2_bk=cellv2
 cellv3_bk=cellv3
 end subroutine
 
-!!!-------- Load saved PBC information
+
+
+!!!-------- Restore backed up PBC information
 subroutine loadPBCinfo
 use defvar
 ifPBC=ifPBC_bk
@@ -808,4 +594,34 @@ cellv1=cellv1_bk
 cellv2=cellv2_bk
 cellv3=cellv3_bk
 call init_PBC
+end subroutine
+
+
+
+!!!-------- Convert index of a grid outside the cell into intracell index
+!Note that grid index starts from 1, so 0 in X direction should be treated as nx
+subroutine PBCgrididx(ix,iy,iz)
+use defvar
+integer ix,iy,iz
+ix=ix-floor(float(ix-1)/nx)*nx
+iy=iy-floor(float(iy-1)/ny)*ny
+iz=iz-floor(float(iz-1)/nz)*nz
+end subroutine
+!!!-------- Wrap index of a grid in direction 1 into intracell index
+subroutine PBCgrididx1(ix)
+use defvar
+integer ix
+ix=ix-floor(float(ix-1)/nx)*nx
+end subroutine
+!!!-------- Wrap index of a grid in direction 2 into intracell index
+subroutine PBCgrididx2(iy)
+use defvar
+integer iy
+iy=iy-floor(float(iy-1)/ny)*ny
+end subroutine
+!!!-------- Wrap index of a grid in direction 3 into intracell index
+subroutine PBCgrididx3(iz)
+use defvar
+integer iz
+iz=iz-floor(float(iz-1)/nz)*nz
 end subroutine

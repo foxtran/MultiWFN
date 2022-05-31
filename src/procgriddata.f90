@@ -62,7 +62,7 @@ use deftype
 use defvar
 use util
 use GUI
-implicit real*8(a-h,o-z)
+implicit real*8 (a-h,o-z)
 real*8,allocatable :: avgdata(:,:)
 integer,allocatable :: atmlist(:),atmlist2(:)
 character gridfile2*200,gridfilenew*200,atmidxfile*200,atmidxfile2*200,c200tmp*200,tmpchar,c2000tmp*2000
@@ -119,7 +119,7 @@ do while(.true.)
 	write(*,*) "15 If data value is within certain range, set it to a specified value"
 	write(*,*) "16 Scale data range of present grid data"
 	write(*,*) "17 Show statistic data of the points in specific spatial and value range"
-	write(*,*) "18 Calculate and plot integral curve in X/Y/Z direction"
+	write(*,*) "18 Plot (local) integral curve or plane-averaged in X/Y/Z direction"
 	read(*,*) isel
     
     if (isel>=2.and.isel<=7.and.ifgridortho()/=1) then
@@ -139,26 +139,21 @@ do while(.true.)
 		open(10,file="output.txt",status="replace")
 		write(*,*) "Outputting data, please wait..."
 		ii=0
-		do i=1,nx
+		do k=1,nz
 			do j=1,ny
-				do k=1,nz
-					write(10,"(3f10.5,f22.15)") (orgx+(i-1)*dx)*b2a,(orgy+(j-1)*dy)*b2a,(orgz+(k-1)*dz)*b2a,cubmat(i,j,k)
+				do i=1,nx
+					call getgridxyz(i,j,k,tmpx,tmpy,tmpz)
+					write(10,"(3f10.5,f22.15)") tmpx*b2a,tmpy*b2a,tmpz*b2a,cubmat(i,j,k)
 				end do
 			end do
-			progress=dfloat(i)/nx*100
-			if (progress>ii) then
-				ii=ii+10
-				write(*,"(f6.1,'%')") progress
-			end if
+			call showprog(k,nz)
 		end do
-		write(*,"(f6.1,'%')") 100D0
 		write(*,*)
 		write(*,*) "The data have been saved to output.txt in current folder"
 		write(*,"(a)") " The first three columns correspond to X,Y,Z, unit is Angstrom, the last column is data value"
 		close(10)
 	else if (isel==2) then
-		open(10,file="output.txt",status="replace")
-		write(*,*) "Input Z (in Angstrom) to define a XY plane"
+		write(*,*) "Input Z (in Angstrom) to define a XY plane, e.g. 0.52"
 		read(*,*) posZ
 		posZ=posZ/b2a
 		rmindist=abs(orgz-posZ)
@@ -171,18 +166,18 @@ do while(.true.)
 			end if
 		end do
 		write(*,"(a,f14.6,a)") " The X-Y plane closest to your input is Z=",(orgz+(k-1)*dz)*b2a," Angstrom"
+		open(10,file="output.txt",status="replace")
 		do i=1,nx
 			do j=1,ny
 				write(10,"(3f11.6,f22.15)") (orgx+(i-1)*dx)*b2a,(orgy+(j-1)*dy)*b2a,(orgz+(k-1)*dz)*b2a,cubmat(i,j,k)
 			end do
 		end do
+		close(10)
 		write(*,*) "The data have been exported to output.txt in current folder"
 		write(*,*) "The first three columns correspond to X,Y,Z, unit is Angstrom"
-		close(10)
 		
 	else if (isel==3) then
-		open(10,file="output.txt",status="replace")
-		write(*,*) "Input X (in Angstrom) to define a YZ plane"
+		write(*,*) "Input X (in Angstrom) to define a YZ plane, e.g. 0.52"
 		read(*,*) posX
 		posX=posX/b2a
 		rmindist=abs(orgx-posX)
@@ -195,18 +190,18 @@ do while(.true.)
 			end if
 		end do
 		write(*,"(a,f14.6,a)") " The YZ plane closest to your input is X=",(orgx+(i-1)*dx)*b2a," Angstrom"
+		open(10,file="output.txt",status="replace")
 		do j=1,ny
 			do k=1,nz
 				write(10,"(3f11.6,f22.15)") (orgx+(i-1)*dx)*b2a,(orgy+(j-1)*dy)*b2a,(orgz+(k-1)*dz)*b2a,cubmat(i,j,k)
 			end do
 		end do
+		close(10)
 		write(*,*) "The data have been exported to output.txt in current folder"
 		write(*,*) "The first three columns correspond to X,Y,Z, unit is Angstrom"
-		close(10)
 		
 	else if (isel==4) then
-		open(10,file="output.txt",status="replace")
-		write(*,*) "Input Y (in Angstrom) to define a XZ plane"
+		write(*,*) "Input Y (in Angstrom) to define a XZ plane, e.g. 0.52"
 		read(*,*) posY
 		posY=posY/b2a
 		rmindist=abs(orgy-posY)
@@ -219,20 +214,20 @@ do while(.true.)
 			end if
 		end do
 		write(*,"(a,f14.6,a)") " The XZ plane closest to your input is Y=",(orgy+(j-1)*dy)*b2a," Angstrom"
+		open(10,file="output.txt",status="replace")
 		do i=1,nx
 			do k=1,nz
 				write(10,"(3f11.6,f22.15)") (orgx+(i-1)*dx)*b2a,(orgy+(j-1)*dy)*b2a,(orgz+(k-1)*dz)*b2a,cubmat(i,j,k)
 			end do
 		end do
+		close(10)
 		write(*,*) "The data have been exported to output.txt in current folder"
 		write(*,*) "The column 1/2/3/4 correspond to X,Y,Z,value respectively unit is Angstrom"
-		close(10)
 		
 	else if (isel==5) then
 		if (allocated(avgdata)) deallocate(avgdata)
 		allocate(avgdata(nx,ny))
 		avgdata=0D0
-		open(10,file="output.txt",status="replace")
 		write(*,*) "Input the range of Z (Angstrom) for XY planes, e.g. 3.0 12.4"
 		read(*,*) rangelow,rangehigh
 		rangelow=rangelow/b2a
@@ -246,20 +241,20 @@ do while(.true.)
 		end do
 		avgdata=avgdata/nlayers
 		write(*,"(' There are ',i8,' layers within the range')") nlayers
+		open(10,file="output.txt",status="replace")
 		do i=1,nx
 			do j=1,ny
 				write(10,"(2f11.6,f22.15)") (orgx+(i-1)*dx)*b2a,(orgy+(j-1)*dy)*b2a,avgdata(i,j)
 			end do
 		end do
+		close(10)
 		write(*,*) "The data have been exported to output.txt in current folder"
 		write(*,*) "Column 1,2,3 correspond to X,Y,value respectively"
-		close(10)
 		
 	else if (isel==6) then
 		if (allocated(avgdata)) deallocate(avgdata)
 		allocate(avgdata(ny,nz))
 		avgdata=0D0
-		open(10,file="output.txt",status="replace")
 		write(*,*) "Input the range of X (Angstrom) for YZ planes, e.g. 3.0 12.4"
 		read(*,*) rangelow,rangehigh
 		rangelow=rangelow/b2a
@@ -273,20 +268,20 @@ do while(.true.)
 		end do
 		avgdata=avgdata/nlayers
 		write(*,"(' There are ',i8,' layers within the range')") nlayers
+		open(10,file="output.txt",status="replace")
 		do j=1,ny
 			do k=1,nz
 				write(10,"(2f11.6,f22.15)") (orgy+(j-1)*dy)*b2a,(orgz+(k-1)*dz)*b2a,avgdata(j,k)
 			end do
 		end do
+		close(10)
 		write(*,*) "The data have been exported to output.txt in current folder"
 		write(*,*) "Column 1,2,3 correspond to Y,Z,value respectively"
-		close(10)
 				
 	else if (isel==7) then
 		if (allocated(avgdata)) deallocate(avgdata)
 		allocate(avgdata(nx,nz))
 		avgdata=0D0
-		open(10,file="output.txt",status="replace")
 		write(*,*) "Input the range of Y (Angstrom) for XZ planes, e.g. 3.0 12.4"
 		read(*,*) rangelow,rangehigh
 		rangelow=rangelow/b2a
@@ -300,14 +295,15 @@ do while(.true.)
 		end do
 		avgdata=avgdata/nlayers
 		write(*,"(' There are ',i8,' layers within the range')") nlayers
+		open(10,file="output.txt",status="replace")
 		do i=1,nx
 			do k=1,nz
 				write(10,"(2f11.6,f22.15)") (orgx+(i-1)*dx)*b2a,(orgz+(k-1)*dz)*b2a,avgdata(i,k)
 			end do
 		end do
+		close(10)
 		write(*,*) "The data have been exported to output.txt in current folder"
 		write(*,*) "Column 1,2,3 correspond to X,Z,value respectively"
-		close(10)
 		
 	else if (isel==8) then
 		do while(.true.)
@@ -828,7 +824,7 @@ end subroutine
 subroutine doproject(useratom)
 use defvar
 use procgridmod
-implicit real*8(a-h,o-z)
+implicit real*8 (a-h,o-z)
 type(content) vec1,vec2,vec3,useratom(3),pttemp,point1,point2,cubmatpt
 type(content),allocatable :: planedata(:)
 type(pleequa) userplane
@@ -864,9 +860,9 @@ if (temp/=0) distoler=temp
 
 allocate(planedata(nx*ny*nz))
 npt=0
-do i=1,nx
+do k=1,nz
 	do j=1,ny
-		do k=1,nz
+		do i=1,nx
 			cubmatpt%value=cubmat(i,j,k)
             call getgridxyz(i,j,k,cubmatpt%x,cubmatpt%y,cubmatpt%z)
 			pttemp=protoplane_pos(cubmatpt,userplane,vec3)  !Project original data a(i,j,k) to userplane
@@ -879,7 +875,7 @@ do i=1,nx
 end do
 write(*,"(i10,' points are presented in the plane you defined')") npt
 
-write(*,*) "If project data to XY plane? 1=yes 2=no"
+write(*,*) "If projecting data to XY plane? 1=yes 2=no"
 read(*,*) itest
 
 if (itest==1) then
@@ -960,7 +956,7 @@ use util
 use GUI
 implicit real*8 (a-h,o-z)
 character c200tmp*200
-real*8,allocatable :: intcurve(:),locintcurve(:),intcurvepos(:)
+real*8,allocatable :: intcurve(:),locintcurve(:),pleavgcurve(:),curvepos(:)
 
 if (gridv1(2)==0.and.gridv1(3)==0) then !Can integrate along X axis
     continue
@@ -969,7 +965,7 @@ else if (gridv2(1)==0.and.gridv2(3)==0) then !Can integrate along Y axis
 else if (gridv3(1)==0.and.gridv3(2)==0) then !Can integrate along Z axis
     continue
 else
-    write(*,"(a)") "Error: This function cannot be used for present grid. The grid must satisfy at least one below conditions"
+    write(*,"(a)") "Error: This function cannot be used for present grid. The grid must satisfy at least one below conditions:"
     write(*,*) "1 Grid vector 1 is parallel along X axis and the other two are in YZ plane"
     write(*,*) "2 Grid vector 2 is parallel along Y axis and the other two are in XZ plane"
     write(*,*) "3 Grid vector 3 is parallel along Z axis and the other two are in XY plane"
@@ -1026,9 +1022,7 @@ end if
 write(*,*) "Calculating data..."
 tmpintval=0
 if (idir==1) then !Direction 1
-	allocate(intcurve(nx),locintcurve(nx),intcurvepos(nx))
-	intcurve=0
-	locintcurve=0
+	allocate(intcurve(nx),locintcurve(nx),curvepos(nx),pleavgcurve(nx))
 	ncurpt=nx
     v1len=dsqrt(sum(gridv1**2))
 	if (index(c200tmp,"a")/=0) then
@@ -1036,17 +1030,16 @@ if (idir==1) then !Direction 1
 		rhigh=orgx+(nx-1)*v1len
 	end if
 	do ix=1,nx
-		intcurvepos(ix)=orgx+(ix-1)*v1len
-		if (intcurvepos(ix)<rlow.or.intcurvepos(ix)>rhigh) cycle
+		curvepos(ix)=orgx+(ix-1)*v1len
+		if (curvepos(ix)<rlow.or.curvepos(ix)>rhigh) cycle
         call vec2area(gridv2(:),gridv3(:),area)
 		locintcurve(ix)=sum(cubmat(ix,:,:))*area
+        pleavgcurve(ix)=sum(cubmat(ix,:,:))/(ny*nz)
 		tmpintval=tmpintval+locintcurve(ix)*v1len
 		intcurve(ix)=tmpintval
 	end do
 else if (idir==2) then !Direction 2
-	allocate(intcurve(ny),locintcurve(ny),intcurvepos(ny))
-	intcurve=0
-	locintcurve=0
+	allocate(intcurve(ny),locintcurve(ny),curvepos(ny),pleavgcurve(ny))
 	ncurpt=ny
     v2len=dsqrt(sum(gridv2**2))
 	if (index(c200tmp,"a")/=0) then
@@ -1054,17 +1047,16 @@ else if (idir==2) then !Direction 2
 		rhigh=orgy+(ny-1)*v2len
 	end if
 	do iy=1,ny
-		intcurvepos(iy)=orgy+(iy-1)*v2len
-		if (intcurvepos(iy)<rlow.or.intcurvepos(iy)>rhigh) cycle
+		curvepos(iy)=orgy+(iy-1)*v2len
+		if (curvepos(iy)<rlow.or.curvepos(iy)>rhigh) cycle
         call vec2area(gridv1(:),gridv3(:),area)
 		locintcurve(iy)=sum(cubmat(:,iy,:))*area
+        pleavgcurve(iy)=sum(cubmat(:,iy,:))/(nx*nz)
 		tmpintval=tmpintval+locintcurve(iy)*v2len
 		intcurve(iy)=tmpintval
 	end do
 else if (idir==3) then !Direction 3
-	allocate(intcurve(nz),locintcurve(nz),intcurvepos(nz))
-	intcurve=0
-	locintcurve=0
+	allocate(intcurve(nz),locintcurve(nz),curvepos(nz),pleavgcurve(nz))
 	ncurpt=nz
     v3len=dsqrt(sum(gridv3**2))
 	if (index(c200tmp,"a")/=0) then
@@ -1072,27 +1064,42 @@ else if (idir==3) then !Direction 3
 		rhigh=orgz+(nz-1)*v3len
 	end if
 	do iz=1,nz
-		intcurvepos(iz)=orgz+(iz-1)*v3len
-		if (intcurvepos(iz)<rlow.or.intcurvepos(iz)>rhigh) cycle
+		curvepos(iz)=orgz+(iz-1)*v3len
+		if (curvepos(iz)<rlow.or.curvepos(iz)>rhigh) cycle
         call vec2area(gridv1(:),gridv2(:),area)
 		locintcurve(iz)=sum(cubmat(:,:,iz))*area
+        pleavgcurve(iz)=sum(cubmat(:,:,iz))/(nx*ny)
 		tmpintval=tmpintval+locintcurve(iz)*v3len
 		intcurve(iz)=tmpintval
 	end do
 end if
+
+write(*,"(/,a)") " Options 1~3 are mainly used for previewing purpose. To gain better graphical effect, &
+you can use options 7~9 to export curve data and plot the curves using third-part tool, such as gnuplot"
+write(*,*)
+write(*,"(' Minimum and maximum of plane-averaged curve:',2E16.8)") minval(pleavgcurve),maxval(pleavgcurve)
+write(*,"(' Minimum and maximum of local integral curve:',2E16.8)") minval(locintcurve),maxval(locintcurve)
+write(*,"(' Minimum and maximum of integral curve:      ',2E16.8)") minval(intcurve),maxval(intcurve)
+
 do while(.true.)
 	write(*,*)
+	write(*,*) "-2 Set format of saving graphical file, current: "//graphformat
 	if (ilenunit1D==1) write(*,*) "-1 Change length unit of the graph to Angstrom"
 	if (ilenunit1D==2) write(*,*) "-1 Change length unit of the graph to Bohr"
 	write(*,*) "0 Return"
 	write(*,*) "1 Plot graph of integral curve"
 	write(*,*) "2 Plot graph of local integral curve"
-	write(*,*) "3 Save graph of integral curve to current folder"
-	write(*,*) "4 Save graph of local integral curve to current folder"
-	write(*,*) "5 Export data of integral curve to intcurve.txt in current folder"
-	write(*,*) "6 Export data of local integral curve to locintcurve.txt in current folder"
+	write(*,*) "3 Plot graph of plane-averaged curve"
+	write(*,*) "4 Save graph of integral curve to current folder"
+	write(*,*) "5 Save graph of local integral curve to current folder"
+	write(*,*) "6 Save graph of plane-averaged curve to current folder"
+	write(*,*) "7 Export data of integral curve to intcurve.txt in current folder"
+	write(*,*) "8 Export data of local integral curve to locintcurve.txt in current folder"
+	write(*,*) "9 Export data of plane-averaged curve to pleavgcurve.txt in current folder"
 	read(*,*) isel2
-	if (isel2==-1) then
+    if (isel2==-2) then
+        call setgraphformat
+	else if (isel2==-1) then
 		if (ilenunit1D==1) then
 			ilenunit1D=2
 		else if (ilenunit1D==2) then
@@ -1100,38 +1107,66 @@ do while(.true.)
 		end if
 	else if (isel2==0) then
 		exit
-	else if (isel2==1.or.isel2==3) then
+	else if (isel2==1.or.isel2==4) then
 		disminmax=maxval(intcurve)-minval(intcurve)
 		ylow=minval(intcurve)-0.1D0*disminmax
 		yhigh=maxval(intcurve)+0.1D0*disminmax
 		stplabx=(rhigh-rlow)/10
 		stplaby=(yhigh-ylow)/10
-		if (isel2==1) call drawcurve(intcurvepos,intcurve,ncurpt,rlow,rhigh,stplabx,ylow,yhigh,stplaby,"show")
-		if (isel2==3) call drawcurve(intcurvepos,intcurve,ncurpt,rlow,rhigh,stplabx,ylow,yhigh,stplaby,"save")
-	else if (isel2==2.or.isel2==4) then
+		if (isel2==1) then
+			call drawcurve(curvepos,intcurve,ncurpt,rlow,rhigh,stplabx,ylow,yhigh,stplaby,"show")
+		else if (isel2==4) then
+			call drawcurve(curvepos,intcurve,ncurpt,rlow,rhigh,stplabx,ylow,yhigh,stplaby,"save")
+            write(*,"(a)") " Done! Image file of integral curve has been saved to current folder with DISLIN prefix"
+        end if
+	else if (isel2==2.or.isel2==5) then
 		disminmax=maxval(locintcurve)-minval(locintcurve)
 		ylow=minval(locintcurve)-0.1D0*disminmax
 		yhigh=maxval(locintcurve)+0.1D0*disminmax
 		stplabx=(rhigh-rlow)/10
 		stplaby=(yhigh-ylow)/10
-		if (isel2==2) call drawcurve(intcurvepos,locintcurve,ncurpt,rlow,rhigh,stplabx,ylow,yhigh,stplaby,"show")
-		if (isel2==4) call drawcurve(intcurvepos,locintcurve,ncurpt,rlow,rhigh,stplabx,ylow,yhigh,stplaby,"save")
-	else if (isel2==5) then
+		if (isel2==2) then
+			call drawcurve(curvepos,locintcurve,ncurpt,rlow,rhigh,stplabx,ylow,yhigh,stplaby,"show")
+		else if (isel2==5) then
+			call drawcurve(curvepos,locintcurve,ncurpt,rlow,rhigh,stplabx,ylow,yhigh,stplaby,"save")
+            write(*,"(a)") " Done! Image file of local integral curve has been saved to current folder with DISLIN prefix"
+        end if
+	else if (isel2==3.or.isel2==6) then
+		disminmax=maxval(pleavgcurve)-minval(pleavgcurve)
+		ylow=minval(pleavgcurve)-0.1D0*disminmax
+		yhigh=maxval(pleavgcurve)+0.1D0*disminmax
+		stplabx=(rhigh-rlow)/10
+		stplaby=(yhigh-ylow)/10
+		if (isel2==3) then
+			call drawcurve(curvepos,pleavgcurve,ncurpt,rlow,rhigh,stplabx,ylow,yhigh,stplaby,"show")
+		else if (isel2==6) then
+			call drawcurve(curvepos,pleavgcurve,ncurpt,rlow,rhigh,stplabx,ylow,yhigh,stplaby,"save")
+            write(*,"(a)") " Done! Image file of plane-averaged curve has been saved to current folder with DISLIN prefix"
+        end if
+	else if (isel2==7) then
 		open(10,file="intcurve.txt",status="replace")
 		do ipt=1,ncurpt
-			if (intcurvepos(ipt)<rlow.or.intcurvepos(ipt)>rhigh) cycle
-			write(10,"(2f14.8,f20.10)") intcurvepos(ipt),intcurvepos(ipt)*b2a,intcurve(ipt)
+			if (curvepos(ipt)<rlow.or.curvepos(ipt)>rhigh) cycle
+			write(10,"(2f14.8,f20.10)") curvepos(ipt),curvepos(ipt)*b2a,intcurve(ipt)
 		end do
 		close(10)
 		write(*,"(a)") " Done! 1,2,3 columns correspond to the coordinate (in Bohr and in Angstrom) in the direction you selected and the integral, respectively"
-	else if (isel2==6) then
+	else if (isel2==8) then
 		open(10,file="locintcurve.txt",status="replace")
 		do ipt=1,ncurpt
-			if (intcurvepos(ipt)<rlow.or.intcurvepos(ipt)>rhigh) cycle
-			write(10,"(2f14.8,f20.10)") intcurvepos(ipt),intcurvepos(ipt)*b2a,locintcurve(ipt)
+			if (curvepos(ipt)<rlow.or.curvepos(ipt)>rhigh) cycle
+			write(10,"(2f14.8,f20.10)") curvepos(ipt),curvepos(ipt)*b2a,locintcurve(ipt)
 		end do
 		close(10)
-		write(*,"(a)") " Done! 1,2,3 columns correspond to the coordinate (in Bohr and in Angstrom) in the direction you selected and the local integral, respectively"				
+		write(*,"(a)") " Done! 1,2,3 columns correspond to the coordinate (in Bohr and in Angstrom) in the direction you selected and the local integral, respectively"
+	else if (isel2==9) then
+		open(10,file="pleavgcurve.txt",status="replace")
+		do ipt=1,ncurpt
+			if (curvepos(ipt)<rlow.or.curvepos(ipt)>rhigh) cycle
+			write(10,"(2f14.8,f20.10)") curvepos(ipt),curvepos(ipt)*b2a,pleavgcurve(ipt)
+		end do
+		close(10)
+		write(*,"(a)") " Done! 1,2,3 columns correspond to the coordinate (in Bohr and in Angstrom) in the direction you selected and the plane-averaged value, respectively"						
 	end if
 end do
 end subroutine

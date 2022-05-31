@@ -1,12 +1,14 @@
 SIMD = -msse3
-OPT = -O2 -qopenmp -qopenmp-link=static -threads -qopt-matmul $(SIMD) -diag-disable 8290,8291,6371,10316 -fpp -mkl -static-intel
-OPT1 = -O1 -qopenmp -qopenmp-link=static -threads $(SIMD) -diag-disable 8290,8291,6371,10316 -fpp -mkl -static-intel
+OPT = -O2 -qopenmp -qopenmp-link=static -threads -qopt-matmul $(SIMD) -diag-disable 8290,8291,6371,10316 -fpp -mkl -static-intel -DINTEL_MKL
+OPT1 = -O1 -qopenmp -qopenmp-link=static -threads $(SIMD) -diag-disable 8290,8291,6371,10316 -fpp -mkl -static-intel -DINTEL_MKL
 #Options in the next line is for debugging purpose
 #OPTDBG = -O0 -qopenmp -diag-disable 8290,8291,6371 -threads -qopenmp-link=static -debug all -g -traceback -check all -fstack-protector -fpp -mkl -static-intel
 
-LIB = ./dislin_d-11.0.a -lXm -lXt -lX11 -lGL   #At least works for CentOS 7.x
+LIB_GUI = ./dislin_d-11.0.a -lXm -lXt -lX11 -lGL   #At least works for CentOS 7.x
+LIB_noGUI =
 FC = ifort
 EXE = Multiwfn
+EXE_noGUI = Multiwfn_noGUI
 LIBRETAPATH = ./libreta_hybrid
 
 objects = define.o util.o plot.o Bspline.o sym.o libreta.o function.o GUI.o sub.o integral.o Lebedev-Laikov.o \
@@ -14,13 +16,22 @@ DFTxclib.o edflib.o fparser.o fileIO.o spectrum.o DOS.o Multiwfn.o 0123dim.o LSB
 population.o orbcomp.o bondorder.o topology.o excittrans.o otherfunc.o \
 otherfunc2.o otherfunc3.o O1.o surfana.o procgriddata.o AdNDP.o fuzzy.o CDA.o basin.o \
 orbloc.o visweak.o EDA.o CDFT.o ETS_NOCV.o atmraddens.o NAONBO.o grid.o PBC.o hyper_polar.o deloc_aromat.o \
-minpack.o blockhrr_012345.o ean.o hrr_012345.o eanvrr_012345.o boysfunc.o
+minpack.o blockhrr_012345.o ean.o hrr_012345.o eanvrr_012345.o boysfunc.o naiveeri.o ryspoly.o
 
-default : $(objects) 
-	$(FC) $(OPT) $(objects) $(LIB) -o $(EXE)
-	@echo " ------------------------------------------------------ " 
-	@echo "          Multiwfn has been successfully built." 
-	@echo " ------------------------------------------------------ " 
+objects_noGUI = noGUI/dislin_d_empty.o
+
+default : $(objects)
+	$(MAKE) noGUI
+	$(MAKE) GUI
+	@echo " ------------------------------------------------------ "
+	@echo "          Multiwfn has been successfully built!"
+	@echo " ------------------------------------------------------ "
+
+GUI: $(objects)
+	$(FC) $(OPT) $(objects) $(LIB_GUI) -o $(EXE)
+
+noGUI: $(objects) $(objects_noGUI)
+	$(FC) $(OPT) $(objects) $(objects_noGUI) $(LIB_noGUI) -o $(EXE_noGUI)
 
 clean:
 	rm -f $(EXE) *.o *.mod
@@ -192,16 +203,16 @@ deloc_aromat.o : deloc_aromat.f90 $(modules)
 	$(FC) $(OPT) -c deloc_aromat.f90
 
 
+noGUI/dislin_d_empty.o : noGUI/dislin_d_empty.f90
+	$(FC) $(OPT) -c noGUI/dislin_d_empty.f90 -o noGUI/dislin_d_empty.o -diag-disable 6178,6843
 
-# Interfaces of libreta to Multiwfn
 
-libreta.o: ${LIBRETAPATH}/libreta.f90 ean.o hrr_012345.o blockhrr_012345.o eanvrr_012345.o boysfunc.o
+# Interfaces of libreta-ESP to Multiwfn
+
+libreta.o: ${LIBRETAPATH}/libreta.f90 hrr_012345.o blockhrr_012345.o ean.o eanvrr_012345.o boysfunc.o
 	$(FC) $(OPT) -c ${LIBRETAPATH}/libreta.f90
 
-# Pure libreta files
-
-ean.o: ${LIBRETAPATH}/ean.f90 hrr_012345.o eanvrr_012345.o boysfunc.o ${LIBRETAPATH}/ean_data1.h ${LIBRETAPATH}/ean_data2.h
-	$(FC) $(OPT) -c ${LIBRETAPATH}/ean.f90
+# Pure libreta files for ESP
 
 hrr_012345.o: ${LIBRETAPATH}/hrr_012345.f90
 	$(FC) $(OPT) -diag-disable 6843 $(SIMD) -c ${LIBRETAPATH}/hrr_012345.f90
@@ -209,8 +220,19 @@ hrr_012345.o: ${LIBRETAPATH}/hrr_012345.f90
 blockhrr_012345.o: ${LIBRETAPATH}/blockhrr_012345.f90
 	$(FC) -O1 -diag-disable 6843 $(SIMD) -c ${LIBRETAPATH}/blockhrr_012345.f90
 
+ean.o: ${LIBRETAPATH}/ean.f90 hrr_012345.o eanvrr_012345.o boysfunc.o ${LIBRETAPATH}/ean_data1.h ${LIBRETAPATH}/ean_data2.h
+	$(FC) $(OPT) -c ${LIBRETAPATH}/ean.f90
+
 eanvrr_012345.o: ${LIBRETAPATH}/eanvrr_012345.f90 boysfunc.o
 	$(FC) $(OPT) -c ${LIBRETAPATH}/eanvrr_012345.f90
 
 boysfunc.o: ${LIBRETAPATH}/boysfunc.f90 ${LIBRETAPATH}/boysfunc_data1.h ${LIBRETAPATH}/boysfunc_data2.h
 	$(FC) $(OPT) -c ${LIBRETAPATH}/boysfunc.f90
+
+# libreta-ERI
+
+naiveeri.o: ${LIBRETAPATH}/naiveeri.f90 ryspoly.o
+	$(FC) $(OPT) -c ${LIBRETAPATH}/naiveeri.f90
+	
+ryspoly.o: ${LIBRETAPATH}/ryspoly.f90
+	$(FC) $(OPT) -c ${LIBRETAPATH}/ryspoly.f90

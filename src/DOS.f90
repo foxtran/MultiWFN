@@ -15,7 +15,7 @@ subroutine DOS
 use defvar
 use util
 use dislin_d
-use function
+use functions
 implicit real*8 (a-h,o-z)
 integer,parameter :: nfragmax=10
 integer,parameter :: num2Dpoints=200 !The number of points constituting the X-axis of 2D LDOS
@@ -951,11 +951,19 @@ else if (isel==0.or.isel==10) then
 	LDOSliney=0
 	OPDOSliney=0
     inow_unocc=0
+    iwarnzero=0
 	do imo=1,imoend
 		inow=3*(imo-1)
 		irealmo=imo
 		if (ispin==2) irealmo=imo+nbasis
-        if (MOene_dos(irealmo)==0) cycle !In the case of CP2K, virtual orbitals are not solved and energies are exactly zero, skip them
+        if (MOene_dos(irealmo)==0) then
+			if (iwarnzero==0) then
+				write(*,*) "Note: There are orbitals with zero energy, they are automatically ignored"
+                write(*,*)
+				iwarnzero=1
+            end if
+			cycle !In the case of CP2K, virtual orbitals are not solved and energies are exactly zero, skip them
+        end if
 		DOSlinex(inow+1:inow+3)=MOene_dos(irealmo)
 		if (isel==0) then
 			TDOSliney(inow+2)=str(imo)
@@ -1349,7 +1357,7 @@ else if (isel==0.or.isel==10) then
             end if
 
 			call disfin
-			if (isavepic==1) write(*,*) "Image file has been saved to current folder with ""DISLIN"" prefix"
+			if (isavepic==1) write(*,*) "Image file has been saved to current folder with ""dislin"" prefix"
 		end if
 		idraw=0
 		
@@ -2113,7 +2121,7 @@ else if (isel==12) then
 				if (ishowPESline==1) CALL CURVE(PESlinex,PESliney,3*nmoocc)
 
 				call disfin
-				if (isavepic==1) write(*,*) "Graphical file has been saved to current folder with ""DISLIN"" prefix"
+				if (isavepic==1) write(*,*) "Graphical file has been saved to current folder with ""dislin"" prefix"
 			
 			else if (isel2==-1) then
 				open(10,file="PES_line.txt",status="replace")
