@@ -2,6 +2,7 @@ program multiwfn
 use defvar
 use util
 use GUI
+use fractional, only: set_alpha_level
 !use libreta
 !use function
 implicit real*8 (a-h,o-z)
@@ -582,6 +583,7 @@ do while(.true.) !Main loop
             write(*,*) "15 Make orbitals equivalent to basis functions"
 		    write(*,*) "16 Define one or two fragments for special purpose"
             write(*,*) "17 Generate promolecular wavefunction by calculating and combining atomic ones"
+            write(*,*) "24 Setup fractional calculus"
 		    write(*,*) "90 Calculate nuclear attractive energy between a fragment and an orbital"
 		    write(*,*) "91 Exchange orbital energies and occupations"
 		    write(*,*) "92 Calculate result of various kinetic energy functionals"
@@ -732,6 +734,8 @@ do while(.true.) !Main loop
                 end do
             else if (i==17) then
 				call generate_promolwfn
+			else if (i==24) then
+				call set_alpha_level()
 		    else if (i==90) then
 			    call attene_orb_fragnuc
 		    else if (i==91) then

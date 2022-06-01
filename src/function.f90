@@ -64,6 +64,8 @@ else if (ifunc==22) then
 calcfuncall=delta_g_promol(x,y,z)
 else if (ifunc==23) then
 calcfuncall=delta_g_Hirsh(x,y,z)
+else if (ifunc==24) then
+calcfuncall=fracderiv(x,y,z)
 else if (ifunc==100) then
 calcfuncall=userfunc(x,y,z)
 end if
@@ -1016,6 +1018,117 @@ do j=1,nprims
 	end if !end runtype>=2
 end do
 end subroutine
+
+
+! istart  - first index of processing orbital
+! iend    - last  index of processing orbital
+! x, y, z - point's coordinates
+! a0      - fractional integrals when p = 0
+! a1      - fractional derivatives when p = 1
+subroutine orbfracderiv(istart, iend, x, y, z, a0, a1)
+  use fractional, only: GTO_fractional_integral
+  implicit none
+  ! in variables
+  integer, intent(in)  :: istart, iend
+  real(8), intent(in)  :: x, y, z
+  ! out variables
+  real(8), intent(out), optional :: a0(nmo)
+  real(8), intent(out), optional :: a1(3, nmo)
+  ! internal variables
+  integer :: j, imo
+  integer :: ip, ipmax
+  integer :: last_center         ! index of atom in previous step
+  integer :: ix, iy, iz, it      ! decomposition of azimutal quantum number of shell to x,y,z and their sum
+  real(8) :: ep                  ! zeta of GTF
+  real(8) :: sftx1, sfty1, sftz1 ! X^1, Y^1, Z^1  from center of atom to point
+  real(8) :: sftx2, sfty2, sftz2 ! X^2, Y^2, Z^2  from center of atom to point
+  real(8) :: rr                  ! R^2 from center of atom to point
+  real(8) :: GTFval              ! fractional integral of GTF
+  real(8) :: GTFdx, GTFdy, GTFdz ! fractional derivatives of GTF
+  real(8) :: t(0:1)              ! 2F2 values
+  !
+  if (present(a0)) then
+    a0 = 0._8
+    ipmax = 0
+  else if (present(a1)) then
+    a1 = 0._8
+    ipmax = 1
+  end if
+  !
+  last_center = -1
+  ! main cycle over shells
+  do j = 1, nprims
+    ix = type2ix(b(j)%type)
+    iy = type2iy(b(j)%type)
+    iz = type2iz(b(j)%type)
+    it = ix + iy + iz
+    ep = b(j)%exp
+
+    if (b(j)%center /= last_center) then
+      last_center = b(j)%center
+      sftx1 = x - a(b(j)%center)%x
+      sfty1 = y - a(b(j)%center)%y
+      sftz1 = z - a(b(j)%center)%z
+      sftx2 = sftx1 * sftx1
+      sfty2 = sfty1 * sfty1
+      sftz2 = sftz1 * sftz1
+      rr    = sftx2 + sfty2 + sftz2
+    end if
+
+    if (expcutoff>0.or.-ep*rr>-22000._8) then
+    else
+      cycle ! just skip it
+    end if
+
+    do ip = 0, ipmax
+      t(ip) = GTO_fractional_integral(it + ip * 2, -ep*rr)
+    end do
+
+    if (present(a0)) then
+      ! Calculate fractional integral
+      GTFval= sftx1**ix * sfty1**iy * sftz1**iz * t(0)
+      ! Calculate fractional integral for orbitals
+      do imo=istart,iend
+        a0(imo)=a0(imo)+co(imo,j)*GTFval
+      end do
+    else if (present(a1)) then
+      ! Calculate fractional derivatives for current GTF
+      ! x-direction derivative
+      GTFdx = differentiate_1st(sftx1, ix, ep, t) * sfty1**iy * sftz1**iz
+      ! y-direction derivative
+      GTFdy = differentiate_1st(sfty1, iy, ep, t) * sftx1**ix * sftz1**iz
+      ! z-direction derivative
+      GTFdz = differentiate_1st(sftz1, iz, ep, t) * sftx1**ix * sfty1**iy
+
+      !Calculate fractional derivatives for orbitals
+      do imo=istart,iend
+        a1(1,imo)=a1(1,imo)+co(imo,j)*GTFdx
+        a1(2,imo)=a1(2,imo)+co(imo,j)*GTFdy
+        a1(3,imo)=a1(3,imo)+co(imo,j)*GTFdz
+      end do
+    end if
+
+  end do
+contains
+  real(8) function differentiate_1st(u, iu, ep, t)
+    real(8), intent(in) :: u, ep, t(0:1)
+    integer, intent(in) :: iu
+    ! internal variables
+    real(8) :: du
+    real(8) :: dum1, dup1
+    ! initially, we define derivatives over p, then, apply 2F2 function
+    ! d^p /d u^p GTO(u, [v, w])
+    ! first part of derivative
+    ! by definition, we need first evaluate d^p GTO / d u^p, then integrate
+    ! integrate u^(iu-1) part
+    dum1 = 0._8
+    if (iu >= 1) dum1 = iu * u**(iu - 1) * t(0)
+    ! integrate u^(iu+1) part
+    dup1 = - 2 * ep * u**(iu + 1) * t(1)
+    du = dum1 + dup1
+    differentiate_1st = du
+  end function differentiate_1st
+end subroutine orbfracderiv
 
 
 
@@ -2201,6 +2314,31 @@ end if
 lagkin=lagkin/2D0
 end function
 
+!!!------------------------- Output fractional derivative FD(r) at a point.
+real(8) function fracderiv(x, y, z)
+  use fractional, only : p
+  implicit none
+  real(8), intent(in) :: x, y, z
+  real(8) :: a0(nmo)
+  real(8) :: a1(3, nmo)
+  integer :: imo
+  fracderiv = 0._8
+  select case (p)
+    case(0)
+      call orbfracderiv(1, nmo, x, y, z, a0=a0)
+      do imo = 1, nmo
+        fracderiv = fracderiv + MOocc(imo) * a0(imo)**2
+      end do
+    case(1)
+      call orbfracderiv(1, nmo, x, y, z, a1=a1)
+      do imo = 1, nmo
+        fracderiv = fracderiv + MOocc(imo) * sum(a1(:, imo)**2)
+       end do
+    case default
+      error stop "p can be only 0 or 1"
+  end select
+  fracderiv = fracderiv / 2._8
+end function
 
 !!------------- Output Hamiltonian kinetic K(r) at a point. idir=0/1/2/3 means total/X/Y/Z kinetic energy
 real*8 function Hamkin(x,y,z,idir)
@@ -6304,6 +6442,7 @@ if (allocated(b)) then
 	write(*,*) "20 Electron delocalization range function EDR(r;d)"
 	write(*,*) "21 Orbital overlap distance function D(r)"
 	write(*,*) "22 Delta-g (promol. approx.)     23 Delta-g (Hirshfeld partition)"
+	write(*,*) "24 Fractional derivative (xi^alpha)"
 	write(*,"(a,i5,a)") " 100 User-defined function (iuserfunc=",iuserfunc,")  See Section 2.7 of manual"
 else !No wavefunction information is available
 	write(*,*) "1 Promolecular electron density "

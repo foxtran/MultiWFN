@@ -16,7 +16,8 @@ DFTxclib.o edflib.o fparser.o fileIO.o spectrum.o DOS.o Multiwfn.o 0123dim.o LSB
 population.o orbcomp.o bondorder.o topology.o excittrans.o otherfunc.o \
 otherfunc2.o otherfunc3.o O1.o surfana.o procgriddata.o AdNDP.o fuzzy.o CDA.o basin.o \
 orbloc.o visweak.o EDA.o CDFT.o ETS_NOCV.o atmraddens.o NAONBO.o grid.o PBC.o hyper_polar.o deloc_aromat.o \
-minpack.o blockhrr_012345.o ean.o hrr_012345.o eanvrr_012345.o boysfunc.o naiveeri.o ryspoly.o
+minpack.o blockhrr_012345.o ean.o hrr_012345.o eanvrr_012345.o boysfunc.o naiveeri.o ryspoly.o \
+fractional.o arblib/2F2_empty.o
 
 objects_noGUI = noGUI/dislin_d_empty.o
 
@@ -65,7 +66,7 @@ Bspline.o : Bspline.f90
 util.o : util.f90 define.o
 	$(FC) $(OPT) -c util.f90
 
-function.o : function.f90 define.o util.o Bspline.o libreta.o
+function.o : function.f90 define.o util.o Bspline.o libreta.o fractional.o
 	$(FC) $(OPT) -c function.f90
 
 plot.o : plot.f90 define.o util.o
@@ -73,6 +74,9 @@ plot.o : plot.f90 define.o util.o
 
 GUI.o : GUI.f90 define.o plot.o function.o
 	$(FC) $(OPT) -c GUI.f90
+
+fractional.o : fractional.f90
+	$(FC) $(OPT) -c fractional.f90
 
 modules = define.o util.o function.o plot.o GUI.o libreta.o
 
@@ -118,7 +122,7 @@ spectrum.o : spectrum.f90 $(modules)
 DOS.o : DOS.f90 $(modules)
 	$(FC) $(OPT) -c DOS.f90
 
-Multiwfn.o : Multiwfn.f90 $(modules)
+Multiwfn.o : Multiwfn.f90 $(modules) fractional.o
 	$(FC) $(OPT) -c Multiwfn.f90
 
 0123dim.o : 0123dim.f90 $(modules)
@@ -205,6 +209,9 @@ deloc_aromat.o : deloc_aromat.f90 $(modules)
 
 noGUI/dislin_d_empty.o : noGUI/dislin_d_empty.f90
 	$(FC) $(OPT) -c noGUI/dislin_d_empty.f90 -o noGUI/dislin_d_empty.o -diag-disable 6178,6843
+
+arblib/2F2_empty.o : arblib/2F2_empty.f90
+	$(FC) $(OPT) -c arblib/2F2_empty.f90 -o arblib/2F2_empty.o
 
 
 # Interfaces of libreta-ESP to Multiwfn
